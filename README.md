@@ -1,6 +1,6 @@
 # jsondb
 
-A local JSON fixture database for app development and tests. Put JSON, JSONC, or CSV files in `db/`, browse them in a built-in viewer, call local REST routes, and generate TypeScript types while the real backend contract is still taking shape.
+A local JSON fixture database for app development and tests. Put JSON, JSONC, or CSV files in `db/`, browse them in a built-in viewer, call local REST routes, generate TypeScript types, and emit schema metadata for admin/CMS screens while the real backend contract is still taking shape.
 
 jsondb is data-first by default: start with useful seed data, then add schema files when you need required fields, defaults, enums, descriptions, constraints, relations, or stricter validation.
 
@@ -162,6 +162,57 @@ In mixed mode, schema files define the contract and data files provide seed reco
 
 See [docs/concepts.md](./docs/concepts.md) and [docs/fixtures-and-schemas.md](./docs/fixtures-and-schemas.md).
 
+## Admin/CMS Schema Metadata
+
+Schemas can also drive local admin, CMS, and form-building screens. Configure `schemaOutFile` when an app needs committed field metadata such as field types, labels, defaults, enum values, relation hints, descriptions, and app-specific UI hints.
+
+```js
+import { defineConfig, mergeManifest } from 'jsondb/config';
+
+export default defineConfig({
+  schemaOutFile: './src/generated/jsondb.schema.json',
+
+  schemaManifest: {
+    customizeResource({ file, defaultManifest }) {
+      // Group fields by source folder so an admin shell can show CMS records
+      // separately from operational data without hard-coding that in the UI.
+      return mergeManifest(defaultManifest, {
+        editor: {
+          group: file?.startsWith('db/cms/') ? 'CMS' : 'Data',
+        },
+      });
+    },
+
+    customizeField({ fieldName, path, defaultManifest }) {
+      if (fieldName.endsWith('Markdown')) {
+        // Markdown body fields need a richer editor than a plain text input,
+        // but the fixture record should still stay normal JSON data.
+        return mergeManifest(defaultManifest, {
+          ui: { component: 'markdown' },
+        });
+      }
+
+      if (path === 'blocks.chartId') {
+        // Relation ids stay as strings in fixtures, while the generated
+        // manifest tells the admin UI to render a picker backed by charts.
+        return mergeManifest(defaultManifest, {
+          ui: {
+            component: 'relation-select',
+            relationTo: 'charts',
+          },
+        });
+      }
+
+      return defaultManifest;
+    },
+  },
+});
+```
+
+The generated manifest is metadata output; schema defaults and validation still come from the schema contract.
+
+See [docs/generated-files.md](./docs/generated-files.md) and [examples/schema-manifest](./examples/schema-manifest).
+
 ## Common Commands
 
 With the `db` script from the install snippet:
@@ -192,9 +243,9 @@ pnpm db serve
 
 See [docs/package-api.md](./docs/package-api.md) for CLI and package export details.
 
-## REST And Viewer
+## REST, GraphQL, And Viewer
 
-The local server exposes REST routes for collections and singleton documents:
+The local server exposes REST routes for collections and singleton documents, plus a focused GraphQL endpoint at `/graphql` for apps that prefer GraphQL. REST remains the default path because it pairs directly with the viewer and local fixture workflow.
 
 ```txt
 GET     /users
@@ -214,7 +265,7 @@ Use `select`, `offset`, and `limit` when a prototype only needs part of a collec
 curl 'http://127.0.0.1:7331/users?select=id,name&offset=0&limit=20'
 ```
 
-The viewer at `/__jsondb` lets you inspect resources, import CSV files into the configured fixture folder, view generated schema metadata, and try REST requests without writing client code first.
+The viewer at `/__jsondb` lets you inspect resources, import CSV files into the configured fixture folder, view generated schema metadata, read GraphQL SDL/operation references, and try REST requests without writing client code first.
 
 See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
 
