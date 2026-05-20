@@ -1,18 +1,18 @@
 import http from 'node:http';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { openJsonFixtureDb } from '../../../src/index.js';
+import { openDb } from '../../../src/index.js';
 import { serializeError } from '../../../src/errors.js';
 import { sendJson } from '../../../src/rest/handler.js';
 import {
-  createJsonDbRequestHandler,
+  createDbRequestHandler,
   createViewerEventHub,
   watchSourceDir,
 } from '../../../src/server.js';
 import { handleSchemaUiSsrRequest } from './schema-ui-ssr-handler.mjs';
 
 /**
- * Schema UI demo: SSR CMS routes composed ahead of the stock jsondb REST / viewer stack.
+ * Schema UI demo: SSR CMS routes composed ahead of the stock db REST / viewer stack.
  *
  * @param {{ cwd: string; host?: string; port: number; skipSync?: boolean }} options
  */
@@ -24,7 +24,7 @@ export async function startSchemaUiServer(options) {
     skipSync = false,
   } = options;
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     allowSourceErrors: true,
     syncOnOpen: !skipSync,
@@ -35,8 +35,8 @@ export async function startSchemaUiServer(options) {
   }
 
   const events = createViewerEventHub();
-  const jsonDbHandler = createJsonDbRequestHandler(db, { events, rootRoutes: true });
-  const manifestUrl = pathToFileURL(path.join(cwd, 'src/generated/jsondb.schema.json'));
+  const dbHandler = createDbRequestHandler(db, { events, rootRoutes: true });
+  const manifestUrl = pathToFileURL(path.join(cwd, 'src/generated/db.schema.json'));
 
   const server = http.createServer(async (request, response) => {
     try {
@@ -49,7 +49,7 @@ export async function startSchemaUiServer(options) {
         return;
       }
 
-      await jsonDbHandler(request, response);
+      await dbHandler(request, response);
     } catch (error) {
       sendJson(response, error.status ?? 500, serializeError(error, 'SERVER_ERROR'));
     }

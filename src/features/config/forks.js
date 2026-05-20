@@ -1,6 +1,6 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
-import { jsonDbError, listChoices } from '../../errors.js';
+import { dbError, listChoices } from '../../errors.js';
 import { resolveFrom } from '../../fs-utils.js';
 
 const FORK_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
@@ -38,9 +38,9 @@ export function normalizeForks(config, rawForks = {}) {
 export function forkConfigForName(config, name) {
   const forkName = String(name ?? '');
   if (!isValidForkName(forkName)) {
-    throw jsonDbError(
+    throw dbError(
       'FORK_NAME_INVALID',
-      `Invalid jsondb fork name "${forkName}".`,
+      `Invalid db fork name "${forkName}".`,
       {
         status: 400,
         hint: 'Use a folder-style name with letters, numbers, underscores, or hyphens, such as "legacy-demo".',
@@ -53,9 +53,9 @@ export function forkConfigForName(config, name) {
 
   const forkConfig = config.forks?.[forkName];
   if (!forkConfig) {
-    throw jsonDbError(
+    throw dbError(
       'FORK_NOT_FOUND',
-      `Unknown jsondb fork "${forkName}".`,
+      `Unknown db fork "${forkName}".`,
       {
         status: 404,
         hint: `Configure one of: ${listChoices(Object.keys(config.forks ?? {}))}.`,

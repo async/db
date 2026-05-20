@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { syncJsonFixtureDb, loadConfig, loadProjectSchema, generateTypes } from '../../src/index.js';
+import { syncDb, loadConfig, loadProjectSchema, generateTypes } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('schema-only fixtures generate types and initialize empty state', async () => {
@@ -20,12 +20,12 @@ test('schema-only fixtures generate types and initialize empty state', async () 
   }`);
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
-  const generated = await readFile(path.join(cwd, '.jsondb/types/index.ts'), 'utf8');
+  await syncDb(config);
+  const generated = await readFile(path.join(cwd, '.db/types/index.ts'), 'utf8');
 
   assert.match(generated, /export type AuditEvent =/);
   assert.match(generated, /payload\?: Record<string, unknown>;/);
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/auditEvents.json'), 'utf8')), []);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/auditEvents.json'), 'utf8')), []);
 });
 
 test('schema fields support nullable datetime arrays and flexible object shapes', async () => {
@@ -64,9 +64,9 @@ test('schema fields support nullable datetime arrays and flexible object shapes'
   }`);
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
-  const generated = await readFile(path.join(cwd, '.jsondb/types/index.ts'), 'utf8');
-  const state = JSON.parse(await readFile(path.join(cwd, '.jsondb/state/charts.json'), 'utf8'));
+  const result = await syncDb(config);
+  const generated = await readFile(path.join(cwd, '.db/types/index.ts'), 'utf8');
+  const state = JSON.parse(await readFile(path.join(cwd, '.db/state/charts.json'), 'utf8'));
 
   assert.deepEqual(result.diagnostics.filter((diagnostic) => diagnostic.severity === 'error'), []);
   assert.match(generated, /ownerPersonId\?: string \| null;/);
@@ -211,7 +211,7 @@ test('schema fields can declare to-one relation metadata', async () => {
   }`);
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
 
   assert.deepEqual(result.schema.resources.posts.relations, [
     {
@@ -230,7 +230,7 @@ test('schema fields can declare to-one relation metadata', async () => {
 test('.schema.mjs helpers expose nullable datetime and flexible objects', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'charts.schema.mjs', `
-import { collection, field } from 'jsondb/schema';
+import { collection, field } from '@async/db/schema';
 
 export default collection({
   idField: 'id',
@@ -257,8 +257,8 @@ export default collection({
 `);
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
-  const generated = await readFile(path.join(cwd, '.jsondb/types/index.ts'), 'utf8');
+  const result = await syncDb(config);
+  const generated = await readFile(path.join(cwd, '.db/types/index.ts'), 'utf8');
 
   assert.deepEqual(result.diagnostics.filter((diagnostic) => diagnostic.severity === 'error'), []);
   assert.match(generated, /ownerPersonId\?: string \| null;/);
@@ -287,8 +287,8 @@ test('schema-only fixtures can generate synthetic seed records', async () => {
   }));
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
-  const state = JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8'));
+  await syncDb(config);
+  const state = JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8'));
 
   assert.equal(state.length, 3);
   assert.equal(state[0].id, '1');
@@ -346,7 +346,7 @@ test('mixed mode treats schema as authoritative and warns for unknown data field
 
 test('.schema.mjs files can use schema helpers', async () => {
   const cwd = await makeProject();
-  await writeFixture(cwd, 'users.schema.mjs', `import { collection, field } from 'jsondb/schema';
+  await writeFixture(cwd, 'users.schema.mjs', `import { collection, field } from '@async/db/schema';
 
 export default collection({
   idField: 'id',
@@ -376,12 +376,12 @@ test('JSONC data-first fixtures can be inferred', async () => {
   }`);
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
-  const generated = await readFile(path.join(cwd, '.jsondb/types/index.ts'), 'utf8');
+  const result = await syncDb(config);
+  const generated = await readFile(path.join(cwd, '.db/types/index.ts'), 'utf8');
 
   assert.equal(result.schema.resources.settings.kind, 'document');
   assert.match(generated, /export type Settings =/);
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/settings.json'), 'utf8')), {
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/settings.json'), 'utf8')), {
     theme: 'light',
     features: {
       billing: false,
@@ -395,20 +395,20 @@ test('source load errors report the file and keep other resources available when
   await writeFixture(cwd, 'broken.json', '{"id": ');
 
   const config = await loadConfig({ cwd });
-  const project = await syncJsonFixtureDb(config, { allowErrors: true });
+  const project = await syncDb(config, { allowErrors: true });
 
   assert.deepEqual(Object.keys(project.schema.resources), ['users']);
   assert.equal(project.diagnostics[0].code, 'SOURCE_LOAD_FAILED');
   assert.equal(project.diagnostics[0].file, 'db/broken.json');
   assert.match(project.diagnostics[0].message, /Could not load db\/broken\.json/);
-  assert.match(await readFile(path.join(cwd, '.jsondb/schema.generated.json'), 'utf8'), /SOURCE_LOAD_FAILED/);
+  assert.match(await readFile(path.join(cwd, '.db/schema.generated.json'), 'utf8'), /SOURCE_LOAD_FAILED/);
 });
 
 test('source discovery ignores dot folders inside db', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
-  await mkdir(path.join(cwd, 'db/.jsondb/state'), { recursive: true });
-  await writeFile(path.join(cwd, 'db/.jsondb/state/internal.json'), `${JSON.stringify([{ id: 'leak' }])}\n`, 'utf8');
+  await mkdir(path.join(cwd, 'db/.db/state'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/.db/state/internal.json'), `${JSON.stringify([{ id: 'leak' }])}\n`, 'utf8');
   await mkdir(path.join(cwd, 'db/.cache'), { recursive: true });
   await writeFile(path.join(cwd, 'db/.cache/hidden.json'), `${JSON.stringify([{ id: 'hidden' }])}\n`, 'utf8');
 
@@ -457,17 +457,17 @@ test('custom source readers can load data files with source context helpers', as
   await writeFixture(cwd, 'users.pipe', 'u_1|Ada Lovelace');
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
 
   assert.equal(result.schema.resources.users.kind, 'collection');
   assert.equal(result.schema.resources.users.fields.name.type, 'string');
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
     {
       id: 'u_1',
       name: 'Ada Lovelace',
     },
   ]);
-  const metadata = JSON.parse(await readFile(path.join(cwd, '.jsondb/state/.sources.json'), 'utf8'));
+  const metadata = JSON.parse(await readFile(path.join(cwd, '.db/state/.sources.json'), 'utf8'));
   assert.equal(metadata.resources.users.format, 'pipe');
   assert.equal(metadata.resources.users.path, 'db/users.pipe');
 });
@@ -508,12 +508,12 @@ test('custom source readers can load schema sources', async () => {
   await writeFixture(cwd, 'users.model', 'collection users');
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
   const users = result.resources.find((resource) => resource.name === 'users');
 
   assert.equal(users.schemaSource, 'model');
   assert.equal(result.schema.resources.users.fields.role.default, 'user');
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
     {
       id: 'u_1',
       email: 'ada@example.com',
@@ -549,9 +549,9 @@ test('custom source readers run before built-in readers and can override them', 
   await writeFixture(cwd, 'users.json', 'u_1|Override JSON');
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
     {
       id: 'u_1',
       name: 'Override JSON',
@@ -598,16 +598,16 @@ test('custom source readers can return multiple named sources from one file', as
   await writeFixture(cwd, 'app.bundle', 'bundle content');
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
 
   assert.deepEqual(Object.keys(result.schema.resources), ['settings', 'users']);
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
     {
       id: 'u_1',
       name: 'Ada',
     },
   ]);
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/settings.json'), 'utf8')), {
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/settings.json'), 'utf8')), {
     theme: 'light',
   });
 });
@@ -644,7 +644,7 @@ test('custom multi-source readers must name every returned source', async () => 
   const config = await loadConfig({ cwd });
 
   await assert.rejects(
-    () => syncJsonFixtureDb(config),
+    () => syncDb(config),
     (error) => {
       assert.equal(error.diagnostics?.[0]?.code, 'SOURCE_READER_RESOURCE_NAME_REQUIRED');
       assert.equal(error.diagnostics[0].file, 'db/app.bundle');

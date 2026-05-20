@@ -13,7 +13,7 @@ import { writeGeneratedIdsToSources } from './source-writes.js';
 
 export { applyDefaultsToRecord, applyDefaultsToSeed } from './defaults.js';
 
-export async function syncJsonFixtureDb(config, options = {}) {
+export async function syncDb(config, options = {}) {
   const project = await loadProjectSchema(config);
   const logs = [];
   const errors = project.diagnostics.filter((diagnostic) => diagnostic.severity === 'error');

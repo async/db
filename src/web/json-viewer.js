@@ -1,5 +1,5 @@
 export function renderJsonViewer(value, options = {}) {
-  const title = options.title ?? 'jsondb JSON';
+  const title = options.title ?? 'db JSON';
   const json = normalizeJsonText(value);
   const formatted = formatJsonText(json);
   const compact = compactJsonText(json);

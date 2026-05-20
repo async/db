@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:30.997Z",
+  "resources": {
+    "auditEvents": {
+      "kind": "collection",
+      "typeName": "AuditEvent",
+      "routePath": "/audit-events",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "type": {
+          "type": "string",
+          "required": true
+        },
+        "createdAt": {
+          "type": "string",
+          "required": true
+        },
+        "payload": {
+          "type": "object",
+          "default": {}
+        }
+      },
+      "relations": [],
+      "seed": [],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/schema-first/db/auditEvents.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "settings": {
+      "kind": "document",
+      "typeName": "Settings",
+      "routePath": "/settings",
+      "fields": {
+        "theme": {
+          "type": "string",
+          "default": "light"
+        },
+        "locale": {
+          "type": "string",
+          "default": "en-US"
+        },
+        "features": {
+          "type": "object",
+          "fields": {
+            "billing": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "relations": [],
+      "seed": {
+        "theme": "light",
+        "locale": "en-US",
+        "features": {
+          "billing": false
+        }
+      },
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/schema-first/db/settings.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable user id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Display name shown in the UI."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Unique email address."
+        },
+        "role": {
+          "type": "enum",
+          "description": "Local authorization role.",
+          "default": "user",
+          "values": [
+            "admin",
+            "user"
+          ]
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "role": "admin"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/schema-first/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "auditEvents": [
+      "GET /audit-events",
+      "GET /audit-events/:id",
+      "POST /audit-events",
+      "PATCH /audit-events/:id",
+      "DELETE /audit-events/:id"
+    ],
+    "settings": [
+      "GET /settings",
+      "PUT /settings",
+      "PATCH /settings"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype AuditEvent {\n  id: ID!\n  type: String!\n  createdAt: String!\n  payload: JSON\n}\n\ntype Settings {\n  theme: String\n  locale: String\n  features: JSON\n}\n\ntype User {\n  \"Stable user id.\"\n  id: ID!\n  \"Display name shown in the UI.\"\n  name: String!\n  \"Unique email address.\"\n  email: String!\n  \"Local authorization role.\"\n  role: String\n}",
+  "diagnostics": []
+}

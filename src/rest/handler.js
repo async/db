@@ -1,16 +1,16 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseCsvRecords } from '../csv.js';
-import { jsonDbError, listChoices, serializeError } from '../errors.js';
+import { dbError, listChoices, serializeError } from '../errors.js';
 import { resolveResource, resourceNameCandidates } from '../names.js';
 import { makeGeneratedSchema } from '../schema.js';
-import { syncJsonFixtureDb } from '../sync.js';
+import { syncDb } from '../sync.js';
 import { renderViewerManifest } from '../viewer-manifest.js';
-import { renderJsonDbViewer } from '../web/viewer.js';
+import { renderDbViewer } from '../web/viewer.js';
 import { availableRestFormats, negotiateRestFormat, resolveRestFormat, restFormatMetadata } from './formats.js';
 import { shapeCollectionRead } from './shape.js';
 
-export async function handleRestRequest(db, request, response, url = new URL(request.url, 'http://jsondb.local'), options = {}) {
+export async function handleRestRequest(db, request, response, url = new URL(request.url, 'http://db.local'), options = {}) {
   try {
     await handleRestRequestUnsafe(db, request, response, url, options);
   } catch (error) {
@@ -22,7 +22,7 @@ async function handleRestRequestUnsafe(db, request, response, url, options) {
   const routeOptions = normalizeRestRouteOptions(db, options);
 
   if (request.method === 'GET' && url.pathname === routeOptions.viewerPath) {
-    sendText(response, 200, renderJsonDbViewer({
+    sendText(response, 200, renderDbViewer({
       graphqlPath: routeOptions.graphqlPath,
       schemaPath: routeOptions.schemaPath,
       manifestPath: routeOptions.manifestJsonPath,
@@ -180,7 +180,7 @@ export async function executeRestBatch(db, body, options = {}) {
   const requests = Array.isArray(body) ? body : body.requests;
   const batchPath = batchPathForOptions(options, db);
   if (!Array.isArray(requests)) {
-    throw jsonDbError(
+    throw dbError(
       'REST_BATCH_INVALID_BODY',
       'REST batch body must be an array or an object with a requests array.',
       {
@@ -224,12 +224,12 @@ export async function readRawBody(request, options = {}) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
     byteLength += buffer.length;
     if (byteLength > maxBytes) {
-      throw jsonDbError(
+      throw dbError(
         'JSON_BODY_TOO_LARGE',
         `Request body is too large. Received more than ${maxBytes} bytes.`,
         {
           status: 413,
-          hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in jsondb.config.mjs for local development.',
+          hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in db.config.mjs for local development.',
           details: {
             maxBodyBytes: maxBytes,
           },
@@ -247,7 +247,7 @@ export async function readJsonBody(request, options = {}) {
   try {
     return text ? JSON.parse(text) : {};
   } catch (error) {
-    throw jsonDbError(
+    throw dbError(
       'REST_INVALID_JSON_BODY',
       'Request body is not valid JSON.',
       {
@@ -266,7 +266,7 @@ function maxBodyBytes(db) {
 }
 
 function normalizeRestRouteOptions(db, options = {}) {
-  const apiBase = normalizeBasePath(options.apiBase ?? db.config.server?.apiBase ?? '/__jsondb');
+  const apiBase = normalizeBasePath(options.apiBase ?? db.config.server?.apiBase ?? '/__db');
   return {
     apiBase,
     viewerPath: options.viewerPath ?? apiBase,
@@ -310,7 +310,7 @@ function sourceDirLabel(config) {
 }
 
 function rootDiscovery(db, options = {}) {
-  const apiBase = normalizeBasePath(options.apiBase ?? db.config.server?.apiBase ?? '/__jsondb');
+  const apiBase = normalizeBasePath(options.apiBase ?? db.config.server?.apiBase ?? '/__db');
   const schemaPath = options.schemaPath ?? `${apiBase}/schema`;
   const manifestPath = options.manifestPath ?? `${apiBase}/manifest`;
   const manifestJsonPath = options.manifestJsonPath ?? `${apiBase}/manifest.json`;
@@ -417,7 +417,7 @@ function renderRootDiscovery(discovery) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>jsondb</title>
+  <title>db</title>
   <style>
     body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; background: #f8fafc; }
     main { max-width: 760px; margin: 0 auto; padding: 48px 20px; }
@@ -433,7 +433,7 @@ function renderRootDiscovery(discovery) {
 </head>
 <body>
   <main>
-    <h1>jsondb</h1>
+    <h1>db</h1>
     <p>Local fixture database resources and tools.</p>
 
     <section aria-labelledby="tools-heading">
@@ -475,7 +475,7 @@ async function importCsvFixture(db, request, options = {}) {
   const outFile = path.join(db.config.sourceDir, filename);
   await writeFile(outFile, body);
 
-  const project = await syncJsonFixtureDb(db.config, { allowErrors: true });
+  const project = await syncDb(db.config, { allowErrors: true });
   db.resources = new Map(project.resources.map((resource) => [resource.name, resource]));
   db.diagnostics = project.diagnostics;
   db.schemaVersion = Date.now();
@@ -489,17 +489,17 @@ async function importCsvFixture(db, request, options = {}) {
     dataPath: path.relative(db.config.cwd, outFile),
     statePath: path.relative(db.config.cwd, path.join(db.config.stateDir, 'state', `${resourceName}.json`)),
     routePath: resource?.routePath ?? `/${resourceName}`,
-    viewerPath: `${options.viewerPath ?? normalizeBasePath(db.config.server?.apiBase ?? '/__jsondb')}?resource=${encodeURIComponent(resourceName)}`,
+    viewerPath: `${options.viewerPath ?? normalizeBasePath(db.config.server?.apiBase ?? '/__db')}?resource=${encodeURIComponent(resourceName)}`,
     logs: project.logs,
   };
 }
 
 function csvFilenameFromRequest(request) {
-  const rawName = headerValue(request, 'x-jsondb-file-name');
+  const rawName = headerValue(request, 'x-db-file-name');
   if (!rawName) {
-    throw jsonDbError(
+    throw dbError(
       'CSV_IMPORT_MISSING_FILENAME',
-      'CSV import requires an x-jsondb-file-name header.',
+      'CSV import requires an x-db-file-name header.',
       {
         status: 400,
         hint: 'Upload with a filename ending in .csv.',
@@ -508,7 +508,7 @@ function csvFilenameFromRequest(request) {
   }
 
   if (!String(rawName).toLowerCase().endsWith('.csv')) {
-    throw jsonDbError(
+    throw dbError(
       'CSV_IMPORT_INVALID_EXTENSION',
       `CSV import only accepts .csv files: ${rawName}`,
       {
@@ -555,7 +555,7 @@ export function sendText(response, status, body, contentType) {
 
 async function executeRestBatchItem(db, item, options = {}) {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
-    throw jsonDbError(
+    throw dbError(
       'REST_BATCH_INVALID_ITEM',
       'Each REST batch item must be an object.',
       {
@@ -569,12 +569,12 @@ async function executeRestBatchItem(db, item, options = {}) {
   const requestPath = String(item.path ?? '/');
 
   if (!requestPath.startsWith('/')) {
-    throw jsonDbError(
+    throw dbError(
       'REST_BATCH_INVALID_PATH',
       `REST batch path must start with "/": ${requestPath}`,
       {
         status: 400,
-        hint: `Use absolute local paths such as "/users", "/settings", or "${options.schemaPath ?? `${normalizeBasePath(options.apiBase ?? db.config.server?.apiBase ?? '/__jsondb')}/schema`}".`,
+        hint: `Use absolute local paths such as "/users", "/settings", or "${options.schemaPath ?? `${normalizeBasePath(options.apiBase ?? db.config.server?.apiBase ?? '/__db')}/schema`}".`,
         details: { path: requestPath },
       },
     );
@@ -582,7 +582,7 @@ async function executeRestBatchItem(db, item, options = {}) {
 
   const batchPath = batchPathForOptions(options, db);
   if (requestPath === batchPath) {
-    throw jsonDbError(
+    throw dbError(
       'REST_BATCH_NESTED_UNSUPPORTED',
       'Nested REST batch requests are not supported.',
       {
@@ -597,7 +597,7 @@ async function executeRestBatchItem(db, item, options = {}) {
     db,
     makeBatchRequest(method, item.body),
     response,
-    new URL(requestPath, 'http://jsondb.local'),
+    new URL(requestPath, 'http://db.local'),
     options,
   );
 
@@ -609,7 +609,7 @@ async function executeRestBatchItem(db, item, options = {}) {
 }
 
 function batchPathForOptions(options = {}, db = null) {
-  return options.batchPath ?? `${normalizeBasePath(options.apiBase ?? db?.config?.server?.apiBase ?? '/__jsondb')}/batch`;
+  return options.batchPath ?? `${normalizeBasePath(options.apiBase ?? db?.config?.server?.apiBase ?? '/__db')}/batch`;
 }
 
 async function tryRest(fn) {
@@ -672,14 +672,23 @@ function makeBatchResponse() {
 
 async function handleCollection(db, resource, id, request, response, url, format) {
   const collection = db.collection(resource.name);
+  const hasQueryId = request.method === 'GET' && !id && url.searchParams.has('id');
+  if (hasQueryId && format !== 'json') {
+    throw idQueryRequiresJsonRoute(resource, url.searchParams.get('id'));
+  }
 
-  if (request.method === 'GET' && !id) {
+  const queryId = hasQueryId
+    ? url.searchParams.get('id')
+    : null;
+  const recordId = id ?? queryId;
+
+  if (request.method === 'GET' && !recordId) {
     await sendFormattedResource(db, response, resource, await shapeCollectionRead(db, resource, await collection.all(), url, { allowPagination: true }), format, request, url);
     return;
   }
 
-  if (request.method === 'GET' && id) {
-    const record = await collection.get(id);
+  if (request.method === 'GET' && recordId) {
+    const record = await collection.get(recordId);
     const body = record
       ? await shapeCollectionRead(db, resource, [record], url, { allowPagination: false })
       : null;
@@ -717,11 +726,31 @@ async function handleCollection(db, resource, id, request, response, url, format
   });
 }
 
+function idQueryRequiresJsonRoute(resource, id) {
+  const value = String(id ?? '');
+  const encoded = encodeURIComponent(value);
+  const route = resource.routePath ?? `/${resource.name}`;
+  return dbError(
+    'REST_ID_QUERY_REQUIRES_JSON_ROUTE',
+    `The id query parameter is only supported on explicit JSON resource routes for ${resource.name}.`,
+    {
+      status: 400,
+      hint: `Use ${route}.json?id=${encoded} or ${route}/${encoded}.`,
+      details: {
+        resource: resource.name,
+        id: value,
+        jsonRoute: `${route}.json`,
+        recordRoute: `${route}/{${resource.idField ?? 'id'}}`,
+      },
+    },
+  );
+}
+
 async function handleDocument(db, resource, request, response, format) {
   const document = db.document(resource.name);
 
   if (request.method === 'GET') {
-    await sendFormattedResource(db, response, resource, await document.all(), format, request, new URL(request.url ?? '/', 'http://jsondb.local'));
+    await sendFormattedResource(db, response, resource, await document.all(), format, request, new URL(request.url ?? '/', 'http://db.local'));
     return;
   }
 
@@ -808,7 +837,7 @@ function sendRestDisabled(response, message, details = {}) {
     error: {
       code: 'REST_DISABLED',
       message,
-      hint: 'Set rest.enabled to true in jsondb.config.mjs to enable generated REST resource routes and REST batching.',
+      hint: 'Set rest.enabled to true in db.config.mjs to enable generated REST resource routes and REST batching.',
       details: {
         restEnabled: false,
         ...details,

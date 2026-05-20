@@ -1,0 +1,10 @@
+{
+  "resources": {
+    "settings": {
+      "path": "db/settings.json",
+      "format": "json",
+      "hash": "3a6d74e24c7bfc53ab5e06a48cba0559689f40eba753261a4f5666d7e18b144a",
+      "updatedAt": "2026-05-20T01:52:30.994Z"
+    }
+  }
+}

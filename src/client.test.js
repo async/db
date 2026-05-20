@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createJsonDbClient } from './client.js';
+import { createDbClient } from './client.js';
 
 test('client can batch explicit GraphQL requests', async () => {
   const calls = withMockFetch([
@@ -10,7 +10,7 @@ test('client can batch explicit GraphQL requests', async () => {
     ],
   ]);
 
-  const client = createJsonDbClient({ baseUrl: 'http://jsondb.local' });
+  const client = createDbClient({ baseUrl: 'http://db.local' });
   const result = await client.graphql.batch([
     { query: '{ users { id } }' },
     { query: '{ settings { theme } }' },
@@ -20,7 +20,7 @@ test('client can batch explicit GraphQL requests', async () => {
     { data: { users: [] } },
     { data: { settings: { theme: 'light' } } },
   ]);
-  assert.equal(calls[0].url, 'http://jsondb.local/graphql');
+  assert.equal(calls[0].url, 'http://db.local/graphql');
   assert.deepEqual(JSON.parse(calls[0].init.body), [
     { query: '{ users { id } }' },
     { query: '{ settings { theme } }' },
@@ -35,8 +35,8 @@ test('client can automatically batch GraphQL requests', async () => {
     ],
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
     batching: true,
   });
 
@@ -68,8 +68,8 @@ test('client automatic batching uses a 10ms default window', async () => {
     ],
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
     batching: true,
   });
 
@@ -88,8 +88,8 @@ test('client automatic batching dedupes identical GraphQL requests', async () =>
     ],
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
     batching: true,
   });
 
@@ -114,8 +114,8 @@ test('client automatic batching does not dedupe GraphQL mutations by default', a
     ],
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
     batching: true,
   });
 
@@ -140,8 +140,8 @@ test('client automatic batching can explicitly dedupe all GraphQL requests', asy
     ],
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
     batching: {
       enabled: true,
       dedupe: 'all',
@@ -177,7 +177,7 @@ test('client can batch REST requests', async () => {
     ],
   ]);
 
-  const client = createJsonDbClient({ baseUrl: 'http://jsondb.local' });
+  const client = createDbClient({ baseUrl: 'http://db.local' });
   const result = await client.rest.batch([
     { method: 'GET', path: '/users' },
     { method: 'GET', path: '/settings' },
@@ -195,7 +195,7 @@ test('client can batch REST requests', async () => {
       body: { theme: 'light' },
     },
   ]);
-  assert.equal(calls[0].url, 'http://jsondb.local/__jsondb/batch');
+  assert.equal(calls[0].url, 'http://db.local/__db/batch');
 });
 
 test('client apiBase customizes default REST batch path without changing REST or GraphQL defaults', async () => {
@@ -219,18 +219,18 @@ test('client apiBase customizes default REST batch path without changing REST or
     },
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
-    apiBase: '/_jsondb',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
+    apiBase: '/_db',
   });
 
   await client.rest.get('/users');
   await client.rest.batch([{ method: 'GET', path: '/users' }]);
   await client.graphql('{ users { id } }');
 
-  assert.equal(calls[0].url, 'http://jsondb.local/users');
-  assert.equal(calls[1].url, 'http://jsondb.local/_jsondb/batch');
-  assert.equal(calls[2].url, 'http://jsondb.local/graphql');
+  assert.equal(calls[0].url, 'http://db.local/users');
+  assert.equal(calls[1].url, 'http://db.local/_db/batch');
+  assert.equal(calls[2].url, 'http://db.local/graphql');
 });
 
 test('client can target scoped REST base paths for Vite dev APIs', async () => {
@@ -249,18 +249,18 @@ test('client can target scoped REST base paths for Vite dev APIs', async () => {
     ],
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
-    restBasePath: '/__jsondb/rest',
-    restBatchPath: '/__jsondb/batch',
-    graphqlPath: '/__jsondb/graphql',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
+    restBasePath: '/__db/rest',
+    restBatchPath: '/__db/batch',
+    graphqlPath: '/__db/graphql',
   });
 
   await client.rest.get('/users');
   await client.rest.batch([{ method: 'GET', path: '/users' }]);
 
-  assert.equal(calls[0].url, 'http://jsondb.local/__jsondb/rest/users');
-  assert.equal(calls[1].url, 'http://jsondb.local/__jsondb/batch');
+  assert.equal(calls[0].url, 'http://db.local/__db/rest/users');
+  assert.equal(calls[1].url, 'http://db.local/__db/batch');
   assert.deepEqual(JSON.parse(calls[1].init.body), [
     { method: 'GET', path: '/users' },
   ]);
@@ -287,8 +287,8 @@ test('client fork option derives scoped REST, batch, and GraphQL paths', async (
     },
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
     fork: 'legacy-demo',
   });
 
@@ -296,9 +296,9 @@ test('client fork option derives scoped REST, batch, and GraphQL paths', async (
   await client.rest.batch([{ method: 'GET', path: '/users' }]);
   await client.graphql('{ users { id } }');
 
-  assert.equal(calls[0].url, 'http://jsondb.local/__jsondb/forks/legacy-demo/rest/users');
-  assert.equal(calls[1].url, 'http://jsondb.local/__jsondb/forks/legacy-demo/batch');
-  assert.equal(calls[2].url, 'http://jsondb.local/__jsondb/forks/legacy-demo/graphql');
+  assert.equal(calls[0].url, 'http://db.local/__db/forks/legacy-demo/rest/users');
+  assert.equal(calls[1].url, 'http://db.local/__db/forks/legacy-demo/batch');
+  assert.equal(calls[2].url, 'http://db.local/__db/forks/legacy-demo/graphql');
 });
 
 test('client apiBase option customizes default fork paths', async () => {
@@ -322,9 +322,9 @@ test('client apiBase option customizes default fork paths', async () => {
     },
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
-    apiBase: '/_jsondb',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
+    apiBase: '/_db',
     fork: 'legacy-demo',
   });
 
@@ -332,15 +332,15 @@ test('client apiBase option customizes default fork paths', async () => {
   await client.rest.batch([{ method: 'GET', path: '/users' }]);
   await client.graphql('{ users { id } }');
 
-  assert.equal(calls[0].url, 'http://jsondb.local/_jsondb/forks/legacy-demo/rest/users');
-  assert.equal(calls[1].url, 'http://jsondb.local/_jsondb/forks/legacy-demo/batch');
-  assert.equal(calls[2].url, 'http://jsondb.local/_jsondb/forks/legacy-demo/graphql');
+  assert.equal(calls[0].url, 'http://db.local/_db/forks/legacy-demo/rest/users');
+  assert.equal(calls[1].url, 'http://db.local/_db/forks/legacy-demo/batch');
+  assert.equal(calls[2].url, 'http://db.local/_db/forks/legacy-demo/graphql');
 });
 
 test('client fork option rejects unsafe fork names', () => {
   assert.throws(
-    () => createJsonDbClient({ fork: '../legacy-demo' }),
-    /Invalid jsondb fork name/,
+    () => createDbClient({ fork: '../legacy-demo' }),
+    /Invalid db fork name/,
   );
 });
 
@@ -353,13 +353,13 @@ test('client supports relative scoped REST paths without baseUrl', async () => {
     },
   ]);
 
-  const client = createJsonDbClient({
-    restBasePath: '/__jsondb/rest',
+  const client = createDbClient({
+    restBasePath: '/__db/rest',
   });
 
   await client.rest.get('/users');
 
-  assert.equal(calls[0].url, '/__jsondb/rest/users');
+  assert.equal(calls[0].url, '/__db/rest/users');
 });
 
 test('client automatic batching dedupes REST GET requests but not writes by default', async () => {
@@ -383,8 +383,8 @@ test('client automatic batching dedupes REST GET requests but not writes by defa
     ],
   ]);
 
-  const client = createJsonDbClient({
-    baseUrl: 'http://jsondb.local',
+  const client = createDbClient({
+    baseUrl: 'http://db.local',
     batching: true,
   });
 
@@ -430,13 +430,13 @@ test('client HTTP errors explain the failing URL and response body', async () =>
     globalThis.fetch = originalFetch;
   });
 
-  const client = createJsonDbClient({ baseUrl: 'http://jsondb.local' });
+  const client = createDbClient({ baseUrl: 'http://db.local' });
 
   await assert.rejects(
     () => client.graphql('{ users { id } }'),
     (error) => {
       assert.equal(error.code, 'CLIENT_HTTP_ERROR');
-      assert.match(error.message, /http:\/\/jsondb\.local\/graphql/);
+      assert.match(error.message, /http:\/\/db\.local\/graphql/);
       assert.equal(error.details.responseBody.error.code, 'SERVER_DOWN');
       return true;
     },

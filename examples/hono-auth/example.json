@@ -1,5 +1,5 @@
 {
   "title": "Hono Auth",
-  "description": "A small Hono app that uses registerRestRoutes lifecycle hooks for bearer-token auth, write permissions, and payload normalization.",
+  "description": "A small Hono app that uses registerDbRoutes lifecycle hooks for bearer-token auth, write permissions, and payload normalization.",
   "tags": ["hono", "auth", "rest"]
 }

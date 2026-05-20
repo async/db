@@ -1,0 +1,11 @@
+[
+  {
+    "id": "proj_1",
+    "name": "Local checkout",
+    "ownerId": "u_1",
+    "status": "active",
+    "metadata": {
+      "priority": "high"
+    }
+  }
+]

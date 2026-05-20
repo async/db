@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:11.028Z",
+  "resources": {
+    "projects": {
+      "kind": "collection",
+      "typeName": "Project",
+      "routePath": "/projects",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "metadata": {
+          "type": "object",
+          "default": {}
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "proj_1",
+          "name": "Diagnostics demo",
+          "metadata": {
+            "priority": "high"
+          }
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/diagnostics/db/projects.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "email": {
+          "type": "string",
+          "required": true
+        },
+        "role": {
+          "type": "enum",
+          "default": "user",
+          "values": [
+            "admin",
+            "user"
+          ]
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "role": "admin",
+          "twitterHandle": "@ada"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/diagnostics/db/users.json",
+        "dataFormat": "json",
+        "dataHash": "5ba4aad944b36ea9ebd34ebf2c84c10b456a71799df1ce9e39f6110cb4d73cc6",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/diagnostics/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "projects": [
+      "GET /projects",
+      "GET /projects/:id",
+      "POST /projects",
+      "PATCH /projects/:id",
+      "DELETE /projects/:id"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Project {\n  id: ID!\n  name: String!\n  metadata: JSON\n}\n\ntype User {\n  id: ID!\n  name: String!\n  email: String!\n  role: String\n}",
+  "diagnostics": [
+    {
+      "code": "SCHEMA_UNKNOWN_FIELD",
+      "severity": "warn",
+      "resource": "projects",
+      "field": "metadata.priority",
+      "message": "projects field \"metadata.priority\" is not defined in the schema"
+    },
+    {
+      "code": "SCHEMA_UNKNOWN_FIELD",
+      "severity": "warn",
+      "resource": "users",
+      "field": "twitterHandle",
+      "message": "users.json has field \"twitterHandle\" but users.schema.jsonc does not define \"twitterHandle\""
+    }
+  ]
+}

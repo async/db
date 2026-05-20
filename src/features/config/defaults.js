@@ -1,7 +1,7 @@
 export const DEFAULT_CONFIG = {
   dbDir: './db',
   sourceDir: './db',
-  stateDir: './.jsondb',
+  stateDir: './.db',
   schemaOutFile: null,
   viewerManifestOutFile: null,
   schemaManifest: {},
@@ -17,7 +17,7 @@ export const DEFAULT_CONFIG = {
   },
   types: {
     enabled: true,
-    outFile: './.jsondb/types/index.ts',
+    outFile: './.db/types/index.ts',
     commitOutFile: null,
     useReadonly: false,
     emitComments: true,
@@ -44,7 +44,8 @@ export const DEFAULT_CONFIG = {
     naming: 'basename',
   },
   server: {
-    apiBase: '/__jsondb',
+    apiBase: '/__db',
+    dataPath: '/db',
     host: '127.0.0.1',
     port: 7331,
     maxBodyBytes: 1048576,
@@ -64,7 +65,7 @@ export const DEFAULT_CONFIG = {
   forks: {},
   generate: {
     hono: {
-      outDir: './jsondb-api',
+      outDir: './db-api',
       api: ['rest'],
       db: 'sqlite',
       app: 'standalone',

@@ -1,4 +1,4 @@
-import { jsonDbError, listChoices } from '../../errors.js';
+import { dbError, listChoices } from '../../errors.js';
 import { resourceConfigValue } from '../../names.js';
 import { createJsonRuntimeAdapter } from './json.js';
 import { createMemoryRuntimeAdapter } from './memory.js';
@@ -51,7 +51,7 @@ export function createRuntime(config, resources) {
       const strategy = this.strategyFor(resource);
       const adapter = adapters.get(strategy);
       if (!adapter) {
-        throw jsonDbError(
+        throw dbError(
           'STORE_DRIVER_NOT_FOUND',
           `Store driver "${strategy}" is not registered for resource "${resource.name}".`,
           {
@@ -149,7 +149,7 @@ function missingStoreError(resource, storeName, config, adapters) {
     ]),
   ];
 
-  return jsonDbError(
+  return dbError(
     'STORE_NOT_FOUND',
     `Store "${storeName}" is not configured for resource "${resource.name}".`,
     {

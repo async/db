@@ -1,6 +1,6 @@
-# jsondb Docs
+# @async/db Docs
 
-This folder is the durable markdown manual for jsondb. The root [README](../README.md) is the mini guide; these pages hold the task and contract details.
+This folder is the durable markdown manual for @async/db. The root [README](../README.md) is the mini guide; these pages hold the task and contract details.
 
 ## Start
 
@@ -11,8 +11,8 @@ This folder is the durable markdown manual for jsondb. The root [README](../READ
 ## Build Local Data
 
 - [Fixtures And Schemas](./fixtures-and-schemas.md): JSON, JSONC, CSV, schema files, `.schema.mjs`, source readers, nested folders, inference, and validation.
-- [Generated Files](./generated-files.md): `.jsondb/`, state, generated TypeScript, committed generated outputs, schema manifests, and cleanup rules.
-- [Configuration](./configuration.md): `jsondb.config.mjs`, fixture folders, resource naming, strictness, mock delay/errors, server options, and forks.
+- [Generated Files](./generated-files.md): `.db/`, state, generated TypeScript, committed generated outputs, schema manifests, and cleanup rules.
+- [Configuration](./configuration.md): `db.config.mjs`, fixture folders, resource naming, strictness, mock delay/errors, server options, and forks.
 - [Schema UI example](../examples/schema-ui/README.md): manifest-driven CMS HTML with **`serve.mjs`** SSR from live mirror rows (`node ./examples/schema-ui/serve.mjs`).
 
 ## Serve And Integrate

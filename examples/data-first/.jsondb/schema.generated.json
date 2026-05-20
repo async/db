@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:11.024Z",
+  "resources": {
+    "posts": {
+      "kind": "collection",
+      "typeName": "Post",
+      "routePath": "/posts",
+      "idField": "id",
+      "fields": {
+        "authorId": {
+          "type": "string",
+          "required": true
+        },
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "published": {
+          "type": "boolean",
+          "required": true
+        },
+        "tags": {
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "title": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "p_1",
+          "authorId": "u_1",
+          "title": "Notes on analytical engines",
+          "published": true,
+          "tags": [
+            "history",
+            "computing"
+          ]
+        },
+        {
+          "id": "p_2",
+          "authorId": "u_2",
+          "title": "Debugging at sea",
+          "published": false,
+          "tags": [
+            "debugging"
+          ]
+        }
+      ],
+      "source": {
+        "typeSource": "data",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/data-first/db/posts.json",
+        "dataFormat": "json",
+        "dataHash": "b9eee2e7dedb14bb069476d1fc479a51990111fa19f25881cf3dd69063cbb1f5",
+        "generatedIds": false
+      }
+    },
+    "settings": {
+      "kind": "document",
+      "typeName": "Settings",
+      "routePath": "/settings",
+      "fields": {
+        "features": {
+          "type": "object",
+          "required": false,
+          "fields": {
+            "billing": {
+              "type": "boolean",
+              "required": false
+            },
+            "graphql": {
+              "type": "boolean",
+              "required": false
+            }
+          }
+        },
+        "locale": {
+          "type": "string",
+          "required": false
+        },
+        "theme": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "relations": [],
+      "seed": {
+        "theme": "light",
+        "locale": "en-US",
+        "features": {
+          "billing": false,
+          "graphql": true
+        }
+      },
+      "source": {
+        "typeSource": "data",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/data-first/db/settings.json",
+        "dataFormat": "json",
+        "dataHash": "e1161be0894b7844d7ae493a04f4ad2af990b2c21dfad7e6803eef35ca951988",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "fields": {
+        "email": {
+          "type": "string",
+          "required": true
+        },
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "role": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "role": "admin"
+        },
+        {
+          "id": "u_2",
+          "name": "Grace Hopper",
+          "email": "grace@example.com",
+          "role": "user"
+        }
+      ],
+      "source": {
+        "typeSource": "data",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/data-first/db/users.json",
+        "dataFormat": "json",
+        "dataHash": "9a68e13ec3fd2e9277b70dd3f85bab45316df498713fe404fcd61fe79aaef667",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "posts": [
+      "GET /posts",
+      "GET /posts/:id",
+      "POST /posts",
+      "PATCH /posts/:id",
+      "DELETE /posts/:id"
+    ],
+    "settings": [
+      "GET /settings",
+      "PUT /settings",
+      "PATCH /settings"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Post {\n  authorId: String!\n  id: ID!\n  published: Boolean!\n  tags: [JSON]!\n  title: String!\n}\n\ntype Settings {\n  features: JSON\n  locale: String\n  theme: String\n}\n\ntype User {\n  email: String!\n  id: ID!\n  name: String!\n  role: String!\n}",
+  "diagnostics": []
+}

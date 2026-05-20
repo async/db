@@ -1,14 +1,14 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 
-export type JsonDbTypeMap = {
+export type DbTypeMap = {
   collections: Record<string, unknown>;
   documents: Record<string, unknown>;
 };
 
-export type JsonDbGeneratedTypesOptions = {
+export type DbGeneratedTypesOptions = {
   /** Generate TypeScript types during sync. */
   enabled?: boolean;
-  /** Gitignored generated type output. Defaults to "./.jsondb/types/index.ts". */
+  /** Gitignored generated type output. Defaults to "./.db/types/index.ts". */
   outFile?: string;
   /** Optional committed copy for app/CI imports. */
   commitOutFile?: string | null;
@@ -16,11 +16,11 @@ export type JsonDbGeneratedTypesOptions = {
   useReadonly?: boolean;
   /** Emit JSDoc from schema field descriptions. */
   emitComments?: boolean;
-  /** Export JsonDbCollections, JsonDbDocuments, and JsonDbTypes helpers. */
+  /** Export DbCollections, DbDocuments, and DbTypes helpers. */
   exportRuntimeHelpers?: boolean;
 };
 
-export type JsonDbSchemaManifestFieldContext = {
+export type DbSchemaManifestFieldContext = {
   field: Record<string, unknown>;
   fieldName: string;
   resource: Record<string, unknown>;
@@ -31,7 +31,7 @@ export type JsonDbSchemaManifestFieldContext = {
   defaultManifest: Record<string, unknown>;
 };
 
-export type JsonDbSchemaManifestResourceContext = {
+export type DbSchemaManifestResourceContext = {
   resource: Record<string, unknown>;
   resourceName: string;
   file: string | null;
@@ -39,16 +39,16 @@ export type JsonDbSchemaManifestResourceContext = {
   defaultManifest: Record<string, unknown>;
 };
 
-export type JsonDbSchemaManifestOptions = {
+export type DbSchemaManifestOptions = {
   /** Customize generated resource manifest entries. */
-  customizeResource?: (context: JsonDbSchemaManifestResourceContext) => Record<string, unknown>;
+  customizeResource?: (context: DbSchemaManifestResourceContext) => Record<string, unknown>;
   /** Customize or omit generated field manifest entries. Return null to omit a field. */
-  customizeField?: (context: JsonDbSchemaManifestFieldContext) => Record<string, unknown> | null;
+  customizeField?: (context: DbSchemaManifestFieldContext) => Record<string, unknown> | null;
 };
 
-export type JsonDbResourceNamingStrategy = 'basename' | 'folder-prefixed' | 'path';
+export type DbResourceNamingStrategy = 'basename' | 'folder-prefixed' | 'path';
 
-export type JsonDbResourceCustomizeContext = {
+export type DbResourceCustomizeContext = {
   file: string;
   sourceFile: string;
   basename: string;
@@ -61,28 +61,28 @@ export type JsonDbResourceCustomizeContext = {
   };
 };
 
-export type JsonDbResourceOptions = {
+export type DbResourceOptions = {
   /** How fixture paths become resource names. Defaults to "basename". */
-  naming?: JsonDbResourceNamingStrategy;
+  naming?: DbResourceNamingStrategy;
   /** Customize fixture path -> resource identity. */
-  customizeResource?: (context: JsonDbResourceCustomizeContext) => { name?: string } | null | undefined;
+  customizeResource?: (context: DbResourceCustomizeContext) => { name?: string } | null | undefined;
   /** Per-resource storage settings keyed by normalized resource name. */
-  [resourceName: string]: JsonDbResourceNamingStrategy
-    | ((context: JsonDbResourceCustomizeContext) => { name?: string } | null | undefined)
-    | JsonDbPerResourceOptions
+  [resourceName: string]: DbResourceNamingStrategy
+    | ((context: DbResourceCustomizeContext) => { name?: string } | null | undefined)
+    | DbPerResourceOptions
     | undefined;
 };
 
-export type JsonDbStoreName = 'json' | 'memory' | 'static' | 'sourceFile' | string;
+export type DbStoreName = 'json' | 'memory' | 'static' | 'sourceFile' | string;
 
-export type JsonDbStoreOptions = {
-  driver?: JsonDbStoreName;
+export type DbStoreOptions = {
+  driver?: DbStoreName;
   [key: string]: unknown;
 };
 
-export type JsonDbCustomStore = {
+export type DbCustomStore = {
   name?: string;
-  capabilities?: JsonDbRuntimeCapabilities;
+  capabilities?: DbRuntimeCapabilities;
   statePath?: (resource: Record<string, unknown>) => string | undefined;
   hydrate?: (resources: Array<Record<string, unknown>>) => void | Promise<void>;
   readResource?: (resource: Record<string, unknown>, fallback: unknown) => unknown | Promise<unknown>;
@@ -96,17 +96,17 @@ export type JsonDbCustomStore = {
   close?: () => void | Promise<void>;
 };
 
-export type JsonDbCustomStoreFactory =
-  (context: { config: JsonDbOptions; resources: unknown[]; storeName: string }) => JsonDbCustomStore;
+export type DbCustomStoreFactory =
+  (context: { config: DbOptions; resources: unknown[]; storeName: string }) => DbCustomStore;
 
-export type JsonDbStoresOptions = {
+export type DbStoresOptions = {
   /** Default public store for resources without an explicit store. Defaults to "json". */
-  default?: JsonDbStoreName;
+  default?: DbStoreName;
   /** Named public store definitions. */
-  [storeName: string]: JsonDbStoreName | JsonDbStoreOptions | JsonDbCustomStore | JsonDbCustomStoreFactory | undefined;
+  [storeName: string]: DbStoreName | DbStoreOptions | DbCustomStore | DbCustomStoreFactory | undefined;
 };
 
-export type JsonDbRuntimeCapabilities = {
+export type DbRuntimeCapabilities = {
   writable?: boolean;
   persistence?: 'local-file' | 'memory' | 'static' | 'remote' | string;
   atomicity?: 'resource' | 'process' | 'none' | 'request' | string;
@@ -115,18 +115,18 @@ export type JsonDbRuntimeCapabilities = {
   production?: boolean | 'small-local' | 'small-app' | string;
 };
 
-export type JsonDbRuntimeAdapter = {
+export type DbRuntimeAdapter = {
   name: string;
-  capabilities?: JsonDbRuntimeCapabilities;
+  capabilities?: DbRuntimeCapabilities;
 };
 
-export type JsonDbRuntimeAdapterFactory =
-  | JsonDbRuntimeAdapter
-  | ((context: { config: JsonDbOptions; resources: unknown[] }) => JsonDbRuntimeAdapter);
+export type DbRuntimeAdapterFactory =
+  | DbRuntimeAdapter
+  | ((context: { config: DbOptions; resources: unknown[] }) => DbRuntimeAdapter);
 
-export type JsonDbPerResourceOptions = {
+export type DbPerResourceOptions = {
   /** Public store name for this resource. Defaults to stores.default. */
-  store?: JsonDbStoreName;
+  store?: DbStoreName;
   /** Query intent metadata for stores and diagnostics. */
   indexes?: Array<{
     fields: string[];
@@ -135,7 +135,7 @@ export type JsonDbPerResourceOptions = {
   }>;
 };
 
-export type JsonDbRuntimeEvent = {
+export type DbRuntimeEvent = {
   version: number;
   timestamp: string;
   resource: string;
@@ -145,12 +145,12 @@ export type JsonDbRuntimeEvent = {
   pointer?: string;
 };
 
-export type JsonDbRuntimeEvents = {
+export type DbRuntimeEvents = {
   readonly version: number;
-  subscribe(subscriber: (event: JsonDbRuntimeEvent) => void): () => void;
+  subscribe(subscriber: (event: DbRuntimeEvent) => void): () => void;
 };
 
-export type JsonDbSourceReaderContext = {
+export type DbSourceReaderContext = {
   /** Repo-relative source path, such as "db/users.json". */
   file: string;
   /** Absolute source file path. */
@@ -162,12 +162,12 @@ export type JsonDbSourceReaderContext = {
   folders: string[];
   /** SHA-256 hash of the source file bytes. */
   hash: string;
-  config: JsonDbOptions;
+  config: DbOptions;
   readText(): Promise<string>;
   readBuffer(): Promise<Buffer>;
 };
 
-export type JsonDbSourceReaderDataResult = {
+export type DbSourceReaderDataResult = {
   kind: 'data';
   data: unknown;
   /** Format label stored in source metadata. Defaults to the reader name. */
@@ -176,7 +176,7 @@ export type JsonDbSourceReaderDataResult = {
   resourceName?: string;
 };
 
-export type JsonDbSourceReaderSchemaResult = {
+export type DbSourceReaderSchemaResult = {
   kind: 'schema';
   schema: unknown;
   /** Schema source label, such as "jsonc", "mjs", or a custom format. */
@@ -185,28 +185,28 @@ export type JsonDbSourceReaderSchemaResult = {
   resourceName?: string;
 };
 
-export type JsonDbSourceReaderSingleResult = JsonDbSourceReaderDataResult | JsonDbSourceReaderSchemaResult;
+export type DbSourceReaderSingleResult = DbSourceReaderDataResult | DbSourceReaderSchemaResult;
 
-export type JsonDbSourceReaderResult =
-  | JsonDbSourceReaderSingleResult
-  | Array<JsonDbSourceReaderResult>
+export type DbSourceReaderResult =
+  | DbSourceReaderSingleResult
+  | Array<DbSourceReaderResult>
   | null
   | undefined;
 
-export type JsonDbSourceReader = {
+export type DbSourceReader = {
   name: string;
-  match(context: JsonDbSourceReaderContext): boolean | Promise<boolean>;
-  read(context: JsonDbSourceReaderContext): JsonDbSourceReaderResult | Promise<JsonDbSourceReaderResult>;
+  match(context: DbSourceReaderContext): boolean | Promise<boolean>;
+  read(context: DbSourceReaderContext): DbSourceReaderResult | Promise<DbSourceReaderResult>;
 };
 
-export type JsonDbSourcesOptions = {
+export type DbSourcesOptions = {
   /** Custom source readers. They run before built-in JSON, JSONC, CSV, and .schema.mjs readers. */
-  readers?: JsonDbSourceReader[];
-  /** How jsondb handles writes back to source fixtures. Defaults to "preserve". */
+  readers?: DbSourceReader[];
+  /** How db handles writes back to source fixtures. Defaults to "preserve". */
   writePolicy?: 'preserve' | 'allow';
 };
 
-export type JsonDbRestResourceFormatContext = {
+export type DbRestResourceFormatContext = {
   db: unknown;
   target?: 'resource';
   resource: Record<string, unknown>;
@@ -217,7 +217,7 @@ export type JsonDbRestResourceFormatContext = {
   url: URL;
 };
 
-export type JsonDbRestManifestFormatContext = {
+export type DbRestManifestFormatContext = {
   db: unknown;
   target?: 'manifest';
   data: unknown;
@@ -228,57 +228,57 @@ export type JsonDbRestManifestFormatContext = {
   routes?: Record<string, string>;
 };
 
-export type JsonDbRestFormatContext = JsonDbRestResourceFormatContext;
-export type JsonDbRestAnyFormatContext = JsonDbRestResourceFormatContext | JsonDbRestManifestFormatContext;
+export type DbRestFormatContext = DbRestResourceFormatContext;
+export type DbRestAnyFormatContext = DbRestResourceFormatContext | DbRestManifestFormatContext;
 
-export type JsonDbRestFormatResult = string | Buffer | {
+export type DbRestFormatResult = string | Buffer | {
   status?: number;
   body?: string | Buffer;
   contentType?: string;
   headers?: Record<string, string>;
 };
 
-export type JsonDbRestFormatRenderer = (context: JsonDbRestFormatContext) => JsonDbRestFormatResult | Promise<JsonDbRestFormatResult>;
-export type JsonDbRestAnyFormatRenderer = (context: JsonDbRestAnyFormatContext) => JsonDbRestFormatResult | Promise<JsonDbRestFormatResult>;
-export type JsonDbRestManifestFormatRenderer = (context: JsonDbRestManifestFormatContext) => JsonDbRestFormatResult | Promise<JsonDbRestFormatResult>;
+export type DbRestFormatRenderer = (context: DbRestFormatContext) => DbRestFormatResult | Promise<DbRestFormatResult>;
+export type DbRestAnyFormatRenderer = (context: DbRestAnyFormatContext) => DbRestFormatResult | Promise<DbRestFormatResult>;
+export type DbRestManifestFormatRenderer = (context: DbRestManifestFormatContext) => DbRestFormatResult | Promise<DbRestFormatResult>;
 
-export type JsonDbRestFormatDefinition = {
+export type DbRestFormatDefinition = {
   /** Media types used by extensionless Accept negotiation. */
   mediaTypes?: string | string[];
   /** Default response content type when the renderer returns a string or Buffer. */
   contentType?: string;
   /** Generic renderer used for resource and manifest responses unless a target-specific renderer is provided. */
-  render?: JsonDbRestAnyFormatRenderer;
+  render?: DbRestAnyFormatRenderer;
   /** Renderer for REST resource routes such as /users.yaml. */
-  renderResource?: JsonDbRestFormatRenderer;
-  /** Renderer for viewer manifest routes such as /__jsondb/manifest.yaml. */
-  renderManifest?: JsonDbRestManifestFormatRenderer;
+  renderResource?: DbRestFormatRenderer;
+  /** Renderer for viewer manifest routes such as /__db/manifest.yaml. */
+  renderManifest?: DbRestManifestFormatRenderer;
 };
 
-export type JsonDbOptions = {
+export type DbOptions = {
   /** Project root used to resolve relative config paths. Defaults to process.cwd(). */
   cwd?: string;
-  /** Explicit config file path. Defaults to jsondb.config.mjs/js lookup from cwd. */
+  /** Explicit config file path. Defaults to db.config.mjs/js lookup from cwd. */
   configPath?: string;
   /** Fixture source folder. Defaults to "./db". */
   dbDir?: string;
   /** Backwards-compatible fixture source folder alias. If set, it wins over dbDir. */
   sourceDir?: string;
-  /** Generated runtime output folder. Defaults to "./.jsondb". */
+  /** Generated runtime output folder. Defaults to "./.db". */
   stateDir?: string;
   /** Optional committed generated JSON schema manifest for admin/CMS UI generation. */
   schemaOutFile?: string | null;
   /** Optional committed generated JSON viewer manifest for custom data UIs. */
   viewerManifestOutFile?: string | null;
   /** Optional visitor hooks for customizing generated schema manifest output. */
-  schemaManifest?: JsonDbSchemaManifestOptions;
+  schemaManifest?: DbSchemaManifestOptions;
   /** Optional source readers for custom schema or data file formats. */
-  sources?: JsonDbSourcesOptions;
+  sources?: DbSourcesOptions;
   /** Run sync automatically when opening the package API. */
   syncOnOpen?: boolean;
   /** Keep valid resources available when one source file has diagnostics. */
   allowSourceErrors?: boolean;
-  types?: JsonDbGeneratedTypesOptions;
+  types?: DbGeneratedTypesOptions;
   schema?: {
     /** Which inputs define schemas. "auto" uses schema files when present and otherwise infers from data. */
     source?: 'auto' | 'data' | 'schema';
@@ -308,12 +308,14 @@ export type JsonDbOptions = {
   /** Per-collection overrides such as custom id field names. */
   collections?: Record<string, { idField?: string }>;
   /** Resource naming and fixture path identity options. */
-  resources?: JsonDbResourceOptions;
+  resources?: DbResourceOptions;
   /** Public storage options. Defaults to the JSON store. */
-  stores?: JsonDbStoresOptions;
+  stores?: DbStoresOptions;
   server?: {
-    /** Scoped base for local jsondb dev tools. Defaults to "/__jsondb". */
+    /** Scoped base for local db dev tools. Defaults to "/__db". */
     apiBase?: string;
+    /** App-facing REST data route alias. Defaults to "/db"; set false to disable. */
+    dataPath?: string | false;
     /** Local HTTP host. Defaults to "127.0.0.1". */
     host?: string;
     /** Local HTTP port. Defaults to 7331. */
@@ -330,7 +332,7 @@ export type JsonDbOptions = {
     /** Enable generated REST routes. */
     enabled?: boolean;
     /** GET response formats by extension. "default" controls extensionless resource routes. */
-    formats?: Record<string, JsonDbRestFormatRenderer | JsonDbRestFormatDefinition | string | undefined>;
+    formats?: Record<string, DbRestFormatRenderer | DbRestFormatDefinition | string | undefined>;
   };
   graphql?: {
     /** Enable the focused dependency-free GraphQL endpoint. */
@@ -360,10 +362,10 @@ export type JsonDbOptions = {
     dbDir?: string;
     /** Backwards-compatible source folder alias. If set, it wins over dbDir. */
     sourceDir?: string;
-    /** Fork generated runtime output folder. Defaults to "./.jsondb/forks/<name>". */
+    /** Fork generated runtime output folder. Defaults to "./.db/forks/<name>". */
     stateDir?: string;
     /** Fork-specific generated type output. Committed type output is disabled by default for forks. */
-    types?: JsonDbGeneratedTypesOptions;
+    types?: DbGeneratedTypesOptions;
   }>;
   generate?: {
     hono?: {
@@ -380,7 +382,7 @@ export type JsonDbOptions = {
   };
 };
 
-export type JsonDbCollection<RecordType> = {
+export type DbCollection<RecordType> = {
   all(): Promise<RecordType[]>;
   get(id: string): Promise<RecordType | null>;
   exists(id: string): Promise<boolean>;
@@ -390,7 +392,7 @@ export type JsonDbCollection<RecordType> = {
   delete(id: string): Promise<boolean>;
 };
 
-export type JsonDbDocument<DocumentType> = {
+export type DbDocument<DocumentType> = {
   all(): Promise<DocumentType>;
   get(): Promise<DocumentType>;
   get(pointer: string): Promise<unknown>;
@@ -399,10 +401,10 @@ export type JsonDbDocument<DocumentType> = {
   update(patch: Partial<DocumentType>): Promise<DocumentType>;
 };
 
-export type JsonFixtureDb<Types extends JsonDbTypeMap = JsonDbTypeMap> = {
-  events: JsonDbRuntimeEvents;
-  collection<Name extends keyof Types['collections'] & string>(name: Name): JsonDbCollection<Types['collections'][Name]>;
-  document<Name extends keyof Types['documents'] & string>(name: Name): JsonDbDocument<Types['documents'][Name]>;
+export type Db<Types extends DbTypeMap = DbTypeMap> = {
+  events: DbRuntimeEvents;
+  collection<Name extends keyof Types['collections'] & string>(name: Name): DbCollection<Types['collections'][Name]>;
+  document<Name extends keyof Types['documents'] & string>(name: Name): DbDocument<Types['documents'][Name]>;
   resourceNames(): string[];
   close(): Promise<void>;
 };
@@ -439,9 +441,9 @@ export type RestBatchResult = {
   body: unknown;
 };
 
-export type JsonDbClientOptions = {
+export type DbClientOptions = {
   baseUrl?: string;
-  /** Scoped base for default batch and fork paths. Defaults to "/__jsondb". */
+  /** Scoped base for default batch and fork paths. Defaults to "/__db". */
   apiBase?: string;
   /** Target a configured database fork, such as "legacy-demo". */
   fork?: string;
@@ -455,33 +457,33 @@ export type JsonDbClientOptions = {
   };
 };
 
-export type JsonDbClientRequestOptions = {
+export type DbClientRequestOptions = {
   batch?: boolean;
 };
 
-export type JsonDbClient = {
+export type DbClient = {
   graphql: {
-    (query: string | GraphqlRequest, variables?: Record<string, unknown>, options?: JsonDbClientRequestOptions): Promise<GraphqlResult>;
-    request(query: string | GraphqlRequest, variables?: Record<string, unknown>, options?: JsonDbClientRequestOptions): Promise<GraphqlResult>;
+    (query: string | GraphqlRequest, variables?: Record<string, unknown>, options?: DbClientRequestOptions): Promise<GraphqlResult>;
+    request(query: string | GraphqlRequest, variables?: Record<string, unknown>, options?: DbClientRequestOptions): Promise<GraphqlResult>;
     batch(requests: GraphqlRequest[]): Promise<GraphqlResult[]>;
   };
   rest: {
-    (method: string | RestBatchRequest, path?: string, body?: unknown, options?: JsonDbClientRequestOptions): Promise<RestBatchResult>;
-    request(method: string | RestBatchRequest, path?: string, body?: unknown, options?: JsonDbClientRequestOptions): Promise<RestBatchResult>;
+    (method: string | RestBatchRequest, path?: string, body?: unknown, options?: DbClientRequestOptions): Promise<RestBatchResult>;
+    request(method: string | RestBatchRequest, path?: string, body?: unknown, options?: DbClientRequestOptions): Promise<RestBatchResult>;
     batch(requests: RestBatchRequest[]): Promise<RestBatchResult[]>;
-    get(path: string, options?: JsonDbClientRequestOptions): Promise<RestBatchResult>;
-    post(path: string, body?: unknown, options?: JsonDbClientRequestOptions): Promise<RestBatchResult>;
-    patch(path: string, body?: unknown, options?: JsonDbClientRequestOptions): Promise<RestBatchResult>;
-    put(path: string, body?: unknown, options?: JsonDbClientRequestOptions): Promise<RestBatchResult>;
-    delete(path: string, options?: JsonDbClientRequestOptions): Promise<RestBatchResult>;
+    get(path: string, options?: DbClientRequestOptions): Promise<RestBatchResult>;
+    post(path: string, body?: unknown, options?: DbClientRequestOptions): Promise<RestBatchResult>;
+    patch(path: string, body?: unknown, options?: DbClientRequestOptions): Promise<RestBatchResult>;
+    put(path: string, body?: unknown, options?: DbClientRequestOptions): Promise<RestBatchResult>;
+    delete(path: string, options?: DbClientRequestOptions): Promise<RestBatchResult>;
   };
 };
 
-export type JsonDbDoctorSeverity = 'error' | 'warn' | 'info';
+export type DbDoctorSeverity = 'error' | 'warn' | 'info';
 
-export type JsonDbDoctorFinding = {
+export type DbDoctorFinding = {
   code: string;
-  severity: JsonDbDoctorSeverity;
+  severity: DbDoctorSeverity;
   source?: 'schema' | 'doctor' | string;
   resource?: string;
   field?: string;
@@ -490,52 +492,54 @@ export type JsonDbDoctorFinding = {
   details?: Record<string, unknown>;
 };
 
-export type JsonDbDoctorResult = {
+export type DbDoctorResult = {
   summary: {
     error: number;
     warn: number;
     info: number;
   };
-  findings: JsonDbDoctorFinding[];
+  findings: DbDoctorFinding[];
 };
 
-export type JsonDbRequestHandlerOptions = {
-  /** Scoped base for jsondb dev tools. Defaults to "/__jsondb". */
+export type DbRequestHandlerOptions = {
+  /** Scoped base for db dev tools. Defaults to "/__db". */
   apiBase?: string;
+  /** App-facing REST data route alias. Defaults to configured server.dataPath. */
+  dataPath?: string | false;
   /** Serve root REST routes such as "/users". Defaults to true for standalone handlers. */
   rootRoutes?: boolean;
-  /** Scoped REST resource base, such as "/__jsondb/rest". */
+  /** Scoped REST resource base, such as "/__db/rest". */
   restBasePath?: string;
   /** GraphQL endpoint path. Defaults to configured graphql.path or "/graphql". */
   graphqlPath?: string;
 };
 
-export type JsonDbRequestHandler = (
+export type DbRequestHandler = (
   request: IncomingMessage,
   response: ServerResponse,
   next?: () => void,
 ) => Promise<boolean>;
 
-export type JsonDbServer = {
+export type DbServer = {
   server: Server;
-  db: JsonFixtureDb;
+  db: Db;
   url: string;
 };
 
-export function openJsonFixtureDb<Types extends JsonDbTypeMap = JsonDbTypeMap>(options?: JsonDbOptions): Promise<JsonFixtureDb<Types>>;
-export function createJsonDbClient(options?: JsonDbClientOptions): JsonDbClient;
-export function createJsonDbRequestHandler(db: JsonFixtureDb, options?: JsonDbRequestHandlerOptions): JsonDbRequestHandler;
-export function loadConfig(options?: JsonDbOptions): Promise<JsonDbOptions>;
-export function runJsonDbDoctor(config: JsonDbOptions): Promise<JsonDbDoctorResult>;
-export function startJsonDbServer(options?: JsonDbOptions & { host?: string; port?: number }): Promise<JsonDbServer>;
-export function syncJsonFixtureDb(config: JsonDbOptions, options?: { allowErrors?: boolean }): Promise<unknown>;
-export function generateTypes(config: JsonDbOptions, options?: { outFile?: string }): Promise<{ content: string; outFiles: string[] }>;
-export function generateSchemaManifest(config: JsonDbOptions, options?: { outFile?: string }): Promise<{ manifest: unknown; content: string; outFiles: string[] }>;
-export function renderSchemaManifest(resources: unknown[], config?: JsonDbOptions): unknown;
-export function generateViewerManifest(config: JsonDbOptions, options?: { outFile?: string }): Promise<{ manifest: unknown; content: string; outFiles: string[] }>;
-export function renderViewerManifest(resources: unknown[], config?: JsonDbOptions): unknown;
+export function openDb<Types extends DbTypeMap = DbTypeMap>(options?: DbOptions): Promise<Db<Types>>;
+export function createDbClient(options?: DbClientOptions): DbClient;
+export function createDbRequestHandler(db: Db, options?: DbRequestHandlerOptions): DbRequestHandler;
+export function loadConfig(options?: DbOptions): Promise<DbOptions>;
+export function runDbDoctor(config: DbOptions): Promise<DbDoctorResult>;
+export function startDbServer(options?: DbOptions & { host?: string; port?: number }): Promise<DbServer>;
+export function syncDb(config: DbOptions, options?: { allowErrors?: boolean }): Promise<unknown>;
+export function generateTypes(config: DbOptions, options?: { outFile?: string }): Promise<{ content: string; outFiles: string[] }>;
+export function generateSchemaManifest(config: DbOptions, options?: { outFile?: string }): Promise<{ manifest: unknown; content: string; outFiles: string[] }>;
+export function renderSchemaManifest(resources: unknown[], config?: DbOptions): unknown;
+export function generateViewerManifest(config: DbOptions, options?: { outFile?: string }): Promise<{ manifest: unknown; content: string; outFiles: string[] }>;
+export function renderViewerManifest(resources: unknown[], config?: DbOptions): unknown;
 export function mergeManifest(base: unknown, patch: unknown): unknown;
-export function resourceNameFromPath(file: string, options?: { strategy?: JsonDbResourceNamingStrategy }): string;
+export function resourceNameFromPath(file: string, options?: { strategy?: DbResourceNamingStrategy }): string;
 export function parseFixturePath(file: string): {
   file: string;
   folders: string[];
@@ -545,7 +549,7 @@ export function parseFixturePath(file: string): {
   extension: string;
 };
 export function generateHonoStarter(
-  config: JsonDbOptions,
+  config: DbOptions,
   options?: {
     outDir?: string;
     api?: Array<'rest' | 'graphql'> | 'rest' | 'graphql' | 'rest,graphql' | 'none';
@@ -555,14 +559,14 @@ export function generateHonoStarter(
     allowWarnings?: boolean;
   },
 ): Promise<{ outDir: string; files: string[]; diagnostics: unknown[] }>;
-export function startJsonDbServer(options?: JsonDbOptions): Promise<{ server: unknown; db: JsonFixtureDb; url: string }>;
+export function startDbServer(options?: DbOptions): Promise<{ server: unknown; db: Db; url: string }>;
 export function executeGraphql(
-  db: JsonFixtureDb,
+  db: Db,
   request: string | GraphqlRequest,
 ): Promise<GraphqlResult>;
 export function executeGraphql(
-  db: JsonFixtureDb,
+  db: Db,
   request: GraphqlRequest[],
 ): Promise<GraphqlResult[]>;
-export function executeGraphqlBatch(db: JsonFixtureDb, requests: GraphqlRequest[]): Promise<GraphqlResult[]>;
+export function executeGraphqlBatch(db: Db, requests: GraphqlRequest[]): Promise<GraphqlResult[]>;
 export function parseGraphql(query: string): unknown;

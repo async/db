@@ -1,5 +1,5 @@
 {
   "title": "REST Client",
-  "description": "A tiny consumer script that calls the local REST API with createJsonDbClient, including direct and batched requests.",
+  "description": "A tiny consumer script that calls the local REST API with createDbClient, including direct and batched requests.",
   "tags": ["client", "rest", "batching"]
 }

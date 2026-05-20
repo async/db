@@ -1,0 +1,9 @@
+[
+  {
+    "id": "u_1",
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "role": "admin",
+    "twitterHandle": "@ada"
+  }
+]

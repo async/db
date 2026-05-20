@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { syncJsonFixtureDb, loadConfig } from '../../src/index.js';
+import { syncDb, loadConfig } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('schemaOutFile writes a committed manifest with inferred UI defaults without changing fixtures', async () => {
@@ -17,14 +17,14 @@ test('schemaOutFile writes a committed manifest with inferred UI defaults withou
     },
   ]);
   await writeConfig(cwd, `export default {
-    schemaOutFile: './src/generated/jsondb.schema.json'
+    schemaOutFile: './src/generated/db.schema.json'
   };`);
   await writeFixture(cwd, 'users.json', usersFixture);
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
-  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema.json'), 'utf8'));
   const sourceAfterSync = await readFile(path.join(cwd, 'db/users.json'), 'utf8');
 
   assert.equal(sourceAfterSync, `${usersFixture}\n`);
@@ -49,7 +49,7 @@ test('schemaOutFile writes a committed manifest with inferred UI defaults withou
 test('schema manifest includes schema defaults, nested fields, arrays, relations, and enum UI defaults', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    schemaOutFile: './src/generated/jsondb.schema.json'
+    schemaOutFile: './src/generated/db.schema.json'
   };`);
   await writeFixture(cwd, 'groups.schema.jsonc', `{
     "kind": "collection",
@@ -77,9 +77,9 @@ test('schema manifest includes schema defaults, nested fields, arrays, relations
   }`);
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
-  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema.json'), 'utf8'));
   const users = manifest.collections.users;
 
   assert.equal(users.fields.role.default, 'user');
@@ -97,7 +97,7 @@ test('schema manifest includes schema defaults, nested fields, arrays, relations
 test('schema manifest customizeField can override and omit field output', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    schemaOutFile: './src/generated/jsondb.schema.json',
+    schemaOutFile: './src/generated/db.schema.json',
     schemaManifest: {
       customizeField({ fieldName, resourceName, path, file, defaultManifest }) {
         if (fieldName === 'secret') {
@@ -128,9 +128,9 @@ test('schema manifest customizeField can override and omit field output', async 
   ]));
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
-  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema.json'), 'utf8'));
 
   assert.equal(manifest.collections.users.fields.bioMarkdown.ui.component, 'markdown');
   assert.equal(manifest.collections.users.fields.bioMarkdown.ui.section, 'db/users.json:bioMarkdown');
@@ -140,7 +140,7 @@ test('schema manifest customizeField can override and omit field output', async 
 test('schema manifest customizeField can customize object fields inside arrays', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    schemaOutFile: './src/generated/jsondb.schema.json',
+    schemaOutFile: './src/generated/db.schema.json',
     schemaManifest: {
       customizeField({ resourceName, fieldName, path, file, defaultManifest }) {
         const baseUi = defaultManifest.ui && typeof defaultManifest.ui === 'object'
@@ -210,9 +210,9 @@ test('schema manifest customizeField can customize object fields inside arrays',
   }\n`, 'utf8');
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
-  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema.json'), 'utf8'));
   const blocks = manifest.collections.pages.fields.blocks;
 
   assert.equal(blocks.ui.component, 'block-list');
@@ -229,7 +229,7 @@ test('schema manifest customizeField can customize object fields inside arrays',
 test('schema manifest customizeResource can add resource-level metadata', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    schemaOutFile: './src/generated/jsondb.schema.json',
+    schemaOutFile: './src/generated/db.schema.json',
     schemaManifest: {
       customizeResource({ resourceName, file, defaultManifest }) {
         return {
@@ -251,9 +251,9 @@ test('schema manifest customizeResource can add resource-level metadata', async 
   }\n`, 'utf8');
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
-  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema.json'), 'utf8'));
 
   assert.deepEqual(manifest.collections.pages.editor, {
     group: 'CMS',
@@ -264,7 +264,7 @@ test('schema manifest customizeResource can add resource-level metadata', async 
 test('schema manifest rejects non-serializable customizeField output with diagnostics', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    schemaOutFile: './src/generated/jsondb.schema.json',
+    schemaOutFile: './src/generated/db.schema.json',
     schemaManifest: {
       customizeField({ defaultManifest }) {
         return {
@@ -282,7 +282,7 @@ test('schema manifest rejects non-serializable customizeField output with diagno
   const config = await loadConfig({ cwd });
 
   await assert.rejects(
-    () => syncJsonFixtureDb(config),
+    () => syncDb(config),
     (error) => {
       assert.equal(error.diagnostics?.[0]?.code, 'SCHEMA_MANIFEST_FIELD_NOT_SERIALIZABLE');
       assert.match(error.diagnostics[0].message, /users\.id/);

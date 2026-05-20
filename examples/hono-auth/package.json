@@ -1,14 +1,14 @@
 {
-  "name": "jsondb-hono-auth-example",
+  "name": "db-hono-auth-example",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node ./src/server.mjs",
-    "sync": "jsondb sync --cwd ."
+    "sync": "async-db sync --cwd ."
   },
   "dependencies": {
     "@hono/node-server": "^1.13.8",
     "hono": "^4.6.0",
-    "jsondb": "file:../.."
+    "@async/db": "file:../.."
   }
 }

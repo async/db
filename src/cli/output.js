@@ -5,11 +5,11 @@ export function printDiagnostic(diagnostic) {
 
 export function printDoctorResult(result) {
   if (result.findings.length === 0) {
-    console.log('jsondb doctor found no issues');
+    console.log('async-db doctor found no issues');
     return;
   }
 
-  console.log(`jsondb doctor found ${result.findings.length} finding${result.findings.length === 1 ? '' : 's'}`);
+  console.log(`async-db doctor found ${result.findings.length} finding${result.findings.length === 1 ? '' : 's'}`);
   for (const finding of result.findings) {
     console.log(`${finding.severity}: ${finding.code}: ${finding.message}`);
     if (finding.hint) {
@@ -19,23 +19,23 @@ export function printDoctorResult(result) {
 }
 
 export function printHelp() {
-  console.log(`jsondb
+  console.log(`async-db
 
 Usage:
-  jsondb sync
-  jsondb types [--watch] [--out <file>]
-  jsondb schema [resource]
-  jsondb schema infer [resource] [--out <file>]
-  jsondb schema unbundle <resource> [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
-  jsondb schema bundle <resource> [--out <file>] [--force]
-  jsondb schema manifest [--out <file>]
-  jsondb schema validate
-  jsondb viewer manifest [--out <file>]
-  jsondb doctor [--strict] [--json]
-  jsondb check [--strict] [--json]
-  jsondb create <collection> <json>
-  jsondb serve [--host <host>] [--port <port>]
-  jsondb generate hono [--out <dir>] [--api <targets>] [--app <shape>]
+  async-db sync
+  async-db types [--watch] [--out <file>]
+  async-db schema [resource]
+  async-db schema infer [resource] [--out <file>]
+  async-db schema unbundle <resource> [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
+  async-db schema bundle <resource> [--out <file>] [--force]
+  async-db schema manifest [--out <file>]
+  async-db schema validate
+  async-db viewer manifest [--out <file>]
+  async-db doctor [--strict] [--json]
+  async-db check [--strict] [--json]
+  async-db create <collection> <json>
+  async-db serve [--host <host>] [--port <port>]
+  async-db generate hono [--out <dir>] [--api <targets>] [--app <shape>]
 
 Options:
   --cwd <dir>       Project directory
@@ -44,10 +44,10 @@ Options:
 }
 
 export function printTypesHelp() {
-  console.log(`jsondb types
+  console.log(`async-db types
 
 Usage:
-  jsondb types [--watch] [--out <file>]
+  async-db types [--watch] [--out <file>]
 
 Options:
   --watch        Regenerate types when fixture sources change
@@ -58,15 +58,15 @@ Options:
 }
 
 export function printSchemaHelp() {
-  console.log(`jsondb schema
+  console.log(`async-db schema
 
 Usage:
-  jsondb schema [resource]
-  jsondb schema infer [resource] [--out <file>]
-  jsondb schema unbundle <resource> [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
-  jsondb schema bundle <resource> [--out <file>] [--force]
-  jsondb schema manifest [--out <file>]
-  jsondb schema validate
+  async-db schema [resource]
+  async-db schema infer [resource] [--out <file>]
+  async-db schema unbundle <resource> [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
+  async-db schema bundle <resource> [--out <file>] [--force]
+  async-db schema manifest [--out <file>]
+  async-db schema validate
 
 Options:
   --out <file>        Write schema manifest, inferred schema, or bundled schema output to this path
@@ -80,11 +80,11 @@ Options:
 }
 
 export function printDoctorHelp() {
-  console.log(`jsondb doctor
+  console.log(`async-db doctor
 
 Usage:
-  jsondb doctor [--strict] [--json]
-  jsondb check [--strict] [--json]
+  async-db doctor [--strict] [--json]
+  async-db check [--strict] [--json]
 
 Options:
   --strict       Exit with an error when warnings are present
@@ -95,10 +95,10 @@ Options:
 }
 
 export function printViewerHelp() {
-  console.log(`jsondb viewer
+  console.log(`async-db viewer
 
 Usage:
-  jsondb viewer manifest [--out <file>]
+  async-db viewer manifest [--out <file>]
 
 Options:
   --out <file>   Write generated viewer manifest output to this path
@@ -108,10 +108,10 @@ Options:
 }
 
 export function printServeHelp() {
-  console.log(`jsondb serve
+  console.log(`async-db serve
 
 Usage:
-  jsondb serve [--host <host>] [--port <port>]
+  async-db serve [--host <host>] [--port <port>]
 
 Options:
   --host <host>  Host to bind, defaulting to configured server.host
@@ -122,7 +122,7 @@ Options:
 }
 
 export function printGenerateHelp(usage) {
-  console.log(`jsondb generate
+  console.log(`async-db generate
 
 Usage:
   ${usage}

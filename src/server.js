@@ -2,23 +2,23 @@ import http from 'node:http';
 import { watch } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { openJsonFixtureDb } from './db.js';
+import { openDb } from './db.js';
 import { serializeError } from './errors.js';
 import { loadForkDb } from './features/config/forks.js';
 import { defaultHttpFeatureRegistry } from './features/http/registry.js';
 import { runMockBehavior } from './mock.js';
 import { handleRestRequest, sendJson } from './rest/handler.js';
-import { syncJsonFixtureDb } from './sync.js';
+import { syncDb } from './sync.js';
 
-export async function startJsonDbServer(options = {}) {
-  const db = await openJsonFixtureDb({
+export async function startDbServer(options = {}) {
+  const db = await openDb({
     ...options,
     allowSourceErrors: true,
   });
   const host = options.host ?? db.config.server?.host ?? '127.0.0.1';
   const port = Number(options.port ?? db.config.server?.port ?? 7331);
   const events = createViewerEventHub();
-  const requestHandler = createJsonDbRequestHandler(db, {
+  const requestHandler = createDbRequestHandler(db, {
     events,
     rootRoutes: true,
   });
@@ -60,11 +60,11 @@ export async function startJsonDbServer(options = {}) {
   };
 }
 
-export function createJsonDbRequestHandler(db, options = {}) {
+export function createDbRequestHandler(db, options = {}) {
   const events = options.events ?? createViewerEventHub();
   const routes = resolveRequestRoutes(db.config, options);
 
-  return async function jsonDbRequestHandler(request, response, next) {
+  return async function dbRequestHandler(request, response, next) {
     const handled = await handleRequest(db, request, response, events, routes);
     if (!handled && typeof next === 'function') {
       next();
@@ -74,11 +74,11 @@ export function createJsonDbRequestHandler(db, options = {}) {
 }
 
 async function handleRequest(db, request, response, events, routes) {
-  const url = new URL(request.url, 'http://jsondb.local');
+  const url = new URL(request.url, 'http://db.local');
   const forkName = forkNameForRequest(url, routes);
   if (forkName) {
     try {
-      const forkDb = await loadForkDb(db, forkName, openJsonFixtureDb);
+      const forkDb = await loadForkDb(db, forkName, openDb);
       const forkRoutes = resolveRequestRoutes(forkDb.config, {
         ...routes,
         apiBase: forkApiBase(routes, forkName),
@@ -132,8 +132,8 @@ async function handleRequest(db, request, response, events, routes) {
   return true;
 }
 
-export async function reloadJsonFixtureDb(db) {
-  const project = await syncJsonFixtureDb(db.config, { allowErrors: true });
+export async function reloadDb(db) {
+  const project = await syncDb(db.config, { allowErrors: true });
   db.resources = new Map(project.resources.map((resource) => [resource.name, resource]));
   db.diagnostics = project.diagnostics;
   db.schemaVersion = Date.now();
@@ -158,7 +158,7 @@ export async function watchSourceDir(db, events, options = {}) {
       clearTimeout(timer);
       timer = setTimeout(async () => {
         try {
-          const project = await reloadJsonFixtureDb(db);
+          const project = await reloadDb(db);
           events.publish({
             type: project.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? 'synced-with-errors' : 'synced',
             version: db.schemaVersion,
@@ -169,7 +169,7 @@ export async function watchSourceDir(db, events, options = {}) {
             code: 'SERVER_SOURCE_RELOAD_FAILED',
             severity: 'error',
             message: error.message,
-            hint: 'Fix the source file and jsondb will try to reload it on the next change.',
+            hint: 'Fix the source file and db will try to reload it on the next change.',
           };
           db.diagnostics = [diagnostic];
           db.schemaVersion = Date.now();
@@ -228,7 +228,7 @@ function reportWatchUnavailable(db, events, error, warn) {
     code: 'SERVER_WATCH_UNAVAILABLE',
     severity: 'warn',
     message: `File watching is disabled: ${error.message}`,
-    hint: 'jsondb serve is still running, but fixture changes will require restarting the server.',
+    hint: 'async-db serve is still running, but fixture changes will require restarting the server.',
     details: {
       code: error.code,
     },
@@ -241,7 +241,7 @@ function reportWatchUnavailable(db, events, error, warn) {
     version: db.schemaVersion,
     diagnostics: db.diagnostics,
   });
-  warn(`jsondb serve: file watching disabled (${error.message}). Restart the server to pick up fixture changes.`);
+  warn(`async-db serve: file watching disabled (${error.message}). Restart the server to pick up fixture changes.`);
 }
 
 function shouldIgnoreSourceEvent(db, filename) {
@@ -295,20 +295,24 @@ export function createViewerEventHub() {
 }
 
 function writeViewerEvent(response, payload) {
-  response.write(`event: jsondb\ndata: ${JSON.stringify(payload)}\n\n`);
+  response.write(`event: db\ndata: ${JSON.stringify(payload)}\n\n`);
 }
 
 function resolveRequestRoutes(config, options) {
-  const apiBase = normalizeBasePath(options.apiBase ?? config.server?.apiBase ?? '/__jsondb');
+  const apiBase = normalizeBasePath(options.apiBase ?? config.server?.apiBase ?? '/__db');
   const restBasePath = options.restBasePath === undefined
-    ? null
-    : normalizeBasePath(options.restBasePath);
+    ? `${apiBase}/rest`
+    : normalizeOptionalBasePath(options.restBasePath);
+  const dataPath = options.dataPath === undefined
+    ? normalizeOptionalBasePath(config.server?.dataPath ?? '/db')
+    : normalizeOptionalBasePath(options.dataPath);
   const graphqlPath = normalizeBasePath(options.graphqlPath ?? config.graphql?.path ?? '/graphql');
 
   return {
     apiBase,
     rootRoutes: options.rootRoutes !== false,
     restBasePath,
+    dataPath,
     graphqlPath,
     viewerPath: apiBase,
     manifestPath: `${apiBase}/manifest`,
@@ -342,11 +346,15 @@ function restUrlForRequest(url, routes) {
     return stripPathBase(url, routes.restBasePath);
   }
 
-  if (routes.rootRoutes) {
+  if ([routes.viewerPath, routes.schemaPath, routes.batchPath, routes.importPath].includes(url.pathname) || isManifestRoutePath(url.pathname, routes)) {
     return url;
   }
 
-  if ([routes.viewerPath, routes.schemaPath, routes.batchPath, routes.importPath].includes(url.pathname) || isManifestRoutePath(url.pathname, routes)) {
+  if (routes.dataPath && pathStartsWith(url.pathname, routes.dataPath)) {
+    return stripPathBase(url, routes.dataPath);
+  }
+
+  if (routes.rootRoutes) {
     return url;
   }
 
@@ -383,6 +391,12 @@ function stripPathBase(url, basePath) {
     return next;
   }
   return next;
+}
+
+function normalizeOptionalBasePath(value) {
+  return value === false || value === null
+    ? null
+    : normalizeBasePath(value);
 }
 
 function pathStartsWith(pathname, basePath) {

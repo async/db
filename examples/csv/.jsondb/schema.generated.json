@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:11.020Z",
+  "resources": {
+    "customers": {
+      "kind": "collection",
+      "typeName": "Customer",
+      "routePath": "/customers",
+      "idField": "customerId",
+      "fields": {
+        "active": {
+          "type": "boolean",
+          "required": true
+        },
+        "customerId": {
+          "type": "string",
+          "required": true
+        },
+        "email": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "plan": {
+          "type": "string",
+          "required": true
+        },
+        "postalCode": {
+          "type": "string",
+          "required": true
+        },
+        "signupScore": {
+          "type": "number",
+          "required": true
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "customerId": "c_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "plan": "team",
+          "active": true,
+          "signupScore": 98,
+          "postalCode": "02139"
+        },
+        {
+          "customerId": "c_2",
+          "name": "Grace Hopper",
+          "email": "grace@example.com",
+          "plan": "enterprise",
+          "active": true,
+          "signupScore": 95,
+          "postalCode": "10001"
+        },
+        {
+          "customerId": "c_3",
+          "name": "Katherine Johnson",
+          "email": "katherine@example.com",
+          "plan": "starter",
+          "active": false,
+          "signupScore": 88,
+          "postalCode": "23666"
+        }
+      ],
+      "source": {
+        "typeSource": "data",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/csv/db/customers.csv",
+        "dataFormat": "csv",
+        "dataHash": "236ad22f1301398ee701746c9b5f2569b0e5b25b3281247e1e8f776a4272ba84",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "customers": [
+      "GET /customers",
+      "GET /customers/:customerId",
+      "POST /customers",
+      "PATCH /customers/:customerId",
+      "DELETE /customers/:customerId"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Customer {\n  active: Boolean!\n  customerId: ID!\n  email: String!\n  name: String!\n  plan: String!\n  postalCode: String!\n  signupScore: Float!\n}",
+  "diagnostics": []
+}

@@ -1,4 +1,4 @@
-import { jsonDbError, listChoices } from '../errors.js';
+import { dbError, listChoices } from '../errors.js';
 import { resolveResource } from '../names.js';
 
 export async function shapeCollectionRead(db, resource, records, url, options = {}) {
@@ -23,7 +23,7 @@ function parseShapeQuery(db, resource, url, options) {
   for (const relationName of expand) {
     const relation = relationMap.get(relationName);
     if (!relation) {
-      throw jsonDbError(
+      throw dbError(
         'REST_EXPAND_UNKNOWN_RELATION',
         `Unknown expanded relation "${relationName}" on ${resource.name}.`,
         {
@@ -39,7 +39,7 @@ function parseShapeQuery(db, resource, url, options) {
     }
 
     if (relation.cardinality !== 'one') {
-      throw jsonDbError(
+      throw dbError(
         'REST_EXPAND_UNSUPPORTED_CARDINALITY',
         `Relation "${relationName}" on ${resource.name} cannot be expanded by REST yet because it is ${relation.cardinality}.`,
         {
@@ -73,7 +73,7 @@ function validateSelectedFields(db, resource, select, expanded, relationMap) {
   for (const parts of select) {
     const [head, child, extra] = parts;
     if (!head || extra !== undefined) {
-      throw jsonDbError(
+      throw dbError(
         'REST_SELECT_UNSUPPORTED_DEPTH',
         `Selected path "${parts.join('.')}" is too deep.`,
         {
@@ -116,7 +116,7 @@ function validateSelectedFields(db, resource, select, expanded, relationMap) {
 }
 
 function unknownSelectField(resource, field, availableFields, path = field) {
-  return jsonDbError(
+  return dbError(
     'REST_SELECT_UNKNOWN_FIELD',
     `Unknown selected field "${field}" on ${resource.name}.`,
     {
@@ -133,7 +133,7 @@ function unknownSelectField(resource, field, availableFields, path = field) {
 }
 
 function selectRequiresExpand(resource, relationName) {
-  return jsonDbError(
+  return dbError(
     'REST_SELECT_REQUIRES_EXPAND',
     `Selected relation "${relationName}" on ${resource.name} requires explicit expand.`,
     {
@@ -230,7 +230,7 @@ function parseOffset(value) {
   }
 
   if (!/^\d+$/.test(value)) {
-    throw jsonDbError(
+    throw dbError(
       'REST_INVALID_OFFSET',
       `REST offset must be a non-negative integer: ${value}`,
       {
@@ -252,7 +252,7 @@ function parseLimit(value) {
   }
 
   if (!/^\d+$/.test(value) || Number(value) <= 0) {
-    throw jsonDbError(
+    throw dbError(
       'REST_INVALID_LIMIT',
       `REST limit must be a positive integer: ${value}`,
       {

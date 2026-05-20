@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { jsonDbError, listChoices } from '../../errors.js';
+import { dbError, listChoices } from '../../errors.js';
 import { readText, writeText } from '../../fs-utils.js';
 import { resolveResource } from '../../names.js';
 import { loadProjectSchema } from '../../schema.js';
@@ -66,7 +66,7 @@ export async function runSchema(config, args) {
     const resourceMap = new Map(project.resources.map((resource) => [resource.name, resource]));
     const { resource, candidates } = resolveResource(resourceMap, args[0]);
     if (!resource) {
-      throw jsonDbError(
+      throw dbError(
         'SCHEMA_UNKNOWN_RESOURCE',
         `Unknown schema resource "${args[0]}".`,
         {
@@ -92,11 +92,11 @@ export async function runSchema(config, args) {
 async function runSchemaUnbundle(config, project, args) {
   const resourceName = positionalArgs(args.slice(1))[0];
   if (!resourceName) {
-    throw jsonDbError(
+    throw dbError(
       'SCHEMA_UNBUNDLE_REQUIRES_RESOURCE',
       'SCHEMA_UNBUNDLE_REQUIRES_RESOURCE: schema unbundle requires a resource name.',
       {
-        hint: 'Use jsondb schema unbundle users.',
+        hint: 'Use async-db schema unbundle users.',
       },
     );
   }
@@ -104,7 +104,7 @@ async function runSchemaUnbundle(config, project, args) {
   const resource = requireSchemaResource(project, resourceName);
   const explicitSchemaOutFile = outputPath(config, valueAfter(args, '--schema-out'));
   if (!explicitSchemaOutFile && resource.schemaPath?.endsWith('.schema.mjs')) {
-    throw jsonDbError(
+    throw dbError(
       'SCHEMA_UNBUNDLE_SCHEMA_MJS_REQUIRES_OUT',
       `SCHEMA_UNBUNDLE_SCHEMA_MJS_REQUIRES_OUT: schema unbundle cannot rewrite ${path.relative(config.cwd, resource.schemaPath)} in place.`,
       {
@@ -142,11 +142,11 @@ async function runSchemaUnbundle(config, project, args) {
 async function runSchemaBundle(config, project, args) {
   const resourceName = positionalArgs(args.slice(1))[0];
   if (!resourceName) {
-    throw jsonDbError(
+    throw dbError(
       'SCHEMA_BUNDLE_REQUIRES_RESOURCE',
       'SCHEMA_BUNDLE_REQUIRES_RESOURCE: schema bundle requires a resource name.',
       {
-        hint: 'Use jsondb schema bundle users --out artifacts/users.bundle.schema.json.',
+        hint: 'Use async-db schema bundle users --out artifacts/users.bundle.schema.json.',
       },
     );
   }
@@ -161,7 +161,7 @@ async function runSchemaBundle(config, project, args) {
 
   const force = hasFlag(args, '--force');
   if (isInsidePath(config.sourceDir, outFile) && !force) {
-    throw jsonDbError(
+    throw dbError(
       'SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE',
       `SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE: schema bundle output ${path.relative(config.cwd, outFile)} is inside the active fixture directory.`,
       {
@@ -187,11 +187,11 @@ async function runSchemaInfer(config, args) {
   const project = await loadProjectSchema(inferredConfig);
 
   if (outFile && !resourceName) {
-    throw jsonDbError(
+    throw dbError(
       'SCHEMA_INFER_OUT_REQUIRES_RESOURCE',
       'SCHEMA_INFER_OUT_REQUIRES_RESOURCE: schema infer --out requires a resource name.',
       {
-        hint: 'Use jsondb schema infer users --out db/users.schema.jsonc.',
+        hint: 'Use async-db schema infer users --out db/users.schema.jsonc.',
       },
     );
   }
@@ -216,7 +216,7 @@ function requireSchemaResource(project, name) {
   const resourceMap = new Map(project.resources.map((resource) => [resource.name, resource]));
   const { resource, candidates } = resolveResource(resourceMap, name);
   if (!resource) {
-    throw jsonDbError(
+    throw dbError(
       'SCHEMA_UNKNOWN_RESOURCE',
       `Unknown schema resource "${name}".`,
       {
@@ -272,7 +272,7 @@ async function writeOutput(filePath, content, config, options = {}) {
     try {
       const existing = await readText(filePath);
       if (!contentMatches(existing, content)) {
-        throw jsonDbError(
+        throw dbError(
           'SCHEMA_OUTPUT_EXISTS',
           `SCHEMA_OUTPUT_EXISTS: ${path.relative(config.cwd, filePath)} already exists with different content.`,
           {

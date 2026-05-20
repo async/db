@@ -1,5 +1,5 @@
 import { camelCase, singularResourceName } from '../names.js';
-import { describeValue, graphqlError, jsonDbError, listChoices } from '../errors.js';
+import { describeValue, graphqlError, dbError, listChoices } from '../errors.js';
 import { parseGraphql } from './parser.js';
 
 export async function executeGraphql(db, request) {
@@ -27,7 +27,7 @@ async function executeGraphqlSingle(db, request) {
     const operationName = typeof request === 'string' ? null : request.operationName ?? null;
 
     if (!query || typeof query !== 'string') {
-      throw jsonDbError(
+      throw dbError(
         'GRAPHQL_MISSING_QUERY',
         'GraphQL request is missing a query string.',
         {
@@ -60,7 +60,7 @@ function selectOperation(document, operationName) {
   if (operationName) {
     const operation = operations.find((candidate) => candidate.name === operationName);
     if (!operation) {
-      throw jsonDbError(
+      throw dbError(
         'GRAPHQL_UNKNOWN_OPERATION',
         `Unknown GraphQL operation "${operationName}".`,
         {
@@ -79,7 +79,7 @@ function selectOperation(document, operationName) {
     return operations[0];
   }
 
-  throw jsonDbError(
+  throw dbError(
     'GRAPHQL_OPERATION_NAME_REQUIRED',
     'GraphQL operationName is required when a document contains multiple operations.',
     {
@@ -158,7 +158,7 @@ async function executeQueryField(db, selection, variables) {
 
   const resource = findQueryResource(db, selection.name);
   if (!resource) {
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_UNKNOWN_QUERY_FIELD',
       `Unknown GraphQL query field "${selection.name}".`,
       {
@@ -196,7 +196,7 @@ async function executeQueryField(db, selection, variables) {
 async function executeMutationField(db, selection, variables) {
   const mutation = parseMutationName(db, selection.name);
   if (!mutation) {
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_UNKNOWN_MUTATION_FIELD',
       `Unknown GraphQL mutation field "${selection.name}".`,
       {
@@ -247,7 +247,7 @@ async function executeCollectionMutation(db, mutation, selection, variables) {
     return collection.delete(id);
   }
 
-  throw jsonDbError('GRAPHQL_UNSUPPORTED_MUTATION', `Unsupported GraphQL collection mutation "${selection.name}".`);
+  throw dbError('GRAPHQL_UNSUPPORTED_MUTATION', `Unsupported GraphQL collection mutation "${selection.name}".`);
 }
 
 async function executeDocumentMutation(db, mutation, selection, variables) {
@@ -268,7 +268,7 @@ async function executeDocumentMutation(db, mutation, selection, variables) {
     return document.all();
   }
 
-  throw jsonDbError('GRAPHQL_UNSUPPORTED_MUTATION', `Unsupported GraphQL document mutation "${selection.name}".`);
+  throw dbError('GRAPHQL_UNSUPPORTED_MUTATION', `Unsupported GraphQL document mutation "${selection.name}".`);
 }
 
 function findQueryResource(db, fieldName) {
@@ -375,11 +375,11 @@ function shouldIncludeSelection(selection, variables) {
       continue;
     }
 
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_UNSUPPORTED_DIRECTIVE',
       `Unsupported GraphQL directive "@${directive.name}".`,
       {
-        hint: 'jsondb supports @include(if: Boolean) and @skip(if: Boolean) executable directives.',
+        hint: 'db supports @include(if: Boolean) and @skip(if: Boolean) executable directives.',
         details: {
           directive: directive.name,
         },
@@ -392,7 +392,7 @@ function shouldIncludeSelection(selection, variables) {
 
 function directiveCondition(directive, variables) {
   if (!('if' in directive.arguments)) {
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_DIRECTIVE_MISSING_IF',
       `GraphQL directive "@${directive.name}" requires argument "if".`,
       {
@@ -406,7 +406,7 @@ function directiveCondition(directive, variables) {
 
   const value = evaluateValue(directive.arguments.if, variables);
   if (typeof value !== 'boolean') {
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_DIRECTIVE_INVALID_IF',
       `GraphQL directive "@${directive.name}" requires Boolean argument "if", but received ${describeValue(value)}.`,
       {
@@ -425,7 +425,7 @@ function directiveCondition(directive, variables) {
 function requireFragment(fragments, name) {
   const fragment = fragments[name];
   if (!fragment) {
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_UNKNOWN_FRAGMENT',
       `Unknown GraphQL fragment "${name}".`,
       {
@@ -455,7 +455,7 @@ function readArgument(selection, name, variables) {
 function readRequiredIdArgument(selection, variables) {
   const id = readArgument(selection, 'id', variables);
   if (id === undefined || id === null || id === '') {
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_MISSING_ID_ARGUMENT',
       `GraphQL field "${selection.name}" requires argument "id".`,
       {
@@ -471,7 +471,7 @@ function evaluateValue(valueNode, variables) {
   switch (valueNode.kind) {
     case 'variable':
       if (!(valueNode.name in variables)) {
-        throw jsonDbError(
+        throw dbError(
           'GRAPHQL_MISSING_VARIABLE',
           `GraphQL variable "$${valueNode.name}" was referenced but not provided.`,
           {
@@ -513,7 +513,7 @@ function isObject(value) {
 }
 
 function argumentTypeError(field, argument, expected, actual) {
-  return jsonDbError(
+  return dbError(
     'GRAPHQL_INVALID_ARGUMENT_TYPE',
     `GraphQL mutation "${field}" requires ${expected} argument "${argument}", but received ${describeValue(actual)}.`,
     {

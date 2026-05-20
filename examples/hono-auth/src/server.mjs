@@ -10,4 +10,4 @@ serve({
   port,
 });
 
-console.log(`JSONDB Hono auth example: http://127.0.0.1:${port}`);
+console.log(`db Hono auth example: http://127.0.0.1:${port}`);

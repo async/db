@@ -1,5 +1,5 @@
 export {
   applyDefaultsToRecord,
   applyDefaultsToSeed,
-  syncJsonFixtureDb,
+  syncDb,
 } from './features/sync/index.js';

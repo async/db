@@ -1,0 +1,9 @@
+[
+  {
+    "id": "proj_1",
+    "name": "Local admin prototype",
+    "ownerId": "u_1",
+    "status": "active",
+    "notes": "Uses generated manifest metadata to choose form controls."
+  }
+]

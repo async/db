@@ -1,0 +1,7 @@
+{
+  "theme": "light",
+  "locale": "en-US",
+  "features": {
+    "billing": false
+  }
+}

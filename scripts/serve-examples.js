@@ -65,7 +65,7 @@ export async function serveExamples(options = {}) {
     indexServer.listen(indexPort, host, resolve);
   });
 
-  console.log(`jsondb examples index: http://${host}:${indexPort}`);
+  console.log(`db examples index: http://${host}:${indexPort}`);
   for (const example of running) {
     const tail = example.demoUrl ? `${example.demoUrl} (demo) · ${example.viewerUrl}` : example.viewerUrl;
     console.log(`${example.name.padEnd(14)} ${tail}`);
@@ -117,7 +117,7 @@ export function renderExamplesIndex(examples) {
             <a class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800" href="${escapeHtml(example.demoUrl ?? example.viewerUrl)}">${escapeHtml(example.demoUrl ? 'Open demo' : 'Open viewer')}</a>
             ${example.demoUrl ? `<a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.viewerUrl)}">Built-in viewer</a>` : ''}
             ${renderDemoLinks(example)}
-            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/__jsondb/schema">Schema JSON</a>
+            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/__db/schema">Schema JSON</a>
             <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/graphql">GraphQL SDL</a>
           </div>
         </article>`).join('');
@@ -127,15 +127,15 @@ export function renderExamplesIndex(examples) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>jsondb examples</title>
+  <title>db examples</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body class="bg-slate-50 text-slate-950">
   <main class="mx-auto max-w-5xl px-5 py-8">
     <header class="mb-6">
-      <h1 class="text-2xl font-bold tracking-normal">jsondb examples</h1>
-      <p class="mt-2 text-sm text-slate-600">Each example listens on its own port. Examples may ship <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">serve-example.mjs</code> to mount custom middleware ahead of the jsondb REST stack.</p>
+      <h1 class="text-2xl font-bold tracking-normal">db examples</h1>
+      <p class="mt-2 text-sm text-slate-600">Each example listens on its own port. Examples may ship <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">serve-example.mjs</code> to mount custom middleware ahead of the db REST stack.</p>
     </header>
     <section class="grid gap-4 sm:grid-cols-2">
 ${rows}
@@ -188,7 +188,7 @@ function parseArgs(args) {
 async function readExampleMetadata(cwd, name) {
   const defaults = {
     title: titleFromName(name),
-    description: 'Local jsondb example.',
+    description: 'Local db example.',
     tags: [],
   };
 

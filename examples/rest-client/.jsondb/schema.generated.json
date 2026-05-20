@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:30.992Z",
+  "resources": {
+    "settings": {
+      "kind": "document",
+      "typeName": "Settings",
+      "routePath": "/settings",
+      "fields": {
+        "itemsPerPage": {
+          "type": "number",
+          "required": false
+        },
+        "showBetaFeatures": {
+          "type": "boolean",
+          "required": false
+        },
+        "theme": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "relations": [],
+      "seed": {
+        "theme": "system",
+        "itemsPerPage": 20,
+        "showBetaFeatures": true
+      },
+      "source": {
+        "typeSource": "data",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/rest-client/db/settings.json",
+        "dataFormat": "json",
+        "dataHash": "3a6d74e24c7bfc53ab5e06a48cba0559689f40eba753261a4f5666d7e18b144a",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable user id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Display name shown in the app."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Email address used for local sign-in.",
+          "unique": true
+        },
+        "role": {
+          "type": "enum",
+          "description": "Local authorization role.",
+          "default": "user",
+          "values": [
+            "admin",
+            "user"
+          ]
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "role": "admin"
+        },
+        {
+          "id": "u_2",
+          "name": "Grace Hopper",
+          "email": "grace@example.com",
+          "role": "user"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/rest-client/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "settings": [
+      "GET /settings",
+      "PUT /settings",
+      "PATCH /settings"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Settings {\n  itemsPerPage: Float\n  showBetaFeatures: Boolean\n  theme: String\n}\n\ntype User {\n  \"Stable user id.\"\n  id: ID!\n  \"Display name shown in the app.\"\n  name: String!\n  \"Email address used for local sign-in.\"\n  email: String!\n  \"Local authorization role.\"\n  role: String\n}",
+  "diagnostics": []
+}

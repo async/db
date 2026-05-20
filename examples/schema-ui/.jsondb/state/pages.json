@@ -1,0 +1,10 @@
+[
+  {
+    "id": "page_home",
+    "title": "Home",
+    "status": "draft",
+    "authorId": "u_1",
+    "summary": "A small page record used by the schema UI example.",
+    "bodyMarkdown": "# Welcome\n\nThis body is edited with a markdown template."
+  }
+]

@@ -14,7 +14,7 @@ export function renderHomePage(manifest, recordsByCollection) {
     title: 'Schema UI · CMS home',
     body: `
     <h1>CMS home</h1>
-    <p>Resources from <code>src/generated/jsondb.schema.json</code>, records loaded from the jsondb mirror.</p>
+    <p>Resources from <code>src/generated/db.schema.json</code>, records loaded from the db mirror.</p>
     <ul>${links.join('\n')}</ul>
     <p><a href="/templates">Static component templates</a> (no live data).</p>`,
   });

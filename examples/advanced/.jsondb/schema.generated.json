@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:04.625Z",
+  "resources": {
+    "projects": {
+      "kind": "collection",
+      "typeName": "Project",
+      "routePath": "/projects",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "name": {
+          "type": "string",
+          "required": true
+        },
+        "ownerId": {
+          "type": "string",
+          "required": true
+        },
+        "status": {
+          "type": "enum",
+          "default": "planned",
+          "values": [
+            "planned",
+            "active",
+            "paused",
+            "done"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "default": {},
+          "fields": {
+            "priority": {
+              "type": "string",
+              "default": "normal"
+            }
+          }
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "proj_1",
+          "name": "Local checkout",
+          "ownerId": "u_1",
+          "status": "active",
+          "metadata": {
+            "priority": "high"
+          }
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/advanced/db/projects.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "settings": {
+      "kind": "document",
+      "typeName": "Settings",
+      "routePath": "/settings",
+      "fields": {
+        "features": {
+          "type": "object",
+          "required": false,
+          "fields": {
+            "billing": {
+              "type": "boolean",
+              "required": false
+            },
+            "graphql": {
+              "type": "boolean",
+              "required": false
+            }
+          }
+        },
+        "locale": {
+          "type": "string",
+          "required": false
+        },
+        "theme": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "relations": [],
+      "seed": {
+        "theme": "dark",
+        "locale": "en-US",
+        "features": {
+          "billing": true,
+          "graphql": true
+        }
+      },
+      "source": {
+        "typeSource": "data",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/advanced/db/settings.jsonc",
+        "dataFormat": "jsonc",
+        "dataHash": "7aa5715a8bea67830cb328640e8244fd635b3362edfd1e2d524691535bf7a1c8",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "description": "Users who can sign into the local test app.",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable user id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Display name shown in the UI."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Unique email address."
+        },
+        "role": {
+          "type": "enum",
+          "description": "Local authorization role.",
+          "default": "user",
+          "values": [
+            "admin",
+            "editor",
+            "user"
+          ]
+        },
+        "twitterHandle": {
+          "type": "string",
+          "description": "Optional social handle used by local profile demos."
+        },
+        "profile": {
+          "type": "object",
+          "fields": {
+            "title": {
+              "type": "string",
+              "default": "Contributor"
+            },
+            "location": {
+              "type": "string",
+              "default": "Remote"
+            }
+          }
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "role": "admin",
+          "profile": {
+            "title": "Mathematician",
+            "location": "London"
+          },
+          "twitterHandle": "@ada"
+        },
+        {
+          "id": "u_2",
+          "name": "Katherine Johnson",
+          "email": "katherine@example.com",
+          "role": "editor",
+          "profile": {
+            "title": "Research mathematician",
+            "location": "Virginia"
+          }
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/advanced/db/users.json",
+        "dataFormat": "json",
+        "dataHash": "c8262b4f749453b3abc4b0a7d9f229388447d874a7ea204811ca9300890912b2",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/advanced/db/users.schema.mjs",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "projects": [
+      "GET /projects",
+      "GET /projects/:id",
+      "POST /projects",
+      "PATCH /projects/:id",
+      "DELETE /projects/:id"
+    ],
+    "settings": [
+      "GET /settings",
+      "PUT /settings",
+      "PATCH /settings"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Project {\n  id: ID!\n  name: String!\n  ownerId: String!\n  status: String\n  metadata: JSON\n}\n\ntype Settings {\n  features: JSON\n  locale: String\n  theme: String\n}\n\ntype User {\n  \"Stable user id.\"\n  id: ID!\n  \"Display name shown in the UI.\"\n  name: String!\n  \"Unique email address.\"\n  email: String!\n  \"Local authorization role.\"\n  role: String\n  \"Optional social handle used by local profile demos.\"\n  twitterHandle: String\n  profile: JSON\n}",
+  "diagnostics": []
+}

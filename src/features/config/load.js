@@ -14,7 +14,7 @@ export async function loadConfig(options = {}) {
   let userConfig = {};
   if (configPath) {
     const url = pathToFileURL(configPath);
-    url.searchParams.set('jsondbConfigLoad', String(Date.now()));
+    url.searchParams.set('dbConfigLoad', String(Date.now()));
     const module = await import(url.href);
     userConfig = module.default ?? module.config ?? {};
   }
@@ -58,7 +58,7 @@ export async function loadConfig(options = {}) {
 }
 
 async function findConfigPath(cwd) {
-  for (const filename of ['jsondb.config.mjs', 'jsondb.config.js']) {
+  for (const filename of ['db.config.mjs', 'db.config.js']) {
     const candidate = path.join(cwd, filename);
     try {
       await access(candidate);

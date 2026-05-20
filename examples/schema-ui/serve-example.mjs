@@ -1,6 +1,6 @@
 /**
  * Examples launcher hook — mounted by `scripts/serve-examples.js` when present.
- * Keeps JSONDB REST / `/__jsondb` wiring local to this example.
+ * Keeps db REST / `/__db` wiring local to this example.
  */
 import { startSchemaUiServer } from './src/start-schema-ui-server.mjs';
 
@@ -17,7 +17,7 @@ export async function startExampleServer(context) {
 
   return {
     ...app,
-    viewerUrl: `${app.url}/__jsondb`,
+    viewerUrl: `${app.url}/__db`,
     demoUrl: `${app.url}/`,
     demoLinks: [
       { label: 'Static templates', href: '/templates' },

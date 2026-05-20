@@ -4,11 +4,11 @@ export function renderPackageJson(options) {
     hono: '^4.6.0',
   };
   if (options.api.includes('graphql')) {
-    dependencies.jsondb = '^0.1.0';
+    dependencies['@async/db'] = '^0.1.0';
   }
 
   return `${JSON.stringify({
-    name: 'jsondb-api',
+    name: 'db-api',
     version: '0.1.0',
     private: true,
     type: 'module',

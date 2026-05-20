@@ -1,1 +1,1 @@
-export { jsondbPlugin } from './integrations/vite.js';
+export { dbPlugin } from './integrations/vite.js';

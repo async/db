@@ -77,7 +77,7 @@ function mixedModeSchemaSeedDiagnostic(resource, dataSource, schemaSource) {
     resource,
     file: schemaSource.file,
     message: `${schemaSource.file} includes seed records, but ${dataSource.file} provides seed data for "${resource}".`,
-    hint: `Remove "seed" from ${schemaSource.file}, or run jsondb schema unbundle ${resource} to keep seed data in a separate fixture.`,
+    hint: `Remove "seed" from ${schemaSource.file}, or run async-db schema unbundle ${resource} to keep seed data in a separate fixture.`,
     details: {
       resource,
       schemaFile: schemaSource.file,

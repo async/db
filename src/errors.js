@@ -1,8 +1,8 @@
 export {
   describeValue,
   graphqlError,
-  JsonDbError,
-  jsonDbError,
+  DbError,
+  dbError,
   listChoices,
   serializeError,
 } from './shared/errors.js';

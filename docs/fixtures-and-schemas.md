@@ -1,6 +1,6 @@
 # Fixtures And Schemas
 
-jsondb discovers fixture and schema sources recursively under the configured fixture folder, `./db` by default.
+@async/db discovers fixture and schema sources recursively under the configured fixture folder, `./db` by default.
 
 Supported built-in source formats:
 
@@ -17,7 +17,7 @@ TypeScript schema files are intentionally not loaded directly in v1 because Node
 
 ## Data-First JSON Or JSONC
 
-Use `db/users.json` or `db/users.jsonc` when you already have sample records and want jsondb to infer the collection schema.
+Use `db/users.json` or `db/users.jsonc` when you already have sample records and want @async/db to infer the collection schema.
 
 ```json
 [
@@ -29,7 +29,7 @@ Use `db/users.json` or `db/users.jsonc` when you already have sample records and
 ]
 ```
 
-Collections always get an id field. If a JSON, JSONC, or CSV collection fixture omits `id`, jsondb adds counter ids in the selected runtime store:
+Collections always get an id field. If a JSON, JSONC, or CSV collection fixture omits `id`, @async/db adds counter ids in the selected runtime store:
 
 ```json
 [
@@ -53,7 +53,7 @@ id,name,email,active
 u_1,Ada Lovelace,ada@example.com,true
 ```
 
-`sync` parses the header row, infers a collection schema, and writes `.jsondb/state/users.json` through the default JSON store. Source hashes are tracked so changed source fixtures refresh the selected runtime store, while unchanged source fixtures preserve runtime edits.
+`sync` parses the header row, infers a collection schema, and writes `.db/state/users.json` through the default JSON store. Source hashes are tracked so changed source fixtures refresh the selected runtime store, while unchanged source fixtures preserve runtime edits.
 
 When a CSV is paired with a schema file, array fields stay arrays in runtime state. For example, a schema field like `"tags": { "type": "array", "items": { "type": "string" } }` accepts a CSV cell such as `renewal;priority` or a JSON array string such as `["renewal","priority"]`.
 
@@ -105,10 +105,10 @@ Field constraints are checked during `sync`, schema validation, package API writ
 
 ## JavaScript Schema Sources
 
-Executable schema files can use `jsondb/schema` helpers:
+Executable schema files can use `@async/db/schema` helpers:
 
 ```js
-import { collection, field } from 'jsondb/schema';
+import { collection, field } from '@async/db/schema';
 
 export default collection({
   idField: 'id',
@@ -142,12 +142,12 @@ Use inference to move from fuzzy seed data toward explicit schema. If an explici
 
 ## Source Readers
 
-jsondb reads all source files through a reader pipeline. Built-in readers handle JSON, JSONC, CSV, and schema files. Add `sources.readers` when another file format should remain the source of truth.
+@async/db reads all source files through a reader pipeline. Built-in readers handle JSON, JSONC, CSV, and schema files. Add `sources.readers` when another file format should remain the source of truth.
 
 ```js
-// jsondb.config.mjs
+// db.config.mjs
 // @ts-check
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   sources: {
@@ -194,7 +194,7 @@ db/
 That layout creates `pages` and `charts` resources. If nested folders contain repeated basenames, configure naming:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   resources: {

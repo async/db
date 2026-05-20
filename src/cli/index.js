@@ -57,7 +57,7 @@ export async function main(args = process.argv.slice(2)) {
       await runGenerate(config, args.slice(1));
       break;
     default:
-      throw new Error(`Unknown command "${command}". Run "jsondb help".`);
+      throw new Error(`Unknown command "${command}". Run "async-db help".`);
   }
 }
 

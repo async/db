@@ -1,22 +1,22 @@
-import { openJsonFixtureDb } from '../db.js';
+import { openDb } from '../db.js';
 import { serializeError } from '../errors.js';
 import { executeGraphql } from '../graphql/index.js';
 import { resolveResource } from '../names.js';
 import { shapeCollectionRead } from '../rest/shape.js';
 import { makeGeneratedSchema } from '../schema.js';
-import { openSqliteJsonDb } from '../sqlite.js';
+import { openSqliteDb } from '../sqlite.js';
 
-export async function createJsonDbHonoApp(options = {}) {
+export async function createDbHonoApp(options = {}) {
   const { Hono } = await importHono();
   const app = new Hono();
   const db = await openHonoDb(options);
   const api = normalizeApi(options.api ?? ['rest']);
 
-  app.use('*', jsonDbContext(db));
-  app.onError((error, c) => c.json(serializeError(error, 'HONO_JSONDB_ERROR'), error.status ?? 500));
+  app.use('*', dbContext(db));
+  app.onError((error, c) => c.json(serializeError(error, 'HONO_DB_ERROR'), error.status ?? 500));
 
   if (api.includes('rest')) {
-    registerRestRoutes(app, db, options.restRoutes ?? options.rest ?? {});
+    registerDbRoutes(app, db, options.restRoutes ?? options.rest ?? {});
   }
 
   if (api.includes('graphql')) {
@@ -28,7 +28,7 @@ export async function createJsonDbHonoApp(options = {}) {
   return app;
 }
 
-export function jsonDbContext(dbOrOptions) {
+export function dbContext(dbOrOptions) {
   const db = typeof dbOrOptions?.collection === 'function'
     ? dbOrOptions
     : null;
@@ -36,24 +36,24 @@ export function jsonDbContext(dbOrOptions) {
 
   return async (c, next) => {
     dbPromise ??= openHonoDb(dbOrOptions ?? {});
-    c.set('jsondb', await dbPromise);
+    c.set('db', await dbPromise);
     await next();
   };
 }
 
-export async function createJsonDbContext(options = {}) {
-  return jsonDbContext(await openHonoDb(options));
+export async function createDbContext(options = {}) {
+  return dbContext(await openHonoDb(options));
 }
 
 async function openHonoDb(options) {
   if (options.storage?.kind === 'sqlite') {
-    return openSqliteJsonDb(options);
+    return openSqliteDb(options);
   }
 
-  return openJsonFixtureDb(options);
+  return openDb(options);
 }
 
-export function registerRestRoutes(app, db, options = {}) {
+export function registerDbRoutes(app, db, options = {}) {
   for (const resource of restResources(db, options)) {
     if (resource.kind === 'collection') {
       const collectionPath = joinPaths(options.prefix, resource.routePath);
@@ -62,7 +62,7 @@ export function registerRestRoutes(app, db, options = {}) {
         if (shortCircuit !== undefined) {
           return shortCircuit;
         }
-        const url = new URL(c.req.url ?? collectionPath, 'http://jsondb.local');
+        const url = new URL(c.req.url ?? collectionPath, 'http://db.local');
         return c.json(await shapeCollectionRead(db, resource, await db.collection(resource.name).all(), url, { allowPagination: true }));
       });
       app.get(`${collectionPath}/:id`, async (c) => {
@@ -72,7 +72,7 @@ export function registerRestRoutes(app, db, options = {}) {
           return shortCircuit;
         }
         const record = await db.collection(resource.name).get(id);
-        const url = new URL(c.req.url ?? `${collectionPath}/${id}`, 'http://jsondb.local');
+        const url = new URL(c.req.url ?? `${collectionPath}/${id}`, 'http://db.local');
         const body = record
           ? await shapeCollectionRead(db, resource, [record], url, { allowPagination: false })
           : null;
@@ -267,6 +267,6 @@ async function importHono() {
   try {
     return await import('hono');
   } catch (error) {
-    throw new Error(`jsondb/hono requires hono to be installed in your app: ${error.message}`);
+    throw new Error(`db/hono requires hono to be installed in your app: ${error.message}`);
   }
 }

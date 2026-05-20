@@ -1,10 +1,10 @@
 {
-  "name": "jsondb",
+  "name": "@async/db",
   "version": "0.1.0",
-  "description": "A local JSON fixture database with schema inference, generated TypeScript types, and a small runtime API.",
+  "description": "The Async data workflow package for JSON fixtures, generated types, local APIs, and SQLite-backed graduation.",
   "type": "module",
   "bin": {
-    "jsondb": "./src/cli.js"
+    "async-db": "./src/cli.js"
   },
   "exports": {
     ".": {
@@ -45,11 +45,11 @@
     "examples/*/example.json",
     "examples/*/package.json",
     "examples/*/db/**",
-    "examples/*/jsondb.config.mjs",
+    "examples/*/db.config.mjs",
     "examples/*/src/**",
     "docs/**/*.md",
     "!docs/goals/**",
-    "jsondb.config.example.mjs",
+    "db.config.example.mjs",
     "CHANGELOG.md",
     "README.md",
     "SPEC.md"
@@ -59,7 +59,7 @@
     "test": "node ./scripts/run-tests.js",
     "examples": "node ./scripts/serve-examples.js",
     "view:examples": "node ./scripts/serve-examples.js",
-    "jsondb": "node ./src/cli.js"
+    "db": "node ./src/cli.js"
   },
   "engines": {
     "node": ">=20"

@@ -1,0 +1,21 @@
+[
+  {
+    "id": "p_1",
+    "authorId": "u_1",
+    "title": "Notes on analytical engines",
+    "published": true,
+    "tags": [
+      "history",
+      "computing"
+    ]
+  },
+  {
+    "id": "p_2",
+    "authorId": "u_2",
+    "title": "Debugging at sea",
+    "published": false,
+    "tags": [
+      "debugging"
+    ]
+  }
+]

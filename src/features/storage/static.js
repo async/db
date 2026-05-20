@@ -1,4 +1,4 @@
-import { jsonDbError } from '../../errors.js';
+import { dbError } from '../../errors.js';
 import { applyDefaultsToSeed } from '../sync/defaults.js';
 import { seedForRuntimeState } from '../sync/synthetic-seed.js';
 
@@ -35,7 +35,7 @@ export function createStaticRuntimeAdapter(config) {
 }
 
 function readOnlyResourceError(resource) {
-  return jsonDbError(
+  return dbError(
     'STORE_RESOURCE_READ_ONLY',
     `Resource "${resource.name}" is configured with a read-only store.`,
     {

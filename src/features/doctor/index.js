@@ -9,7 +9,7 @@ import { schemaGuidanceFindings } from './schema-guidance.js';
 const BUILTIN_STORES = ['json', 'memory', 'sourceFile', 'static'];
 const LARGE_JSON_STORE_RECORD_COUNT = 1000;
 
-export async function runJsonDbDoctor(config) {
+export async function runDbDoctor(config) {
   const project = await loadProjectSchema(config);
   const inferredProject = await loadProjectSchema({
     ...config,
@@ -43,7 +43,7 @@ async function doctorForkFindings(config) {
         code: 'FORK_NAME_INVALID',
         severity: 'error',
         source: 'doctor',
-        message: `Invalid jsondb fork name "${forkName}".`,
+        message: `Invalid db fork name "${forkName}".`,
         hint: 'Use a folder-style name with letters, numbers, underscores, or hyphens, such as "legacy-demo".',
         details: {
           fork: forkName,
@@ -57,8 +57,8 @@ async function doctorForkFindings(config) {
         code: 'FORK_SOURCE_MISSING',
         severity: 'error',
         source: 'doctor',
-        message: `jsondb fork "${forkName}" source folder does not exist: ${forkConfig.sourceDir}`,
-        hint: `Create db.forks/${forkName}/ or update forks["${forkName}"] in jsondb.config.mjs.`,
+        message: `db fork "${forkName}" source folder does not exist: ${forkConfig.sourceDir}`,
+        hint: `Create db.forks/${forkName}/ or update forks["${forkName}"] in db.config.mjs.`,
         details: {
           fork: forkName,
           sourceDir: forkConfig.sourceDir,
@@ -78,7 +78,7 @@ async function doctorForkFindings(config) {
         code: 'FORK_SCHEMA_INVALID',
         severity: 'error',
         source: 'doctor',
-        message: `jsondb fork "${forkName}" could not be loaded: ${error.message}`,
+        message: `db fork "${forkName}" could not be loaded: ${error.message}`,
         hint: `Fix the fork source files in ${forkConfig.sourceDir}.`,
         details: {
           fork: forkName,

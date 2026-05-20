@@ -1,6 +1,6 @@
-import type { JsonDbOptions, JsonFixtureDb } from './index.d.ts';
+import type { DbOptions, Db } from './index.d.ts';
 
-export type SqliteJsonDbOptions = JsonDbOptions & {
+export type SqliteDbOptions = DbOptions & {
   file?: string;
   storage?: {
     kind?: 'sqlite';
@@ -8,7 +8,7 @@ export type SqliteJsonDbOptions = JsonDbOptions & {
   };
 };
 
-export function openSqliteJsonDb(options?: SqliteJsonDbOptions): Promise<JsonFixtureDb>;
+export function openSqliteDb(options?: SqliteDbOptions): Promise<Db>;
 export function sqliteStore(options?: { file?: string }): unknown;
 export const sqliteStoreCapabilities: {
   writable: true;
@@ -18,7 +18,7 @@ export const sqliteStoreCapabilities: {
   staticExport: false;
   production: 'small-local';
 };
-export function migrateSqliteJsonDb(database: unknown, resources: unknown[]): void;
-export class SqliteJsonDb {}
-export class SqliteJsonDbCollection {}
-export class SqliteJsonDbDocument {}
+export function migrateSqliteDb(database: unknown, resources: unknown[]): void;
+export class SqliteDb {}
+export class SqliteDbCollection {}
+export class SqliteDbDocument {}

@@ -89,7 +89,7 @@ function renderCms(schemaManifest) {
 <body>
   <main>
     <h1>Schema UI Example</h1>
-    <p>This HTML is generated from src/generated/jsondb.schema.json.</p>
+    <p>This HTML is generated from src/generated/db.schema.json.</p>
 ${collections.map(renderCollection).join('\n')}
   </main>
 </body>
@@ -169,7 +169,7 @@ function isPrimaryModule() {
 }
 
 if (isPrimaryModule()) {
-  const manifestUrl = new URL('./generated/jsondb.schema.json', import.meta.url);
+  const manifestUrl = new URL('./generated/db.schema.json', import.meta.url);
   const manifest = await readManifest(manifestUrl);
   console.log(renderSchemaUiHtml(manifest));
 }

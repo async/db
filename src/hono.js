@@ -1,1 +1,1 @@
-export { createJsonDbContext, createJsonDbHonoApp, jsonDbContext, registerRestRoutes } from './integrations/hono.js';
+export { createDbContext, createDbHonoApp, dbContext, registerDbRoutes } from './integrations/hono.js';

@@ -1,4 +1,4 @@
-import { jsonDbError } from '../errors.js';
+import { dbError } from '../errors.js';
 
 export function parseGraphql(source) {
   const parser = new Parser(tokenize(source));
@@ -64,15 +64,15 @@ class Parser {
         this.skipBalanced('(', ')');
       }
     } else if (this.peekName('subscription')) {
-      throw jsonDbError(
+      throw dbError(
         'GRAPHQL_SUBSCRIPTION_UNSUPPORTED',
-        'GraphQL subscriptions are not supported by jsondb.',
+        'GraphQL subscriptions are not supported by db.',
         {
-          hint: 'Use query or mutation operations. jsondb is a local fixture server and does not keep long-lived subscription streams.',
+          hint: 'Use query or mutation operations. db is a local fixture server and does not keep long-lived subscription streams.',
         },
       );
     } else {
-      throw jsonDbError(
+      throw dbError(
         'GRAPHQL_PARSE_EXPECTED_OPERATION',
         `Expected GraphQL operation or fragment but found "${this.peek().value}".`,
         {
@@ -259,7 +259,7 @@ class Parser {
       return this.parseObject();
     }
 
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_PARSE_UNEXPECTED_VALUE',
       `Unexpected GraphQL value token "${token.value}".`,
       {
@@ -308,7 +308,7 @@ class Parser {
     while (depth > 0) {
       const token = this.consume();
       if (token.type === 'eof') {
-        throw jsonDbError(
+        throw dbError(
           'GRAPHQL_PARSE_UNTERMINATED_GROUP',
           `Unterminated GraphQL group "${open}".`,
           {
@@ -329,7 +329,7 @@ class Parser {
   expect(value) {
     const token = this.consume();
     if (token.value !== value) {
-      throw jsonDbError(
+      throw dbError(
         'GRAPHQL_PARSE_EXPECTED_TOKEN',
         `Expected GraphQL token "${value}" but found "${token.value}".`,
         {
@@ -344,7 +344,7 @@ class Parser {
   expectName() {
     const token = this.consume();
     if (token.type !== 'name') {
-      throw jsonDbError(
+      throw dbError(
         'GRAPHQL_PARSE_EXPECTED_NAME',
         `Expected a GraphQL name but found "${token.value}".`,
         {
@@ -359,7 +359,7 @@ class Parser {
   expectNameValue(value) {
     const name = this.expectName();
     if (name !== value) {
-      throw jsonDbError(
+      throw dbError(
         'GRAPHQL_PARSE_EXPECTED_NAME_VALUE',
         `Expected GraphQL name "${value}" but found "${name}".`,
         {
@@ -443,11 +443,11 @@ function tokenize(source) {
       continue;
     }
 
-    throw jsonDbError(
+    throw dbError(
       'GRAPHQL_PARSE_UNEXPECTED_CHARACTER',
       `Unexpected GraphQL character "${char}".`,
       {
-        hint: 'jsondb supports a focused GraphQL subset. Check for unsupported punctuation, fragments, or directives.',
+        hint: 'db supports a focused GraphQL subset. Check for unsupported punctuation, fragments, or directives.',
         details: { character: char, index },
       },
     );
@@ -489,7 +489,7 @@ function readString(source, start) {
     index += 1;
   }
 
-  throw jsonDbError(
+  throw dbError(
     'GRAPHQL_PARSE_UNTERMINATED_STRING',
     'Unterminated GraphQL string.',
     {

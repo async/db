@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { jsonDbError } from '../../errors.js';
+import { dbError } from '../../errors.js';
 import { writeText } from '../../fs-utils.js';
 import { loadProjectSchema } from '../../schema.js';
 import { renderHonoApp, renderServerEntry } from './app.js';
@@ -13,7 +13,7 @@ import { renderInitialMigration, renderSqliteAdapter } from './sqlite.js';
 import { renderValidators } from './validators.js';
 
 const DEFAULT_OPTIONS = {
-  outDir: './jsondb-api',
+  outDir: './db-api',
   api: ['rest'],
   db: 'sqlite',
   app: 'standalone',
@@ -97,7 +97,7 @@ function resolveGenerateOptions(config, options) {
   merged.seed = merged.seed === true ? 'fixtures' : merged.seed;
 
   if (merged.db !== 'sqlite') {
-    throw jsonDbError(
+    throw dbError(
       'GENERATE_UNSUPPORTED_DB',
       `Unsupported generated database "${merged.db}".`,
       {
@@ -110,7 +110,7 @@ function resolveGenerateOptions(config, options) {
   }
 
   if (!['standalone', 'module'].includes(merged.app)) {
-    throw jsonDbError(
+    throw dbError(
       'GENERATE_UNSUPPORTED_APP_SHAPE',
       `Unsupported generated app shape "${merged.app}".`,
       {
@@ -134,7 +134,7 @@ function normalizeApi(value) {
 
   const unsupported = api.filter((item) => !['rest', 'graphql'].includes(item));
   if (unsupported.length > 0) {
-    throw jsonDbError(
+    throw dbError(
       'GENERATE_UNSUPPORTED_API',
       `Unsupported generated API target "${unsupported[0]}".`,
       {
@@ -158,7 +158,7 @@ function assertGeneratable(project, options) {
     return;
   }
 
-  const error = jsonDbError(
+  const error = dbError(
     'GENERATE_SCHEMA_DIAGNOSTICS',
     `Cannot generate Hono starter because schema diagnostics are present: ${blocking[0].message}`,
     {

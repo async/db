@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { openJsonFixtureDb } from '../index.js';
+import { openDb } from '../index.js';
 import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
 import { handleGraphqlRequest } from './http.js';
 import { executeGraphql } from './index.js';
@@ -33,7 +33,7 @@ test('dependency-free GraphQL queries support aliases and variables', async () =
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: `query GetUser($id: ID!) {
       allUsers: users {
@@ -79,7 +79,7 @@ test('dependency-free GraphQL supports repeated root fields with aliases in one 
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: `{
       users {
@@ -126,7 +126,7 @@ test('GraphQL supports operationName fragments and __typename for Apollo clients
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: `
       query ListUsers {
@@ -176,7 +176,7 @@ test('GraphQL supports include and skip directives on fields and fragments', asy
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: `
       query GetUser($id: ID!, $withEmail: Boolean!, $hideName: Boolean!) {
@@ -223,7 +223,7 @@ test('GraphQL exposes minimal schema and type introspection', async () => {
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: `{
       __schema {
@@ -311,7 +311,7 @@ test('dependency-free GraphQL collection mutations create update and delete reco
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const created = await executeGraphql(db, {
     query: `mutation CreateUser($input: JSON!) {
       created: createUser(input: $input) {
@@ -394,7 +394,7 @@ test('GraphQL collection updates do not backfill omitted schema defaults', async
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const updated = await executeGraphql(db, {
     query: `mutation {
       updateUser(id: "u_1", patch: { name: "Ada Byron" }) {
@@ -426,7 +426,7 @@ test('GraphQL collection mutations write through the selected non-JSON store', a
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const created = await executeGraphql(db, {
     query: `mutation {
       createUser(input: { id: "u_2", name: "Grace Hopper" }) {
@@ -449,7 +449,7 @@ test('GraphQL collection mutations write through the selected non-JSON store', a
     { id: 'u_2', name: 'Grace Hopper' },
   ]);
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
 });
@@ -467,7 +467,7 @@ test('dependency-free GraphQL mutations reject schema field type mismatches', as
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: `mutation {
       createUser(input: { id: "u_1", email: 42, role: "owner" }) {
@@ -505,7 +505,7 @@ test('dependency-free GraphQL mutations reject schema constraint violations', as
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: `mutation {
       createUser(input: { id: "u_2", email: "bad-email", age: 12 }) {
@@ -532,7 +532,7 @@ test('dependency-free GraphQL document queries and mutations work', async () => 
     },
   }));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const updated = await executeGraphql(db, {
     query: `mutation {
       updateSettings(patch: { theme: "dark" }) {
@@ -601,7 +601,7 @@ test('dependency-free GraphQL supports batched requests', async () => {
     theme: 'light',
   }));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, [
     {
       query: '{ users { id name } }',
@@ -641,7 +641,7 @@ test('GraphQL errors include codes hints and available fields', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: '{ nope { id } }',
   });
@@ -662,7 +662,7 @@ test('GraphQL missing variable errors explain the fix', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const result = await executeGraphql(db, {
     query: 'query GetUser($id: ID!) { user(id: $id) { id } }',
   });
@@ -681,7 +681,7 @@ test('GraphQL collection mutations reject missing id arguments', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const updated = await executeGraphql(db, {
     query: `mutation {
       updateUser(patch: { name: "Ada Byron" }) {
@@ -731,7 +731,7 @@ test('GraphQL HTTP handler returns 413 for oversized JSON bodies', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     server: {
       maxBodyBytes: 12,

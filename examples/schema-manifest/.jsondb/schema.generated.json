@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:31.003Z",
+  "resources": {
+    "projects": {
+      "kind": "collection",
+      "typeName": "Project",
+      "routePath": "/projects",
+      "idField": "id",
+      "description": "Projects used to demonstrate generated form metadata.",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable project id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Project display name."
+        },
+        "ownerId": {
+          "type": "string",
+          "required": true,
+          "description": "Owner user id.",
+          "relation": {
+            "name": "owner",
+            "to": "users",
+            "toField": "id",
+            "cardinality": "one"
+          }
+        },
+        "status": {
+          "type": "enum",
+          "description": "Workflow status for local admin forms.",
+          "default": "planned",
+          "values": [
+            "planned",
+            "active",
+            "paused",
+            "done"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Internal project notes.",
+          "maxLength": 500
+        }
+      },
+      "relations": [
+        {
+          "name": "owner",
+          "sourceResource": "projects",
+          "sourceField": "ownerId",
+          "targetResource": "users",
+          "targetField": "id",
+          "cardinality": "one"
+        }
+      ],
+      "seed": [
+        {
+          "id": "proj_1",
+          "name": "Local admin prototype",
+          "ownerId": "u_1",
+          "status": "active",
+          "notes": "Uses generated manifest metadata to choose form controls."
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/schema-manifest/db/projects.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "description": "People who can own local projects.",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable user id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Display name."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Email shown in admin forms.",
+          "unique": true
+        },
+        "bio": {
+          "type": "string",
+          "description": "Markdown biography for profile previews."
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "bio": "First programmer notes for local demos."
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/schema-manifest/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [
+    {
+      "name": "owner",
+      "sourceResource": "projects",
+      "sourceField": "ownerId",
+      "targetResource": "users",
+      "targetField": "id",
+      "cardinality": "one"
+    }
+  ],
+  "rest": {
+    "projects": [
+      "GET /projects",
+      "GET /projects/:id",
+      "POST /projects",
+      "PATCH /projects/:id",
+      "DELETE /projects/:id"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Project {\n  \"Stable project id.\"\n  id: ID!\n  \"Project display name.\"\n  name: String!\n  \"Owner user id.\"\n  ownerId: String!\n  \"Workflow status for local admin forms.\"\n  status: String\n  \"Internal project notes.\"\n  notes: String\n}\n\ntype User {\n  \"Stable user id.\"\n  id: ID!\n  \"Display name.\"\n  name: String!\n  \"Email shown in admin forms.\"\n  email: String!\n  \"Markdown biography for profile previews.\"\n  bio: String\n}",
+  "diagnostics": []
+}

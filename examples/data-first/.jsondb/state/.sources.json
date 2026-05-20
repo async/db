@@ -1,0 +1,22 @@
+{
+  "resources": {
+    "posts": {
+      "path": "db/posts.json",
+      "format": "json",
+      "hash": "b9eee2e7dedb14bb069476d1fc479a51990111fa19f25881cf3dd69063cbb1f5",
+      "updatedAt": "2026-05-20T01:52:11.026Z"
+    },
+    "settings": {
+      "path": "db/settings.json",
+      "format": "json",
+      "hash": "e1161be0894b7844d7ae493a04f4ad2af990b2c21dfad7e6803eef35ca951988",
+      "updatedAt": "2026-05-20T01:52:11.026Z"
+    },
+    "users": {
+      "path": "db/users.json",
+      "format": "json",
+      "hash": "9a68e13ec3fd2e9277b70dd3f85bab45316df498713fe404fcd61fe79aaef667",
+      "updatedAt": "2026-05-20T01:52:11.026Z"
+    }
+  }
+}

@@ -1,8 +1,8 @@
-import { jsonDbError } from './errors.js';
+import { dbError } from './errors.js';
 
-export function createJsonDbClient(options = {}) {
+export function createDbClient(options = {}) {
   const baseUrl = options.baseUrl ?? '';
-  const apiBase = normalizeBasePath(options.apiBase ?? '/__jsondb');
+  const apiBase = normalizeBasePath(options.apiBase ?? '/__db');
   const forkPaths = forkPathsForOptions(options);
   const restBasePath = options.restBasePath ?? forkPaths.restBasePath ?? '';
   const graphqlPath = options.graphqlPath ?? forkPaths.graphqlPath ?? '/graphql';
@@ -84,7 +84,7 @@ function forkPathsForOptions(options) {
   }
 
   if (options.restBasePath || options.graphqlPath || options.restBatchPath) {
-    throw jsonDbError(
+    throw dbError(
       'CLIENT_FORK_PATH_CONFLICT',
       'The client fork option cannot be combined with manual REST, batch, or GraphQL paths.',
       {
@@ -94,7 +94,7 @@ function forkPathsForOptions(options) {
   }
 
   const fork = normalizeForkName(options.fork);
-  const apiBase = normalizeBasePath(options.apiBase ?? '/__jsondb');
+  const apiBase = normalizeBasePath(options.apiBase ?? '/__db');
   const base = `${apiBase}/forks/${encodeURIComponent(fork)}`;
   return {
     restBasePath: `${base}/rest`,
@@ -106,9 +106,9 @@ function forkPathsForOptions(options) {
 function normalizeForkName(value) {
   const name = String(value ?? '');
   if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name)) {
-    throw jsonDbError(
+    throw dbError(
       'CLIENT_INVALID_FORK_NAME',
-      `Invalid jsondb fork name "${name}".`,
+      `Invalid db fork name "${name}".`,
       {
         hint: 'Use a folder-style name with letters, numbers, underscores, or hyphens, such as "legacy-demo".',
         details: {
@@ -267,11 +267,11 @@ async function postJson(url, body) {
       body: JSON.stringify(body),
     });
   } catch (error) {
-    throw jsonDbError(
+    throw dbError(
       'CLIENT_FETCH_FAILED',
-      `jsondb client could not reach ${url}.`,
+      `db client could not reach ${url}.`,
       {
-        hint: 'Make sure jsondb serve is running and baseUrl points at the correct host and port.',
+        hint: 'Make sure async-db serve is running and baseUrl points at the correct host and port.',
         details: {
           url,
           cause: error.message,
@@ -282,9 +282,9 @@ async function postJson(url, body) {
 
   const responseBody = await readResponseBody(response);
   if (response.ok === false) {
-    throw jsonDbError(
+    throw dbError(
       'CLIENT_HTTP_ERROR',
-      `jsondb client request to ${url} failed with HTTP ${response.status}.`,
+      `db client request to ${url} failed with HTTP ${response.status}.`,
       {
         status: response.status,
         hint: 'Inspect details.responseBody for the server error payload.',
@@ -327,7 +327,7 @@ function normalizeRestRequest(method, path, body) {
 
 function normalizeRestRequestObject(request) {
   if (!request || typeof request !== 'object' || Array.isArray(request)) {
-    throw jsonDbError(
+    throw dbError(
       'CLIENT_REST_INVALID_REQUEST',
       'REST request must be an object or method/path arguments.',
       {

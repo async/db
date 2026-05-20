@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T02:51:24.075Z",
+  "resources": {
+    "pages": {
+      "kind": "collection",
+      "typeName": "Page",
+      "routePath": "/pages",
+      "idField": "id",
+      "description": "CMS pages rendered by a tiny schema-driven UI example.",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable page id."
+        },
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "Page title shown in the CMS list."
+        },
+        "status": {
+          "type": "enum",
+          "description": "Publication state.",
+          "default": "draft",
+          "values": [
+            "draft",
+            "review",
+            "published"
+          ]
+        },
+        "authorId": {
+          "type": "string",
+          "required": true,
+          "description": "Page author.",
+          "relation": {
+            "name": "author",
+            "to": "users",
+            "toField": "id",
+            "cardinality": "one"
+          }
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short page summary.",
+          "maxLength": 160
+        },
+        "bodyMarkdown": {
+          "type": "string",
+          "description": "Markdown body content."
+        }
+      },
+      "relations": [
+        {
+          "name": "author",
+          "sourceResource": "pages",
+          "sourceField": "authorId",
+          "targetResource": "users",
+          "targetField": "id",
+          "cardinality": "one"
+        }
+      ],
+      "seed": [
+        {
+          "id": "page_home",
+          "title": "Home",
+          "status": "draft",
+          "authorId": "u_1",
+          "summary": "A small page record used by the schema UI example.",
+          "bodyMarkdown": "# Welcome\n\nThis body is edited with a markdown template."
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/schema-ui/db/pages.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "description": "Authors that can own CMS pages.",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable author id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Author display name."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Author email address.",
+          "unique": true
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/schema-ui/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [
+    {
+      "name": "author",
+      "sourceResource": "pages",
+      "sourceField": "authorId",
+      "targetResource": "users",
+      "targetField": "id",
+      "cardinality": "one"
+    }
+  ],
+  "rest": {
+    "pages": [
+      "GET /pages",
+      "GET /pages/:id",
+      "POST /pages",
+      "PATCH /pages/:id",
+      "DELETE /pages/:id"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Page {\n  \"Stable page id.\"\n  id: ID!\n  \"Page title shown in the CMS list.\"\n  title: String!\n  \"Publication state.\"\n  status: String\n  \"Page author.\"\n  authorId: String!\n  \"Short page summary.\"\n  summary: String\n  \"Markdown body content.\"\n  bodyMarkdown: String\n}\n\ntype User {\n  \"Stable author id.\"\n  id: ID!\n  \"Author display name.\"\n  name: String!\n  \"Author email address.\"\n  email: String!\n}",
+  "diagnostics": []
+}

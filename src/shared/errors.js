@@ -1,7 +1,7 @@
-export class JsonDbError extends Error {
+export class DbError extends Error {
   constructor(code, message, options = {}) {
     super(message);
-    this.name = 'JsonDbError';
+    this.name = 'DbError';
     this.code = code;
     this.status = options.status ?? 400;
     this.hint = options.hint;
@@ -9,11 +9,11 @@ export class JsonDbError extends Error {
   }
 }
 
-export function jsonDbError(code, message, options = {}) {
-  return new JsonDbError(code, message, options);
+export function dbError(code, message, options = {}) {
+  return new DbError(code, message, options);
 }
 
-export function serializeError(error, fallbackCode = 'JSONDB_ERROR') {
+export function serializeError(error, fallbackCode = 'DB_ERROR') {
   return {
     error: {
       code: error.code ?? fallbackCode,

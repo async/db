@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { loadConfig } from '../config.js';
-import { jsonDbError, listChoices } from '../errors.js';
+import { dbError, listChoices } from '../errors.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../names.js';
 import { assertRecordMatchesResource, loadProjectSchema } from '../schema.js';
 import { applyDefaultsToRecord } from '../sync.js';
@@ -12,11 +12,11 @@ import { seedForRuntimeState } from '../features/sync/synthetic-seed.js';
 
 const require = createRequire(import.meta.url);
 
-export async function openSqliteJsonDb(options = {}) {
+export async function openSqliteDb(options = {}) {
   const config = await loadConfig(options);
   const project = options.project ?? await loadProjectSchema(config);
   const storage = options.storage ?? {};
-  const file = storage.file ?? options.file ?? path.join(config.stateDir, 'sqlite', 'jsondb.sqlite');
+  const file = storage.file ?? options.file ?? path.join(config.stateDir, 'sqlite', 'db.sqlite');
   const { DatabaseSync } = await importNodeSqlite();
 
   if (file !== ':memory:') {
@@ -24,9 +24,9 @@ export async function openSqliteJsonDb(options = {}) {
   }
 
   const database = new DatabaseSync(file);
-  migrateSqliteJsonDb(database, project.resources);
+  migrateSqliteDb(database, project.resources);
 
-  return new SqliteJsonDb(config, project.resources, database);
+  return new SqliteDb(config, project.resources, database);
 }
 
 export function sqliteStore(options = {}) {
@@ -52,7 +52,7 @@ export function sqliteStore(options = {}) {
         }
       },
       readResource(resource, fallback) {
-        const row = database.prepare('SELECT value FROM "_jsondb_resources" WHERE name = ?').get(resource.name);
+        const row = database.prepare('SELECT value FROM "_db_resources" WHERE name = ?').get(resource.name);
         return row ? JSON.parse(row.value) : fallback;
       },
       writeResource(resource, value) {
@@ -102,21 +102,21 @@ export const sqliteStoreCapabilities = {
   production: 'small-local',
 };
 
-export function migrateSqliteJsonDb(database, resources) {
+export function migrateSqliteDb(database, resources) {
   for (const resource of resources) {
     if (resource.kind === 'collection') {
       database.exec(createTableSql(resource));
     }
   }
 
-  database.exec(`CREATE TABLE IF NOT EXISTS "_jsondb_documents" (
+  database.exec(`CREATE TABLE IF NOT EXISTS "_db_documents" (
     "name" TEXT PRIMARY KEY,
     "value" TEXT NOT NULL
   ) STRICT;`);
 }
 
 function migrateSqliteStore(database) {
-  database.exec(`CREATE TABLE IF NOT EXISTS "_jsondb_resources" (
+  database.exec(`CREATE TABLE IF NOT EXISTS "_db_resources" (
     "name" TEXT PRIMARY KEY,
     "kind" TEXT NOT NULL,
     "source_hash" TEXT,
@@ -143,7 +143,7 @@ function openStoreDatabase(file, databases, config) {
 }
 
 function syncSqliteStoreResource(database, config, resource) {
-  const row = database.prepare('SELECT source_hash FROM "_jsondb_resources" WHERE name = ?').get(resource.name);
+  const row = database.prepare('SELECT source_hash FROM "_db_resources" WHERE name = ?').get(resource.name);
   const sourceChanged = resource.dataHash && row?.source_hash !== resource.dataHash;
 
   if (!row || sourceChanged) {
@@ -152,13 +152,13 @@ function syncSqliteStoreResource(database, config, resource) {
   }
 
   if (config.defaults?.applyOnSafeMigration !== false) {
-    const current = JSON.parse(database.prepare('SELECT value FROM "_jsondb_resources" WHERE name = ?').get(resource.name).value);
+    const current = JSON.parse(database.prepare('SELECT value FROM "_db_resources" WHERE name = ?').get(resource.name).value);
     writeSqliteStoreResource(database, resource, applyDefaultsToSeed(current, resource, config));
   }
 }
 
 function writeSqliteStoreResource(database, resource, value) {
-  database.prepare(`INSERT INTO "_jsondb_resources" (name, kind, source_hash, value)
+  database.prepare(`INSERT INTO "_db_resources" (name, kind, source_hash, value)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET
       kind = excluded.kind,
@@ -171,7 +171,7 @@ function writeSqliteStoreResource(database, resource, value) {
   );
 }
 
-export class SqliteJsonDb {
+export class SqliteDb {
   constructor(config, resources, database) {
     this.config = config;
     this.resources = new Map(resources.map((resource) => [resource.name, resource]));
@@ -181,12 +181,12 @@ export class SqliteJsonDb {
 
   collection(name) {
     const resource = this.requireResource(name, 'collection');
-    return new SqliteJsonDbCollection(this.config, resource, this.database);
+    return new SqliteDbCollection(this.config, resource, this.database);
   }
 
   document(name) {
     const resource = this.requireResource(name, 'document');
-    return new SqliteJsonDbDocument(this.config, resource, this.database);
+    return new SqliteDbDocument(this.config, resource, this.database);
   }
 
   resourceNames() {
@@ -200,9 +200,9 @@ export class SqliteJsonDb {
   requireResource(name, kind) {
     const { resource, candidates } = resolveResource(this.resources, name);
     if (!resource) {
-      throw jsonDbError(
+      throw dbError(
         'SQLITE_UNKNOWN_RESOURCE',
-        `Unknown SQLite jsondb resource "${name}".`,
+        `Unknown SQLite db resource "${name}".`,
         {
           status: 404,
           hint: `Use one of: ${listChoices(this.resourceNames())}.`,
@@ -217,7 +217,7 @@ export class SqliteJsonDb {
     }
 
     if (resource.kind !== kind) {
-      throw jsonDbError(
+      throw dbError(
         'SQLITE_RESOURCE_KIND_MISMATCH',
         `Resource "${name}" is a ${resource.kind}, not a ${kind}.`,
         {
@@ -245,7 +245,7 @@ function assertNoResourceAliasCollisions(resources) {
   }
 
   const collision = collisions[0];
-  throw jsonDbError(
+  throw dbError(
     'SQLITE_RESOURCE_ALIAS_COLLISION',
     `Resource aliases are ambiguous for "${collision.alias}".`,
     {
@@ -262,7 +262,7 @@ function assertNoResourceAliasCollisions(resources) {
   );
 }
 
-export class SqliteJsonDbCollection {
+export class SqliteDbCollection {
   constructor(config, resource, database) {
     this.config = config;
     this.resource = resource;
@@ -307,7 +307,7 @@ export class SqliteJsonDbCollection {
       this.database.prepare(`INSERT INTO ${this.table} (${columns}) VALUES (${placeholders})`).run(...fields.map((field) => serialized[field] ?? null));
     } catch (error) {
       if (String(error.message).includes('UNIQUE')) {
-        throw jsonDbError(
+        throw dbError(
           'SQLITE_DUPLICATE_ID',
           `Cannot create "${this.resource.name}" record because id "${nextRecord[this.resource.idField]}" already exists.`,
           {
@@ -371,7 +371,7 @@ export class SqliteJsonDbCollection {
   }
 }
 
-export class SqliteJsonDbDocument {
+export class SqliteDbDocument {
   constructor(config, resource, database) {
     this.config = config;
     this.resource = resource;
@@ -379,7 +379,7 @@ export class SqliteJsonDbDocument {
   }
 
   async all() {
-    const row = this.database.prepare('SELECT value FROM "_jsondb_documents" WHERE name = ?').get(this.resource.name);
+    const row = this.database.prepare('SELECT value FROM "_db_documents" WHERE name = ?').get(this.resource.name);
     return row ? JSON.parse(row.value) : {};
   }
 
@@ -393,7 +393,7 @@ export class SqliteJsonDbDocument {
     assertRecordMatchesResource(nextDocument, this.resource, this.config, {
       source: `${this.resource.name} document body`,
     });
-    this.database.prepare('INSERT INTO "_jsondb_documents" (name, value) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value')
+    this.database.prepare('INSERT INTO "_db_documents" (name, value) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value')
       .run(this.resource.name, JSON.stringify(nextDocument));
     return nextDocument;
   }
@@ -502,7 +502,7 @@ function importNodeSqliteSync() {
 }
 
 function sqliteRuntimeUnavailableError(error) {
-  return jsonDbError(
+  return dbError(
     'SQLITE_RUNTIME_UNAVAILABLE',
     'SQLite store requires Node.js with node:sqlite support.',
     {

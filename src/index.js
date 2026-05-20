@@ -1,13 +1,13 @@
 export { loadConfig } from './config.js';
 export { mergeManifest, parseFixturePath, resourceNameFromPath } from './config-public.js';
-export { createJsonDbClient } from './client.js';
-export { openJsonFixtureDb, JsonFixtureDb, JsonDbCollection, JsonDbDocument } from './db.js';
-export { runJsonDbDoctor } from './doctor.js';
+export { createDbClient } from './client.js';
+export { openDb, Db, DbCollection, DbDocument } from './db.js';
+export { runDbDoctor } from './doctor.js';
 export { executeGraphql, executeGraphqlBatch, parseGraphql } from './graphql/index.js';
 export { generateHonoStarter, renderHonoStarter } from './generate/hono.js';
 export { loadProjectSchema, makeGeneratedSchema } from './schema.js';
 export { generateSchemaManifest, renderSchemaManifest } from './schema-manifest.js';
 export { generateViewerManifest, renderViewerManifest } from './viewer-manifest.js';
-export { createJsonDbRequestHandler, startJsonDbServer } from './server.js';
-export { syncJsonFixtureDb } from './sync.js';
+export { createDbRequestHandler, startDbServer } from './server.js';
+export { syncDb } from './sync.js';
 export { generateTypes, renderTypes } from './types.js';

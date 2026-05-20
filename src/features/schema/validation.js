@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { jsonDbError } from '../../errors.js';
+import { dbError } from '../../errors.js';
 
 export function assertRecordMatchesResource(record, resource, config, options = {}) {
   const diagnostics = validateRecordAgainstResource(record, resource, config, options)
@@ -9,7 +9,7 @@ export function assertRecordMatchesResource(record, resource, config, options = 
     return;
   }
 
-  throw jsonDbError(
+  throw dbError(
     'DB_SCHEMA_VALIDATION_FAILED',
     `${resource.name} record does not match its schema: ${diagnostics[0].message}`,
     {

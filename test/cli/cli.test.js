@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
@@ -7,6 +7,80 @@ import { promisify } from 'node:util';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 const execFileAsync = promisify(execFile);
+
+test('CLI sync smoke writes runtime and committed type outputs', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeConfig(cwd, `export default {
+  types: {
+    commitOutFile: './src/generated/db.types.ts',
+  },
+};`);
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'sync',
+    '--cwd',
+    cwd,
+  ]);
+
+  const runtimeTypes = await readFile(path.join(cwd, '.db/types/index.ts'), 'utf8');
+  const committedTypes = await readFile(path.join(cwd, 'src/generated/db.types.ts'), 'utf8');
+
+  assert.match(stdout, /Generated \.db\/schema\.generated\.json/);
+  assert.match(stdout, /Generated \.db\/types\/index\.ts/);
+  assert.match(stdout, /Generated src\/generated\/db\.types\.ts/);
+  assert.match(stdout, /Synced runtime store/);
+  assert.equal(stderr, '');
+  assert.match(runtimeTypes, /export type User =/);
+  assert.match(committedTypes, /export type User =/);
+});
+
+test('CLI schema validate smoke reports valid fixtures', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'validate',
+    '--cwd',
+    cwd,
+  ]);
+
+  assert.equal(stdout.trim(), 'Schema valid');
+  assert.equal(stderr, '');
+});
+
+test('CLI serve smoke exposes dataPath and scoped REST routes', async (t) => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  const server = spawn(process.execPath, [
+    path.resolve('src/cli.js'),
+    'serve',
+    '--cwd',
+    cwd,
+    '--host',
+    '127.0.0.1',
+    '--port',
+    '0',
+  ], {
+    cwd: path.resolve('.'),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  t.after(async () => {
+    await stopChild(server);
+  });
+
+  const url = await waitForServeUrl(server);
+  const dataPathResponse = await fetchJson(`${url}/db/users.json?id=u_1`);
+  const scopedRestResponse = await fetchJson(`${url}/__db/rest/users/u_1`);
+
+  assert.deepEqual(dataPathResponse, { id: 'u_1', name: 'Ada' });
+  assert.deepEqual(scopedRestResponse, { id: 'u_1', name: 'Ada' });
+});
 
 test('CLI schema manifest --out writes relative to --cwd', async () => {
   const cwd = await makeProject();
@@ -19,12 +93,12 @@ test('CLI schema manifest --out writes relative to --cwd', async () => {
     '--cwd',
     cwd,
     '--out',
-    './src/generated/jsondb.schema.json',
+    './src/generated/db.schema.json',
   ]);
 
-  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema.json'), 'utf8'));
 
-  assert.match(stdout, /Generated src\/generated\/jsondb\.schema\.json/);
+  assert.match(stdout, /Generated src\/generated\/db\.schema\.json/);
   assert.equal(manifest.collections.users.fields.email.ui.component, 'email');
 });
 
@@ -39,16 +113,16 @@ test('CLI viewer manifest --out writes relative to --cwd', async () => {
     '--cwd',
     cwd,
     '--out',
-    './src/generated/jsondb.viewer.json',
+    './src/generated/db.viewer.json',
   ]);
 
-  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/jsondb.viewer.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.viewer.json'), 'utf8'));
 
-  assert.match(stdout, /Generated src\/generated\/jsondb\.viewer\.json/);
-  assert.equal(manifest.kind, 'jsondb.viewerManifest');
-  assert.equal(manifest.api.manifest, '/__jsondb/manifest');
-  assert.equal(manifest.api.manifestJson, '/__jsondb/manifest.json');
-  assert.equal(manifest.api.manifestMarkdown, '/__jsondb/manifest.md');
+  assert.match(stdout, /Generated src\/generated\/db\.viewer\.json/);
+  assert.equal(manifest.kind, 'db.viewerManifest');
+  assert.equal(manifest.api.manifest, '/__db/manifest');
+  assert.equal(manifest.api.manifestJson, '/__db/manifest.json');
+  assert.equal(manifest.api.manifestMarkdown, '/__db/manifest.md');
   assert.equal(manifest.collections.users.fields.email.ui.component, 'email');
 });
 
@@ -336,7 +410,7 @@ test('CLI schema unbundle skips empty schema-only seed unless requested', async 
 
 test('CLI schema unbundle requires --schema-out for executable schema sources', async () => {
   const cwd = await makeProject();
-  await writeFixture(cwd, 'users.schema.mjs', `import { collection, field } from 'jsondb/schema';
+  await writeFixture(cwd, 'users.schema.mjs', `import { collection, field } from '@async/db/schema';
 
 export default collection({
   idField: 'id',
@@ -457,21 +531,22 @@ test('CLI types --out writes relative to --cwd', async () => {
     '--cwd',
     cwd,
     '--out',
-    './src/generated/jsondb.types.ts',
+    './src/generated/db.types.ts',
   ]);
 
-  const generated = await readFile(path.join(cwd, 'src/generated/jsondb.types.ts'), 'utf8');
+  const generated = await readFile(path.join(cwd, 'src/generated/db.types.ts'), 'utf8');
 
-  assert.match(stdout, /Generated src\/generated\/jsondb\.types\.ts/);
+  assert.match(stdout, /Generated src\/generated\/db\.types\.ts/);
   assert.match(generated, /export type User =/);
 });
 
 test('CLI subcommands print focused help without running the command', async () => {
-  await assertCliHelp(['schema', '--help'], /jsondb schema infer \[resource\] \[--out <file>\]/);
-  await assertCliHelp(['types', '--help'], /Usage:\n  jsondb types \[--watch\] \[--out <file>\]/);
-  await assertCliHelp(['doctor', '--help'], /Usage:\n  jsondb doctor \[--strict\] \[--json\]/);
-  await assertCliHelp(['serve', '--help'], /Usage:\n  jsondb serve \[--host <host>\] \[--port <port>\]/);
-  await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  jsondb generate hono/);
+  await assertCliHelp(['schema', '--help'], /async-db schema infer \[resource\] \[--out <file>\]/);
+  await assertCliHelp(['types', '--help'], /Usage:\n  async-db types \[--watch\] \[--out <file>\]/);
+  await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/);
+  await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/);
+  await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/);
+  await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/);
 });
 
 test('CLI subcommand help does not load project config', async () => {
@@ -479,11 +554,12 @@ test('CLI subcommand help does not load project config', async () => {
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
   await writeConfig(cwd, 'throw new Error("broken config should not load for help");');
 
-  await assertCliHelp(['schema', '--help'], /jsondb schema infer \[resource\] \[--out <file>\]/, cwd);
-  await assertCliHelp(['types', '--help'], /Usage:\n  jsondb types \[--watch\] \[--out <file>\]/, cwd);
-  await assertCliHelp(['doctor', '--help'], /Usage:\n  jsondb doctor \[--strict\] \[--json\]/, cwd);
-  await assertCliHelp(['serve', '--help'], /Usage:\n  jsondb serve \[--host <host>\] \[--port <port>\]/, cwd);
-  await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  jsondb generate hono/, cwd);
+  await assertCliHelp(['schema', '--help'], /async-db schema infer \[resource\] \[--out <file>\]/, cwd);
+  await assertCliHelp(['types', '--help'], /Usage:\n  async-db types \[--watch\] \[--out <file>\]/, cwd);
+  await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/, cwd);
+  await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/, cwd);
+  await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/, cwd);
+  await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/, cwd);
 });
 
 async function assertCliHelp(args, pattern, cwd) {
@@ -499,4 +575,65 @@ async function assertCliHelp(args, pattern, cwd) {
 
   assert.match(stdout, pattern);
   assert.equal(stderr, '');
+}
+
+async function waitForServeUrl(child) {
+  let stdout = '';
+  let stderr = '';
+
+  return await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out waiting for async-db serve to start.\n${stdout}${stderr}`));
+    }, 5000);
+
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+      const match = stdout.match(/db server listening at (http:\/\/[^\s]+)/);
+      if (match) {
+        clearTimeout(timer);
+        resolve(match[1]);
+      }
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+
+    child.once('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+
+    child.once('exit', (code, signal) => {
+      clearTimeout(timer);
+      reject(new Error(`async-db serve exited before listening: ${code ?? signal}\n${stdout}${stderr}`));
+    });
+  });
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  assert.equal(response.status, 200);
+  return await response.json();
+}
+
+async function stopChild(child) {
+  if (child.exitCode !== null) {
+    return;
+  }
+
+  child.kill('SIGTERM');
+  await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      resolve();
+    }, 1000);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }

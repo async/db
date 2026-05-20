@@ -55,7 +55,7 @@ test('generate hono creates a REST standalone SQLite starter from schema fixture
 
   assert.match(await readFile(path.join(cwd, 'server/package.json'), 'utf8'), /"hono"/);
   assert.match(await readFile(path.join(cwd, 'server/package.json'), 'utf8'), /">=22\.13"/);
-  assert.match(await readFile(path.join(cwd, 'server/src/rest.ts'), 'utf8'), /registerRestRoutes/);
+  assert.match(await readFile(path.join(cwd, 'server/src/rest.ts'), 'utf8'), /registerDbRoutes/);
   const sqliteSource = await readFile(path.join(cwd, 'server/src/sqlite.ts'), 'utf8');
   assert.match(sqliteSource, /node:sqlite/);
   assert.match(sqliteSource.slice(
@@ -99,10 +99,10 @@ test('generate hono can emit REST plus GraphQL and fixture seeding', async () =>
   });
 
   assert.match(await readFile(path.join(cwd, 'api/src/graphql.ts'), 'utf8'), /executeGraphql/);
-  assert.match(await readFile(path.join(cwd, 'api/src/app.ts'), 'utf8'), /registerRestRoutes/);
+  assert.match(await readFile(path.join(cwd, 'api/src/app.ts'), 'utf8'), /registerDbRoutes/);
   assert.match(await readFile(path.join(cwd, 'api/src/app.ts'), 'utf8'), /registerGraphqlRoutes/);
   assert.match(await readFile(path.join(cwd, 'api/src/sqlite.ts'), 'utf8'), /seedFixtures/);
-  assert.match(await readFile(path.join(cwd, 'api/package.json'), 'utf8'), /"jsondb": "\^0\.1\.0"/);
+  assert.match(await readFile(path.join(cwd, 'api/package.json'), 'utf8'), /"@async\/db": "\^0\.1\.0"/);
 });
 
 test('generate hono can emit SQLite-only module output', async () => {
@@ -155,7 +155,7 @@ test('generate hono blocks schema warnings unless explicitly allowed', async () 
   assert.equal(result.diagnostics.some((diagnostic) => diagnostic.code === 'SCHEMA_UNKNOWN_FIELD'), true);
 });
 
-test('jsondb generate hono CLI writes generated files', async () => {
+test('async-db generate hono CLI writes generated files', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
     generate: {
@@ -177,5 +177,5 @@ test('jsondb generate hono CLI writes generated files', async () => {
   ]);
 
   assert.match(stdout, /Generated generated-api\/src\/sqlite\.ts/);
-  assert.match(await readFile(path.join(cwd, 'generated-api/src/rest.ts'), 'utf8'), /registerRestRoutes/);
+  assert.match(await readFile(path.join(cwd, 'generated-api/src/rest.ts'), 'utf8'), /registerDbRoutes/);
 });
