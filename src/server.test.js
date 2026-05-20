@@ -121,6 +121,47 @@ test('server source watch ignores dot folders inside db', async () => {
   watcher.close();
 });
 
+test('server source watch stays attached to db sources and ignores store writes', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const published = [];
+  const fsWatcher = new EventEmitter();
+  fsWatcher.close = () => {};
+  let watchedDirectory;
+
+  const watcher = await watchSourceDir(db, {
+    publish(payload) {
+      published.push(payload);
+    },
+  }, {
+    watch(directory, _options, listener) {
+      watchedDirectory = directory;
+      fsWatcher.listener = listener;
+      return fsWatcher;
+    },
+  });
+
+  assert.equal(watchedDirectory, db.config.sourceDir);
+
+  await db.collection('users').create({ id: 'u_2', name: 'Grace' });
+  await new Promise((resolve) => setTimeout(resolve, 125));
+  assert.deepEqual(published, []);
+
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada' },
+    { id: 'u_3', name: 'Katherine' },
+  ]));
+  fsWatcher.listener('change', 'users.json');
+  await new Promise((resolve) => setTimeout(resolve, 125));
+
+  assert.equal(published.length, 1);
+  assert.equal(published[0].type, 'synced');
+  assert.deepEqual((await db.collection('users').all()).map((user) => user.id), ['u_1', 'u_3']);
+  watcher.close();
+});
+
 test('request handler supports scoped Vite routes without root REST routes', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([

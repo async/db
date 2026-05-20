@@ -13,7 +13,7 @@ db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.mjs
   -> sync output
   -> .jsondb/schema.generated.json
   -> .jsondb/types/index.ts and optional committed generated files
-  -> .jsondb/state/*.json runtime mirror
+  -> selected runtime store
   -> package API, REST, GraphQL, viewer, client, and generators
 ```
 
@@ -37,8 +37,8 @@ db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.mjs
 - Source discovery and loading live under `src/features/schema/sources.js`. Built-in readers handle JSON, JSONC, CSV, and schema files; custom readers normalize into the same data/schema source shape.
 - Field normalization, inference, relations, and resource construction live under `src/features/schema/`.
 - Validation and diagnostics live under `src/features/schema/validation.js` and nearby schema feature modules.
-- Sync lives under `src/features/sync/`. It writes generated schema, generated types, optional schema manifests, source metadata, and runtime mirror state.
-- Runtime storage lives under `src/features/storage/` and `src/features/runtime/`. The default runtime is the JSON mirror; memory, static, source-backed, SQLite, and future adapters fit behind the runtime boundary.
+- Sync lives under `src/features/sync/`. It writes generated schema, generated types, optional schema manifests, source metadata, and hydrates runtime store state.
+- Runtime storage lives under `src/features/storage/` and `src/features/runtime/`. The default store is JSON files under `.jsondb/state`; memory, static, sourceFile, SQLite, and future stores fit behind the store boundary.
 - HTTP serving starts in `src/server.js`. REST routing lives in `src/rest/`, GraphQL lives in `src/graphql/`, and built-in viewer HTML/JS lives in `src/web/`.
 - Optional graduation paths are separate from the core. Hono/SQLite starter generation lives in `src/generate/hono.js` and `src/generate/hono/`; optional integrations live in `src/integrations/`.
 
@@ -49,7 +49,7 @@ db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.mjs
 | Source discovery or custom readers | `src/features/schema/sources.js` |
 | Schema inference or field normalization | `src/features/schema/fields.js`, `src/features/schema/resource.js` |
 | Schema validation or diagnostics | `src/features/schema/validation.js` |
-| Runtime mirror sync or generated outputs | `src/features/sync/index.js`, `src/types.js`, `src/schema-manifest.js` |
+| Runtime store hydration or generated outputs | `src/features/sync/index.js`, `src/types.js`, `src/schema-manifest.js` |
 | Package runtime APIs | `src/features/runtime/collection.js`, `src/features/runtime/document.js`, `src/features/runtime/db.js` |
 | REST routes or response shaping | `src/rest/handler.js`, `src/rest/shape.js` |
 | GraphQL parsing or execution | `src/graphql/parser.js`, `src/graphql/execute.js` |
@@ -91,8 +91,8 @@ See [Generated Files](./generated-files.md).
 - `.schema.mjs` files execute as local project JavaScript. Treat them like source code, not untrusted data.
 - `jsondb.config.mjs`, source readers, format renderers, and manifest hooks also execute as local project code.
 - The viewer CSV import endpoint writes CSV files into the configured `dbDir`.
-- `mode: 'mirror'` keeps source fixtures clean and writes app changes to `.jsondb/state`.
-- `mode: 'source'` may write generated ids back to plain `.json` source fixtures when configured intentionally.
+- The default `json` store keeps source fixtures clean and writes app changes to `.jsondb/state`.
+- The `sourceFile` store may write generated ids back to plain `.json` source fixtures when configured intentionally.
 - `.jsondb/` is generated runtime output and should normally stay uncommitted.
 
 ## Verification

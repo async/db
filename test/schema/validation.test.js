@@ -244,7 +244,7 @@ test('strict unknown fields fail sync in mixed mode', async () => {
   );
 });
 
-test('schema-backed CSV arrays stay arrays in the runtime mirror', async () => {
+test('schema-backed CSV arrays stay arrays in runtime state', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'charts.schema.jsonc', `{
     "kind": "collection",

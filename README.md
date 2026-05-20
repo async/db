@@ -17,7 +17,7 @@ Use it to:
 | --- | --- |
 | `db/*.json`, `db/*.jsonc`, `db/*.csv` | Fixture data |
 | `db/*.schema.json`, `db/*.schema.jsonc`, `db/*.schema.mjs` | Optional stricter schema contracts |
-| `.jsondb/state/*` | Generated writable runtime mirror |
+| `.jsondb/state/*` | Generated writable JSON store state |
 | `.jsondb/schema.generated.json`, `.jsondb/types/index.ts` | Generated metadata and types |
 
 ## Quick Summary
@@ -138,8 +138,8 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 | Behavior | Default |
 | --- | --- |
 | Source fixtures | Read from `./db` recursively. |
-| Runtime writes | Go to `.jsondb/state` in `mode: 'mirror'`. |
-| Source writes | Only happen in `mode: 'source'`, and only for supported source writebacks such as generated ids in plain `.json` collections. |
+| Runtime writes | Go to the default JSON store under `.jsondb/state`. |
+| Source writes | Only happen for resources bound to the `sourceFile` store, and only for supported writebacks such as generated ids in plain `.json` collections. |
 | Generated output | `.jsondb/` is runtime output and normally stays uncommitted. |
 | Local server | Binds to `127.0.0.1:7331` by default and exposes writable local development endpoints. |
 | Trusted code | `.schema.mjs`, `jsondb.config.mjs`, source readers, and manifest hooks execute as local project code. |
@@ -304,8 +304,8 @@ See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
 
 | Path | Commit? | Notes |
 | --- | --- | --- |
-| `.jsondb/` | Normally no | Runtime mirror, source metadata, generated schema, and generated types. |
-| `.jsondb/state/*.json` | Normally no | Writable local state in mirror mode. |
+| `.jsondb/` | Normally no | Runtime stores, source metadata, generated schema, and generated types. |
+| `.jsondb/state/*.json` | Normally no | Writable local JSON store state. |
 | `.jsondb/types/index.ts` | Normally no | Default generated TypeScript output. |
 | `types.commitOutFile` output | Yes, when configured | Use for stable imports before sync runs. |
 | `schemaOutFile` output | Yes, when configured | Use for model-driven admin/CMS metadata. |

@@ -12,26 +12,24 @@ Default sync output:
 .jsondb/state/*.json
 ```
 
-`.jsondb/` is normally uncommitted. It contains generated schema metadata, generated TypeScript types, source metadata, and writable runtime mirror state.
+`.jsondb/` is normally uncommitted. It contains generated schema metadata, generated TypeScript types, source metadata, and writable runtime store state.
 
 ## Runtime State
 
-In default mirror mode:
+With the default JSON store:
 
 ```txt
 db/users.json              source fixture
-.jsondb/state/users.json   writable runtime mirror
+.jsondb/state/users.json   writable runtime JSON store
 ```
 
 REST writes, GraphQL mutations, package API writes, and viewer operations write to runtime state. Changed source fixtures refresh state based on source hashes; unchanged source fixtures preserve runtime edits.
 
 ## Generated Ids
 
-Collections need ids. If a JSON, JSONC, or CSV collection fixture omits `id`, jsondb adds counter ids in the runtime mirror.
+Collections need ids. If a JSON, JSONC, or CSV collection fixture omits `id`, jsondb adds counter ids in the selected runtime store.
 
-In `mode: 'mirror'`, source fixtures stay unchanged.
-
-In `mode: 'source'`, jsondb may write generated ids back to plain `.json` collection fixtures when configured intentionally.
+Source fixtures stay unchanged by default. For resources bound to the `sourceFile` store, jsondb may write generated ids back to plain `.json` collection fixtures when configured intentionally.
 
 ## Generated Types
 
@@ -93,7 +91,7 @@ export default defineConfig({
 npm run db -- schema manifest --out ./src/generated/jsondb.schema.json
 ```
 
-The manifest includes normalized resource and field metadata such as `type`, `required`, `nullable`, `default`, `values`, nested `fields`, array `items`, relations, and generated UI defaults. The manifest file is metadata output only. Schema field defaults still drive configured runtime behavior such as create-time defaults and safe additive mirror sync.
+The manifest includes normalized resource and field metadata such as `type`, `required`, `nullable`, `default`, `values`, nested `fields`, array `items`, relations, and generated UI defaults. The manifest file is metadata output only. Schema field defaults still drive configured runtime behavior such as create-time defaults and safe additive store hydration.
 
 The manifests at [examples/schema-manifest/src/generated/jsondb.schema.json](../examples/schema-manifest/src/generated/jsondb.schema.json) and [examples/schema-ui/src/generated/jsondb.schema.json](../examples/schema-ui/src/generated/jsondb.schema.json) are intentionally committed.
 

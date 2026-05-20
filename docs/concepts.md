@@ -79,20 +79,34 @@ npm run db -- schema bundle users --out artifacts/users.bundle.schema.json
 
 Keep bundled schema-plus-seed artifacts outside `db/` unless you intentionally use `--force`.
 
-## Mirror Mode
+## Runtime Stores
 
-`mode: 'mirror'` is the default. Source fixtures stay clean and app writes go to generated runtime state:
+The default `json` store keeps source fixtures clean and writes app changes to generated runtime state:
 
 ```txt
 db/users.json              source fixture
-.jsondb/state/users.json   writable runtime mirror
+.jsondb/state/users.json   writable runtime JSON store
 ```
 
 This is the safest default for local development because tests, demos, and UI prototyping do not rewrite committed fixtures.
 
-## Source Mode
+Bind a resource to a different store when runtime state belongs somewhere else:
 
-Use `mode: 'source'` only when you intentionally want jsondb to write supported changes back to source files.
+```js
+export default {
+  stores: {
+    default: 'json',
+  },
+  resources: {
+    settings: { store: 'json' },
+    activityEvents: { store: 'sqlite' },
+  },
+};
+```
+
+## Source File Store
+
+Use the `sourceFile` store only when you intentionally want jsondb to write supported changes back to source files.
 
 The main source writeback case is generated ids for plain `.json` collection fixtures that omit `id`. JSONC and CSV sources remain parsed source inputs; generated runtime state still lives under `.jsondb/`.
 

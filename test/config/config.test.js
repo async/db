@@ -47,7 +47,9 @@ test('config files can use the typed defineConfig helper', async () => {
   await writeConfig(cwd, `import { defineConfig } from 'jsondb/config';
 
 export default defineConfig({
-  mode: 'mirror',
+  stores: {
+    default: 'json',
+  },
   mock: {
     delay: [75, 250],
   },
@@ -56,8 +58,103 @@ export default defineConfig({
 
   const config = await loadConfig({ cwd });
 
-  assert.equal(config.mode, 'mirror');
+  assert.equal(config.stores.default, 'json');
   assert.deepEqual(config.mock.delay, [75, 250]);
+});
+
+test('loadConfig accepts public store config without enabling runtime strategy config', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'json',
+      json: {
+        driver: 'json',
+      },
+      memory: {
+        driver: 'memory',
+      },
+    },
+    resources: {
+      users: {
+        store: 'memory',
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+
+  assert.deepEqual(config.stores, {
+    default: 'json',
+    json: {
+      driver: 'json',
+    },
+    memory: {
+      driver: 'memory',
+    },
+  });
+  assert.equal(config.resources.users.store, 'memory');
+  assert.equal(config.runtime, undefined);
+  assert.equal(config.resources.users.runtime, undefined);
+});
+
+test('loadConfig rejects private runtime config with migration diagnostics', async () => {
+  const cases = [
+    {
+      name: 'mode',
+      source: `export default {
+        mode: 'source',
+      };`,
+      path: 'mode',
+    },
+    {
+      name: 'runtime.default',
+      source: `export default {
+        runtime: {
+          default: 'memory',
+        },
+      };`,
+      path: 'runtime.default',
+    },
+    {
+      name: 'runtime.adapters',
+      source: `export default {
+        runtime: {
+          adapters: [],
+        },
+      };`,
+      path: 'runtime.adapters',
+    },
+    {
+      name: 'resources.users.runtime',
+      source: `export default {
+        resources: {
+          users: {
+            runtime: 'static',
+          },
+        },
+      };`,
+      path: 'resources.users.runtime',
+    },
+  ];
+
+  for (const scenario of cases) {
+    const cwd = await makeProject();
+    await writeConfig(cwd, scenario.source);
+
+    await assert.rejects(
+      () => loadConfig({ cwd }),
+      (error) => {
+        assert.equal(error.code, 'CONFIG_UNSUPPORTED_RUNTIME_BOUNDARY', scenario.name);
+        assert.equal(error.diagnostics?.[0]?.code, 'CONFIG_UNSUPPORTED_RUNTIME_BOUNDARY', scenario.name);
+        assert.equal(error.diagnostics[0].severity, 'error', scenario.name);
+        assert.equal(error.diagnostics[0].path, scenario.path, scenario.name);
+        assert.match(error.diagnostics[0].message, /runtime config/i, scenario.name);
+        assert.match(error.diagnostics[0].hint, /stores/i, scenario.name);
+        assert.match(error.diagnostics[0].hint, /resources\.<name>\.store/i, scenario.name);
+        return true;
+      },
+    );
+  }
 });
 
 test('resourceNameFromPath derives names from fixture paths', () => {

@@ -193,6 +193,65 @@ test('doctor validates configured fork folders', async () => {
   assert.equal(result.findings.some((finding) => finding.code === 'FORK_NAME_INVALID' && finding.details?.fork === '../unsafe'), true);
 });
 
+test('doctor reports missing store names and large json stores without indexes', async () => {
+  const cwd = await makeProject();
+  const activityEvents = Array.from({ length: 1001 }, (_, index) => ({
+    id: `event_${index + 1}`,
+    observedAt: `2026-05-19T00:${String(index % 60).padStart(2, '0')}:00.000Z`,
+    domain: index % 2 === 0 ? 'example.com' : 'docs.example.com',
+  }));
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeFixture(cwd, 'activityEvents.json', JSON.stringify(activityEvents));
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'json',
+    },
+    resources: {
+      users: { store: 'missing' },
+      activityEvents: { store: 'json' },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const result = await runJsonDbDoctor(config);
+  const missingStore = result.findings.find((finding) => finding.code === 'DOCTOR_STORE_NOT_FOUND');
+  const largeJsonStore = result.findings.find((finding) => finding.code === 'DOCTOR_LARGE_JSON_STORE_WITHOUT_INDEXES');
+
+  assert.equal(missingStore.severity, 'error');
+  assert.equal(missingStore.resource, 'users');
+  assert.equal(missingStore.details.store, 'missing');
+  assert.deepEqual(missingStore.details.availableStores, ['json', 'memory', 'sourceFile', 'static']);
+  assert.equal(largeJsonStore.severity, 'warn');
+  assert.equal(largeJsonStore.resource, 'activityEvents');
+  assert.equal(largeJsonStore.details.store, 'json');
+  assert.equal(largeJsonStore.details.recordCount, 1001);
+  assert.match(largeJsonStore.hint, /resources\.activityEvents\.indexes/);
+});
+
+test('doctor accepts index metadata for large json-backed collections', async () => {
+  const cwd = await makeProject();
+  const activityEvents = Array.from({ length: 1001 }, (_, index) => ({
+    id: `event_${index + 1}`,
+    observedAt: `2026-05-19T00:${String(index % 60).padStart(2, '0')}:00.000Z`,
+  }));
+  await writeFixture(cwd, 'activityEvents.json', JSON.stringify(activityEvents));
+  await writeConfig(cwd, `export default {
+    resources: {
+      activityEvents: {
+        store: 'json',
+        indexes: [
+          { fields: ['observedAt'] },
+        ],
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const result = await runJsonDbDoctor(config);
+
+  assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_LARGE_JSON_STORE_WITHOUT_INDEXES'), false);
+});
+
 test('doctor CLI supports json output and strict check alias', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'todos.json', JSON.stringify([

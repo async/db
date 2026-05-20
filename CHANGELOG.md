@@ -9,6 +9,13 @@ are omitted. Commit links point at the canonical GitHub repository:
 
 ## Feature History
 
+### Unreleased
+
+- Breaking: Replaced runtime mode config with store-based resource binding. Use `sources.writePolicy`, `stores.default`, named `stores`, and `resources.<name>.store`; legacy `mode`, `runtime.default`, `runtime.adapters`, and `resources.<name>.runtime` config is rejected with migration diagnostics.
+- Added the first-party `sqliteStore()` export for opt-in resource stores, defaulting to `./.jsondb/runtime.sqlite`.
+- Added `resources.<name>.indexes` metadata and `doctor` diagnostics for missing stores and large JSON-backed collections without index intent.
+- Added `JsonFixtureDb.close()` so custom stores and SQLite-backed stores can release open handles in long-running processes.
+
 ### Project Foundation
 
 - 2026-05-07 - Created the dependency-light Node.js ESM package with JSON/JSONC fixture loading, schema helpers, runtime mirror sync, generated TypeScript types, a CLI, and the basic example project. Commit [4ee9630](https://github.com/PatrickJS/jsondb/commit/4ee9630d84739f738eb8d6add2deb311ad725303).

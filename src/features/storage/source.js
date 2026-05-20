@@ -17,7 +17,7 @@ export function createSourceRuntimeAdapter(config) {
   const fallbacks = new Map();
 
   return {
-    name: 'source',
+    name: 'sourceFile',
     capabilities: sourceRuntimeCapabilities,
     async hydrate(resources) {
       for (const resource of resources) {
@@ -52,11 +52,11 @@ function assertWritableSource(resource) {
   }
 
   throw jsonDbError(
-    'RUNTIME_SOURCE_NOT_WRITABLE',
-    `Resource "${resource.name}" cannot use the source runtime because it is not backed by a plain JSON data file.`,
+    'STORE_SOURCE_NOT_WRITABLE',
+    `Resource "${resource.name}" cannot use the sourceFile store because it is not backed by a plain JSON data file.`,
     {
       status: 400,
-      hint: 'Use runtime "source" only for resources loaded from db/*.json data files.',
+      hint: 'Use store "sourceFile" only for resources loaded from db/*.json data files.',
       details: {
         resource: resource.name,
         dataFormat: resource.dataFormat,

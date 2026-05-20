@@ -1,9 +1,13 @@
 import { loadProjectSchema } from '../../schema.js';
 import { forkSourceExists, isValidForkName } from '../config/forks.js';
+import { resourceConfigValue } from '../../names.js';
 import { duplicateIdFindings, mixedIdTypeFindings } from './duplicate-ids.js';
 import { inconsistentFieldTypeFindings } from './field-consistency.js';
 import { relationSuggestionFindings } from './relations.js';
 import { schemaGuidanceFindings } from './schema-guidance.js';
+
+const BUILTIN_STORES = ['json', 'memory', 'sourceFile', 'static'];
+const LARGE_JSON_STORE_RECORD_COUNT = 1000;
 
 export async function runJsonDbDoctor(config) {
   const project = await loadProjectSchema(config);
@@ -20,7 +24,7 @@ export async function runJsonDbDoctor(config) {
       ...diagnostic,
       severity: diagnostic.severity ?? 'warn',
     })),
-    ...doctorResourceFindings(project.resources),
+    ...doctorResourceFindings(project.resources, config),
     ...schemaGuidanceFindings(project, inferredProject),
     ...await doctorForkFindings(config),
   ];
@@ -67,7 +71,7 @@ async function doctorForkFindings(config) {
       const project = await loadProjectSchema(forkConfig);
       findings.push(
         ...project.diagnostics.map((diagnostic) => annotateForkFinding(forkName, 'schema', diagnostic)),
-        ...doctorResourceFindings(project.resources).map((finding) => annotateForkFinding(forkName, 'doctor', finding)),
+        ...doctorResourceFindings(project.resources, forkConfig).map((finding) => annotateForkFinding(forkName, 'doctor', finding)),
       );
     } catch (error) {
       findings.push({
@@ -99,9 +103,10 @@ function annotateForkFinding(forkName, source, finding) {
   };
 }
 
-function doctorResourceFindings(resources) {
+function doctorResourceFindings(resources, config) {
   const collections = resources.filter((resource) => resource.kind === 'collection' && Array.isArray(resource.seed));
   return [
+    ...storeConfigFindings(resources, config),
     ...collections.flatMap((resource) => [
       ...duplicateIdFindings(resource),
       ...mixedIdTypeFindings(resource),
@@ -109,6 +114,81 @@ function doctorResourceFindings(resources) {
     ]),
     ...relationSuggestionFindings(collections),
   ];
+}
+
+function storeConfigFindings(resources, config) {
+  return resources.flatMap((resource) => {
+    const findings = [];
+    const resourceConfig = resourceConfigValue(config.resources, resource.name);
+    const storeName = resourceConfig?.store ?? config.stores?.default ?? 'json';
+    const availableStores = configuredStoreNames(config);
+
+    if (!availableStores.includes(storeName) && config.stores?.[storeName] === undefined) {
+      findings.push({
+        code: 'DOCTOR_STORE_NOT_FOUND',
+        severity: 'error',
+        source: 'doctor',
+        resource: resource.name,
+        message: `Resource "${resource.name}" is configured with missing store "${storeName}".`,
+        hint: `Configure stores.${storeName}, choose stores.default, or use one of: ${availableStores.join(', ')}.`,
+        details: {
+          resource: resource.name,
+          store: storeName,
+          availableStores,
+        },
+      });
+      return findings;
+    }
+
+    const driver = resolveStoreDriver(storeName, config);
+    if (
+      resource.kind === 'collection'
+      && driver === 'json'
+      && Array.isArray(resource.seed)
+      && resource.seed.length > LARGE_JSON_STORE_RECORD_COUNT
+      && !hasIndexMetadata(resourceConfig)
+    ) {
+      findings.push({
+        code: 'DOCTOR_LARGE_JSON_STORE_WITHOUT_INDEXES',
+        severity: 'warn',
+        source: 'doctor',
+        resource: resource.name,
+        message: `Resource "${resource.name}" has ${resource.seed.length} records in the JSON store without index metadata.`,
+        hint: `Add resources.${resource.name}.indexes for dashboard or range-query fields, or bind the resource to a store better suited for large collections.`,
+        details: {
+          resource: resource.name,
+          store: driver,
+          recordCount: resource.seed.length,
+        },
+      });
+    }
+
+    return findings;
+  });
+}
+
+function configuredStoreNames(config) {
+  return [
+    ...new Set([
+      ...BUILTIN_STORES,
+      ...Object.keys(config.stores ?? {}).filter((name) => name !== 'default'),
+    ]),
+  ];
+}
+
+function resolveStoreDriver(storeName, config) {
+  const configured = config.stores?.[storeName] ?? storeName;
+  if (typeof configured === 'string') {
+    return configured;
+  }
+  if (configured && typeof configured === 'object' && 'driver' in configured) {
+    return configured.driver;
+  }
+  return storeName;
+}
+
+function hasIndexMetadata(resourceConfig) {
+  return Array.isArray(resourceConfig?.indexes) && resourceConfig.indexes.length > 0;
 }
 
 function summarizeFindings(findings) {

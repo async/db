@@ -22,12 +22,28 @@ export default defineConfig({
   // Optional custom source readers. Built-in readers handle JSON, JSONC, CSV,
   // .schema.json, .schema.jsonc, and .schema.mjs. Custom readers run first.
   sources: {
+    writePolicy: 'preserve',
     readers: [],
   },
 
-  // mirror: keep source fixtures unchanged and write app edits to .jsondb/state.
-  // source: write generated ids back to plain .json fixtures when needed.
-  mode: 'mirror',
+  // Runtime stores. The default json store writes app edits to
+  // .jsondb/state/<resource>.json while keeping source fixtures unchanged.
+  // Bind a resource to sourceFile only when supported writebacks should update
+  // a plain .json source fixture.
+  stores: {
+    default: 'json',
+  },
+
+  resources: {
+    // users: { store: 'sourceFile' },
+    // activityEvents: {
+    //   store: 'json',
+    //   indexes: [
+    //     { fields: ['observedAt'] },
+    //     { fields: ['domain', 'observedAt'] },
+    //   ],
+    // },
+  },
 
   // Generated TypeScript types. The default outFile is gitignored; commitOutFile
   // is useful when app code imports generated types in CI or fresh checkouts.

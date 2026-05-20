@@ -3,7 +3,7 @@ import { access } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openJsonFixtureDb } from '../index.js';
-import { makeProject, writeFixture } from '../../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
 import { handleRestRequest } from './handler.js';
 
 test('REST handler resolves generated kebab-case collection routes', async () => {
@@ -622,6 +622,93 @@ test('REST handler creates collection records and applies defaults', async () =>
     name: 'Ada Lovelace',
     role: 'user',
   });
+});
+
+test('REST handler writes through the selected non-JSON store', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'memory'
+    }
+  };`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('POST', {
+      id: 'u_2',
+      name: 'Grace Hopper',
+    }),
+    response,
+    new URL('http://jsondb.local/users'),
+  );
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+    { id: 'u_2', name: 'Grace Hopper' },
+  ]);
+  await assert.rejects(
+    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    { code: 'ENOENT' },
+  );
+});
+
+test('REST handler writes through a SQLite store binding', async (t) => {
+  try {
+    await import('node:sqlite');
+  } catch {
+    t.skip('node:sqlite is not available in this Node.js runtime');
+    return;
+  }
+
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `import { sqliteStore } from 'jsondb/sqlite';
+
+export default {
+  resources: {
+    users: {
+      store: 'sqlite'
+    }
+  },
+  stores: {
+    sqlite: sqliteStore()
+  }
+};`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('POST', {
+      id: 'u_2',
+      name: 'Grace Hopper',
+    }),
+    response,
+    new URL('http://jsondb.local/users'),
+  );
+
+  assert.equal(response.status, 201);
+  await access(path.join(cwd, '.jsondb/runtime.sqlite'));
+  await assert.rejects(
+    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    { code: 'ENOENT' },
+  );
+
+  const reopened = await openJsonFixtureDb({ cwd });
+  assert.deepEqual(await reopened.collection('users').all(), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+    { id: 'u_2', name: 'Grace Hopper' },
+  ]);
 });
 
 test('REST handler rejects writes that do not match schema field types', async () => {

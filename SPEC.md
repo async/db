@@ -314,7 +314,9 @@ import type { JsonDbTypes } from './generated/jsondb.types';
 const db = await openJsonFixtureDb<JsonDbTypes>({
   dbDir: './db',
   stateDir: './.jsondb',
-  mode: 'mirror',
+  stores: {
+    default: 'json',
+  },
 });
 
 const users = db.collection('users');
@@ -522,7 +524,7 @@ Defaults should be used in three places:
 ```txt
 1. When creating new records through REST/GraphQL/package API.
 2. When backfilling safe additive schema changes.
-3. When initializing an empty runtime mirror.
+3. When initializing an empty runtime store.
 ```
 
 Example schema:
@@ -616,7 +618,14 @@ Add this to `jsondb.config.mjs`:
 export default {
   dbDir: './db',
   stateDir: './.jsondb',
-  mode: 'mirror',
+
+  sources: {
+    writePolicy: 'preserve',
+  },
+
+  stores: {
+    default: 'json',
+  },
 
   types: {
     enabled: true,
@@ -695,7 +704,7 @@ Generated .jsondb/schema.generated.json
 Generated .jsondb/types/index.ts
 Generated src/generated/jsondb.types.ts
 Generated src/generated/jsondb.schema.json
-Synced runtime mirror
+Synced runtime store
 ```
 
 ## REST And GraphQL Runtime
@@ -808,11 +817,11 @@ jsondb check --strict
 
 `doctor` should include existing source/schema diagnostics and advisory fixture findings. It should detect duplicate collection ids, mixed id value types, inconsistent field value types, likely relation fields such as `todos.userId -> users.id`, and likely relation values missing from a target collection. Relation inference must be suggestive only; it must not mutate fixtures, write schema files, or silently change REST/GraphQL shape behavior. `doctor` should exit nonzero for error diagnostics, while `--strict` should also exit nonzero for warnings. Informational relation suggestions should not fail strict mode.
 
-CSV data-first fixtures should be treated as collections. The first row is the header row, headers become JSON field names, values are parsed into records, and the runtime mirror is written as `.jsondb/state/<resource>.json`. When a CSV data file is paired with a schema file, schema-declared array fields should coerce semicolon-delimited cells and JSON array string cells into arrays before validation and mirror sync.
+CSV data-first fixtures should be treated as collections. The first row is the header row, headers become JSON field names, values are parsed into records, and the default JSON store is written as `.jsondb/state/<resource>.json`. When a CSV data file is paired with a schema file, schema-declared array fields should coerce semicolon-delimited cells and JSON array string cells into arrays before validation and store hydration.
 
-Collection fixtures should always have an id field. If a JSON/JSONC/CSV collection source omits `id`, generate counter ids in the runtime mirror, starting at `"1"` and avoiding existing ids. In default `mode: 'mirror'`, source files stay unchanged. In non-mirror source mode, write generated ids back to plain `.json` fixtures.
+Collection fixtures should always have an id field. If a JSON/JSONC/CSV collection source omits `id`, generate counter ids in the selected runtime store, starting at `"1"` and avoiding existing ids. Source files stay unchanged by default. For resources bound to the `sourceFile` store, write generated ids back to plain `.json` fixtures.
 
-The runtime mirror should track source hashes for JSON, JSONC, and CSV files. If a source hash changes during sync, regenerate the JSON state for that resource from the source fixture. If the hash is unchanged, preserve runtime mirror edits.
+Runtime stores should track source hashes for JSON, JSONC, and CSV files. If a source hash changes during sync, regenerate runtime state for that resource from the source fixture. If the hash is unchanged, preserve runtime edits.
 
 The viewer should support uploading a CSV through:
 
@@ -1301,6 +1310,6 @@ create/edit JSON or schema fixtures
 run jsondb sync
 types are generated
 REST and GraphQL are generated
-runtime mirror is updated
+runtime store is updated
 source files stay clean unless writeback is requested
 ```

@@ -59,7 +59,7 @@ Sync reads fixtures and writes generated runtime output:
 .jsondb/state/users.json
 ```
 
-In default mirror mode, app writes update `.jsondb/state`. Source fixtures stay unchanged.
+By default, app writes update the generated JSON store under `.jsondb/state`. Source fixtures stay unchanged.
 
 ## Serve
 
@@ -146,7 +146,7 @@ The example README has the exact files and requests for that workflow: [examples
 
 ## Next Steps
 
-- Use [Concepts](./concepts.md) to understand data-first, schema-first, mixed mode, and mirror/source mode.
+- Use [Concepts](./concepts.md) to understand data-first, schema-first, mixed resources, runtime stores, and source writebacks.
 - Use [Fixtures And Schemas](./fixtures-and-schemas.md) to author richer fixtures and schemas.
 - Use [Server And Viewer](./server-and-viewer.md) for REST, GraphQL, viewer, and watch behavior.
 - Use [Generated Files](./generated-files.md) before committing generated output.

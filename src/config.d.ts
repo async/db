@@ -7,6 +7,11 @@ export type {
   JsonDbSourceReaderDataResult,
   JsonDbSourceReaderSchemaResult,
   JsonDbSourcesOptions,
+  JsonDbCustomStore,
+  JsonDbCustomStoreFactory,
+  JsonDbStoreName,
+  JsonDbStoreOptions,
+  JsonDbStoresOptions,
 } from './index.d.ts';
 
 /**

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
 import { openJsonFixtureDb } from '../index.js';
-import { makeProject, writeFixture } from '../../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
 import { handleGraphqlRequest } from './http.js';
 import { executeGraphql } from './index.js';
 
@@ -366,6 +368,45 @@ test('dependency-free GraphQL collection mutations create update and delete reco
       removed: true,
     },
   });
+});
+
+test('GraphQL collection mutations write through the selected non-JSON store', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'memory'
+    }
+  };`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const created = await executeGraphql(db, {
+    query: `mutation {
+      createUser(input: { id: "u_2", name: "Grace Hopper" }) {
+        id
+        name
+      }
+    }`,
+  });
+
+  assert.deepEqual(created, {
+    data: {
+      createUser: {
+        id: 'u_2',
+        name: 'Grace Hopper',
+      },
+    },
+  });
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+    { id: 'u_2', name: 'Grace Hopper' },
+  ]);
+  await assert.rejects(
+    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    { code: 'ENOENT' },
+  );
 });
 
 test('dependency-free GraphQL mutations reject schema field type mismatches', async () => {

@@ -1,6 +1,8 @@
 export {
   migrateSqliteJsonDb,
   openSqliteJsonDb,
+  sqliteStore,
+  sqliteStoreCapabilities,
   SqliteJsonDb,
   SqliteJsonDbCollection,
   SqliteJsonDbDocument,

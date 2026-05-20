@@ -358,13 +358,13 @@ test('singleton documents support JSON pointer get and set', async () => {
   assert.equal((await settings.all()).features.billing, true);
 });
 
-test('memory runtime supports CRUD without writing JSON state files', async () => {
+test('memory store supports CRUD without writing JSON state files', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
     { id: 'u_1', name: 'Ada Lovelace' },
   ]));
   await writeConfig(cwd, `export default {
-    runtime: {
+    stores: {
       default: 'memory'
     }
   };`);
@@ -382,7 +382,240 @@ test('memory runtime supports CRUD without writing JSON state files', async () =
   );
 });
 
-test('static runtime resources are readable and reject writes', async () => {
+test('named store aliases select their configured driver', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'json',
+      analytics: 'memory'
+    },
+    resources: {
+      users: {
+        store: 'analytics'
+      }
+    }
+  };`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
+
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+    { id: 'u_2', name: 'Grace Hopper' },
+  ]);
+  await assert.rejects(
+    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    { code: 'ENOENT' },
+  );
+});
+
+test('custom store factory hydrates, reads, and writes through package API', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `const values = new Map();
+
+export default {
+  stores: {
+    default: 'ephemeral',
+    ephemeral: ({ storeName }) => ({
+      name: storeName,
+      hydrate(resources) {
+        for (const resource of resources) {
+          values.set(resource.name, structuredClone(resource.seed));
+        }
+      },
+      readResource(resource, fallback) {
+        return structuredClone(values.get(resource.name) ?? fallback);
+      },
+      writeResource(resource, value) {
+        values.set(resource.name, structuredClone(value));
+      }
+    })
+  }
+};`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
+
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+    { id: 'u_2', name: 'Grace Hopper' },
+  ]);
+  await assert.rejects(
+    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    { code: 'ENOENT' },
+  );
+});
+
+test('missing configured store names produce store-facing diagnostics', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `export default {
+    resources: {
+      users: {
+        store: 'missingStore'
+      }
+    },
+    stores: {
+      analytics: 'memory'
+    }
+  };`);
+
+  await assert.rejects(
+    () => openJsonFixtureDb({ cwd }),
+    (error) => {
+      assert.equal(error.code, 'STORE_NOT_FOUND');
+      assert.match(error.message, /missingStore/);
+      assert.equal(error.details.resource, 'users');
+      assert.equal(error.details.store, 'missingStore');
+      assert.deepEqual(error.details.availableStores, [
+        'json',
+        'memory',
+        'sourceFile',
+        'static',
+        'analytics',
+      ]);
+      assert.doesNotMatch(error.message, /adapter/i);
+      return true;
+    },
+  );
+});
+
+test('custom store fallback serializes concurrent writes per resource', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `const values = new Map();
+const delay = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+export default {
+  stores: {
+    default: 'queued',
+    queued: {
+      async hydrate(resources) {
+        for (const resource of resources) {
+          values.set(resource.name, structuredClone(resource.seed));
+        }
+      },
+      async readResource(resource, fallback) {
+        await delay();
+        return structuredClone(values.get(resource.name) ?? fallback);
+      },
+      async writeResource(resource, value) {
+        await delay();
+        values.set(resource.name, structuredClone(value));
+      }
+    }
+  }
+};`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  await Promise.all([
+    db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' }),
+    db.collection('users').create({ id: 'u_3', name: 'Katherine Johnson' }),
+    db.collection('users').create({ id: 'u_4', name: 'Margaret Hamilton' }),
+  ]);
+
+  assert.deepEqual((await db.collection('users').all()).map((user) => user.id), [
+    'u_1',
+    'u_2',
+    'u_3',
+    'u_4',
+  ]);
+});
+
+test('db.close calls custom store close hooks once', async () => {
+  const cwd = await makeProject();
+  const closeMarker = path.join(cwd, 'store-closed.txt');
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `import { writeFileSync } from 'node:fs';
+
+const values = new Map();
+let closeCount = 0;
+
+export default {
+  stores: {
+    default: 'closable',
+    closable: {
+      hydrate(resources) {
+        for (const resource of resources) {
+          values.set(resource.name, structuredClone(resource.seed));
+        }
+      },
+      readResource(resource, fallback) {
+        return structuredClone(values.get(resource.name) ?? fallback);
+      },
+      writeResource(resource, value) {
+        values.set(resource.name, structuredClone(value));
+      },
+      close() {
+        closeCount += 1;
+        writeFileSync(${JSON.stringify(closeMarker)}, String(closeCount));
+      }
+    }
+  }
+};`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  await db.collection('users').all();
+  await db.close();
+  await db.close();
+
+  assert.equal(await readFile(closeMarker, 'utf8'), '1');
+});
+
+test('failed custom store writes do not emit runtime events', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `const values = new Map();
+
+export default {
+  stores: {
+    default: 'failing',
+    failing: {
+      hydrate(resources) {
+        for (const resource of resources) {
+          values.set(resource.name, structuredClone(resource.seed));
+        }
+      },
+      readResource(resource, fallback) {
+        return structuredClone(values.get(resource.name) ?? fallback);
+      },
+      writeResource() {
+        throw new Error('custom write failed');
+      }
+    }
+  }
+};`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const events = [];
+  const unsubscribe = db.events.subscribe((event) => {
+    events.push(event);
+  });
+
+  await assert.rejects(
+    () => db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' }),
+    /custom write failed/,
+  );
+  unsubscribe();
+
+  assert.deepEqual(events, []);
+});
+
+test('static store resources are readable and reject writes', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'settings.json', JSON.stringify({
     theme: 'light',
@@ -390,7 +623,7 @@ test('static runtime resources are readable and reject writes', async () => {
   await writeConfig(cwd, `export default {
     resources: {
       settings: {
-        runtime: 'static'
+        store: 'static'
       }
     }
   };`);
@@ -401,14 +634,14 @@ test('static runtime resources are readable and reject writes', async () => {
   await assert.rejects(
     () => db.document('settings').update({ theme: 'dark' }),
     (error) => {
-      assert.equal(error.code, 'RUNTIME_RESOURCE_READ_ONLY');
+      assert.equal(error.code, 'STORE_RESOURCE_READ_ONLY');
       assert.match(error.message, /settings/);
       return true;
     },
   );
 });
 
-test('runtime emits live events only after successful writes', async () => {
+test('store runtime emits live events only after successful writes', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
     { id: 'u_1', name: 'Ada Lovelace' },
@@ -433,7 +666,7 @@ test('runtime emits live events only after successful writes', async () => {
   assert.match(events[0].timestamp, /^\d{4}-\d{2}-\d{2}T/);
 });
 
-test('source runtime writes plain JSON fixture while mirror remains default', async () => {
+test('sourceFile store writes plain JSON fixture while json store remains default', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'settings.json', JSON.stringify({
     theme: 'light',
@@ -444,7 +677,7 @@ test('source runtime writes plain JSON fixture while mirror remains default', as
   await writeConfig(cwd, `export default {
     resources: {
       settings: {
-        runtime: 'source'
+        store: 'sourceFile'
       }
     }
   };`);
@@ -465,4 +698,45 @@ test('source runtime writes plain JSON fixture while mirror remains default', as
     { code: 'ENOENT' },
   );
   assert.equal(JSON.parse(await readFile(path.join(cwd, '.jsondb/schema.generated.json'), 'utf8')).resources.settings.kind, 'document');
+});
+
+test('sourceFile store rejects non-JSON source resources with structured diagnostics', async () => {
+  const cases = [
+    {
+      filename: 'users.jsonc',
+      body: `[
+        { "id": "u_1", "name": "Ada Lovelace" },
+      ]`,
+      dataFormat: 'jsonc',
+    },
+    {
+      filename: 'users.csv',
+      body: 'id,name\nu_1,Ada Lovelace\n',
+      dataFormat: 'csv',
+    },
+  ];
+
+  for (const fixture of cases) {
+    const cwd = await makeProject();
+    await writeFixture(cwd, fixture.filename, fixture.body);
+    await writeConfig(cwd, `export default {
+      resources: {
+        users: {
+          store: 'sourceFile'
+        }
+      }
+    };`);
+
+    await assert.rejects(
+      () => openJsonFixtureDb({ cwd }),
+      (error) => {
+        assert.equal(error.code, 'STORE_SOURCE_NOT_WRITABLE');
+        assert.match(error.message, /sourceFile/);
+        assert.equal(error.details.resource, 'users');
+        assert.equal(error.details.dataFormat, fixture.dataFormat);
+        assert.match(error.hint, /store "sourceFile"/);
+        return true;
+      },
+    );
+  }
 });

@@ -56,13 +56,14 @@ examples/*/db/**
 examples/*/jsondb.config.mjs
 examples/*/src/**
 docs/**/*.md
+!docs/goals/**
 jsondb.config.example.mjs
 CHANGELOG.md
 README.md
 SPEC.md
 ```
 
-Docs restructuring affects the published package because `docs/**/*.md` is included. Use `npm pack --dry-run` to confirm the tarball contains the expected docs and does not include generated runtime output.
+Docs restructuring affects the published package because `docs/**/*.md` is included, except local GoalBuddy boards under `docs/goals/`. Use `npm pack --dry-run` to confirm the tarball contains the expected docs and does not include generated runtime output.
 
 ## Generated Runtime Output
 

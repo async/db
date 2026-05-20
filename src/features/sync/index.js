@@ -60,7 +60,7 @@ export async function syncJsonFixtureDb(config, options = {}) {
   await writeSourceMetadata(config, project.resources, sourceMetadata);
   await writeJsonState(sourceMetadataPath, sourceMetadata);
 
-  logs.push('Synced runtime mirror');
+  logs.push('Synced runtime store');
 
   return {
     ...project,

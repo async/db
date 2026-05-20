@@ -9,7 +9,9 @@ Use `defineConfig` for editor autocomplete and inline type checks:
 import { defineConfig } from 'jsondb/config';
 
 export default defineConfig({
-  mode: 'mirror',
+  stores: {
+    default: 'json',
+  },
   mock: {
     delay: [30, 100],
   },
@@ -25,7 +27,8 @@ See [jsondb.config.example.mjs](../jsondb.config.example.mjs) for a commented co
 | Fixture folder | `./db` | `dbDir` |
 | Custom source formats | Built-in readers | `sources.readers` |
 | Nested resource names | Fixture basename | `resources.naming` or `resources.customizeResource` |
-| Runtime state behavior | `.jsondb`, mirror mode | `mode` |
+| Runtime store behavior | JSON files under `.jsondb/state` | `stores.default` or `resources.<name>.store` |
+| Index intent metadata | Off | `resources.<name>.indexes` |
 | Importable generated types | `.jsondb/types/index.ts` | `types.commitOutFile` |
 | Importable schema manifest | Off | `schemaOutFile` |
 | Unknown fields | Warn | `schema.unknownFields` |
@@ -44,7 +47,15 @@ import { defineConfig } from 'jsondb/config';
 export default defineConfig({
   dbDir: './db',
   stateDir: './.jsondb',
-  mode: 'mirror',
+
+  sources: {
+    writePolicy: 'preserve',
+    readers: [],
+  },
+
+  stores: {
+    default: 'json',
+  },
 
   types: {
     enabled: true,
@@ -94,19 +105,35 @@ export default defineConfig({
 
 Existing `sourceDir` configs still work; `dbDir` is the shorter fixture-folder name. If both are provided, `sourceDir` wins for backwards compatibility.
 
-## Mirror Vs Source Mode
+## Source And Store Binding
 
-Use `mode: 'mirror'` when source fixtures should stay unchanged. This is the default.
+Source fixtures and runtime persistence are separate concerns. By default, source fixtures stay unchanged and app writes go to the generated JSON store under `.jsondb/state`.
 
-Use `mode: 'source'` only when you intentionally want generated ids written back to plain `.json` collection fixtures:
+Use `resources.<name>.store` to bind a resource to a different store:
 
 ```js
 import { defineConfig } from 'jsondb/config';
 
 export default defineConfig({
-  mode: 'source',
+  stores: {
+    default: 'json',
+  },
+  resources: {
+    users: { store: 'sourceFile' },
+    activityEvents: {
+      store: 'json',
+      indexes: [
+        { fields: ['observedAt'] },
+        { fields: ['domain', 'observedAt'] },
+      ],
+    },
+  },
 });
 ```
+
+The `sourceFile` store is intentionally narrow. It is only for resources where supported writebacks should update plain `.json` source fixtures. JSONC and CSV sources remain source inputs and still hydrate runtime state.
+
+`indexes` is metadata for store selection, generated tooling, and `doctor` scale warnings. The default JSON store does not build physical indexes.
 
 ## Schema Strictness
 

@@ -86,6 +86,10 @@ export class JsonFixtureDb {
   resourceNames() {
     return [...this.resources.keys()];
   }
+
+  close() {
+    return this.runtime.close();
+  }
 }
 
 export function stateFileForDebug(db, resourceName) {

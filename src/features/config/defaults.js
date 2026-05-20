@@ -6,8 +6,14 @@ export const DEFAULT_CONFIG = {
   schemaManifest: {},
   sources: {
     readers: [],
+    writePolicy: 'preserve',
   },
-  mode: 'mirror',
+  stores: {
+    default: 'json',
+    json: {
+      driver: 'json',
+    },
+  },
   types: {
     enabled: true,
     outFile: './.jsondb/types/index.ts',
@@ -35,10 +41,6 @@ export const DEFAULT_CONFIG = {
   collections: {},
   resources: {
     naming: 'basename',
-  },
-  runtime: {
-    default: 'json',
-    adapters: [],
   },
   server: {
     host: '127.0.0.1',

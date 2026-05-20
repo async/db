@@ -1,10 +1,16 @@
+import { mkdirSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { loadConfig } from '../config.js';
 import { jsonDbError, listChoices } from '../errors.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../names.js';
 import { assertRecordMatchesResource, loadProjectSchema } from '../schema.js';
 import { applyDefaultsToRecord } from '../sync.js';
+import { applyDefaultsToSeed } from '../features/sync/defaults.js';
+import { seedForRuntimeState } from '../features/sync/synthetic-seed.js';
+
+const require = createRequire(import.meta.url);
 
 export async function openSqliteJsonDb(options = {}) {
   const config = await loadConfig(options);
@@ -23,6 +29,79 @@ export async function openSqliteJsonDb(options = {}) {
   return new SqliteJsonDb(config, project.resources, database);
 }
 
+export function sqliteStore(options = {}) {
+  const databases = new WeakMap();
+  const writeQueues = new Map();
+
+  return ({ config, storeName }) => {
+    const file = resolveSqliteStoreFile(config, options.file);
+    const connection = openStoreDatabase(file, databases, config);
+    const database = connection.database;
+    migrateSqliteStore(database);
+
+    return {
+      name: storeName,
+      capabilities: sqliteStoreCapabilities,
+      statePath() {
+        return file === ':memory:' ? undefined : file;
+      },
+      async hydrate(resources) {
+        migrateSqliteStore(database);
+        for (const resource of resources) {
+          syncSqliteStoreResource(database, config, resource);
+        }
+      },
+      readResource(resource, fallback) {
+        const row = database.prepare('SELECT value FROM "_jsondb_resources" WHERE name = ?').get(resource.name);
+        return row ? JSON.parse(row.value) : fallback;
+      },
+      writeResource(resource, value) {
+        writeSqliteStoreResource(database, resource, value);
+      },
+      withResourceWrite(resource, operation) {
+        const queueKey = `${file}:${resource.name}`;
+        const previous = writeQueues.get(queueKey) ?? Promise.resolve();
+        const current = previous.then(operation, operation);
+        const stored = current.catch(() => {});
+        writeQueues.set(queueKey, stored);
+        stored.finally(() => {
+          if (writeQueues.get(queueKey) === stored) {
+            writeQueues.delete(queueKey);
+          }
+        });
+        return current;
+      },
+      close() {
+        if (connection.closed) {
+          return;
+        }
+        connection.closed = true;
+        database.close();
+        databases.delete(config);
+      },
+    };
+  };
+}
+
+function resolveSqliteStoreFile(config, file) {
+  if (file === ':memory:') {
+    return file;
+  }
+  if (file) {
+    return path.resolve(config.cwd, file);
+  }
+  return path.join(config.stateDir, 'runtime.sqlite');
+}
+
+export const sqliteStoreCapabilities = {
+  writable: true,
+  persistence: 'local-sqlite',
+  atomicity: 'resource',
+  liveEvents: true,
+  staticExport: false,
+  production: 'small-local',
+};
+
 export function migrateSqliteJsonDb(database, resources) {
   for (const resource of resources) {
     if (resource.kind === 'collection') {
@@ -34,6 +113,62 @@ export function migrateSqliteJsonDb(database, resources) {
     "name" TEXT PRIMARY KEY,
     "value" TEXT NOT NULL
   ) STRICT;`);
+}
+
+function migrateSqliteStore(database) {
+  database.exec(`CREATE TABLE IF NOT EXISTS "_jsondb_resources" (
+    "name" TEXT PRIMARY KEY,
+    "kind" TEXT NOT NULL,
+    "source_hash" TEXT,
+    "value" TEXT NOT NULL
+  ) STRICT;`);
+}
+
+function openStoreDatabase(file, databases, config) {
+  let connection = databases.get(config);
+  if (connection && !connection.closed) {
+    return connection;
+  }
+
+  const { DatabaseSync } = importNodeSqliteSync();
+  if (file !== ':memory:') {
+    mkdirSync(path.dirname(file), { recursive: true });
+  }
+  connection = {
+    database: new DatabaseSync(file),
+    closed: false,
+  };
+  databases.set(config, connection);
+  return connection;
+}
+
+function syncSqliteStoreResource(database, config, resource) {
+  const row = database.prepare('SELECT source_hash FROM "_jsondb_resources" WHERE name = ?').get(resource.name);
+  const sourceChanged = resource.dataHash && row?.source_hash !== resource.dataHash;
+
+  if (!row || sourceChanged) {
+    writeSqliteStoreResource(database, resource, applyDefaultsToSeed(seedForRuntimeState(resource, config), resource, config));
+    return;
+  }
+
+  if (config.defaults?.applyOnSafeMigration !== false) {
+    const current = JSON.parse(database.prepare('SELECT value FROM "_jsondb_resources" WHERE name = ?').get(resource.name).value);
+    writeSqliteStoreResource(database, resource, applyDefaultsToSeed(current, resource, config));
+  }
+}
+
+function writeSqliteStoreResource(database, resource, value) {
+  database.prepare(`INSERT INTO "_jsondb_resources" (name, kind, source_hash, value)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+      kind = excluded.kind,
+      source_hash = excluded.source_hash,
+      value = excluded.value`).run(
+    resource.name,
+    resource.kind,
+    resource.dataHash ?? null,
+    JSON.stringify(value),
+  );
 }
 
 export class SqliteJsonDb {
@@ -358,18 +493,30 @@ async function importNodeSqlite() {
   try {
     return await import('node:sqlite');
   } catch (error) {
-    throw jsonDbError(
-      'SQLITE_RUNTIME_UNAVAILABLE',
-      'SQLite mode requires Node.js with node:sqlite support.',
-      {
-        status: 500,
-        hint: 'Use Node.js 22.13 or newer for SQLite mode, or keep using the JSON mirror mode.',
-        details: {
-          parserMessage: error.message,
-        },
-      },
-    );
+    throw sqliteRuntimeUnavailableError(error);
   }
+}
+
+function importNodeSqliteSync() {
+  try {
+    return require('node:sqlite');
+  } catch (error) {
+    throw sqliteRuntimeUnavailableError(error);
+  }
+}
+
+function sqliteRuntimeUnavailableError(error) {
+  return jsonDbError(
+    'SQLITE_RUNTIME_UNAVAILABLE',
+    'SQLite store requires Node.js with node:sqlite support.',
+    {
+      status: 500,
+      hint: 'Use Node.js 22.13 or newer for the SQLite store, or keep using the JSON store.',
+      details: {
+        parserMessage: error.message,
+      },
+    },
+  );
 }
 
 function quoteIdentifier(value) {

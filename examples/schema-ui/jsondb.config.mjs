@@ -5,7 +5,6 @@ export default defineConfig({
   dbDir: './db',
   stateDir: './.jsondb',
   schemaOutFile: './src/generated/jsondb.schema.json',
-  mode: 'mirror',
   types: {
     enabled: true,
     outFile: './.jsondb/types/index.ts',

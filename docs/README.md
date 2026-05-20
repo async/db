@@ -5,7 +5,7 @@ This folder is the durable markdown manual for jsondb. The root [README](../READ
 ## Start
 
 - [Getting Started](./getting-started.md): install, first fixture, sync, serve, viewer, REST call, and first schema.
-- [Concepts](./concepts.md): data-first fixtures, schema-first fixtures, mixed mode, mirror/source mode, and product boundaries.
+- [Concepts](./concepts.md): data-first fixtures, schema-first fixtures, mixed resources, runtime stores, source writebacks, and product boundaries.
 - [Examples](../examples/basic/README.md): runnable example READMEs are the authority for example-specific commands.
 
 ## Build Local Data

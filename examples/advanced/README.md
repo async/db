@@ -28,7 +28,7 @@ http://127.0.0.1:7331/__jsondb
 
 ## Expected Result
 
-`sync` loads mixed data and schema sources, applies defaults in the runtime mirror, and writes committed generated types.
+`sync` loads mixed data and schema sources, applies defaults in the selected runtime store, and writes committed generated types.
 
 ## REST Request To Try
 
@@ -40,7 +40,7 @@ curl 'http://127.0.0.1:7331/projects?select=id,name,status,metadata'
 
 ## Cleanup
 
-Generated `.jsondb/` output is ignored by git and can be removed whenever you want a fresh mirror.
+Generated `.jsondb/` output is ignored by git and can be removed whenever you want fresh runtime state.
 
 ## More Docs
 

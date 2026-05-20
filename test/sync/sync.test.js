@@ -362,12 +362,16 @@ test('JSON fixture hashes refresh mirror state only when the source file changes
   assert.match(metadata.resources.users.hash, /^[a-f0-9]{64}$/);
 });
 
-test('non-mirror sync writes generated ids back to JSON fixtures', async () => {
+test('sourceFile store writes generated ids back to JSON fixtures', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
     sourceDir: './db',
     stateDir: './.jsondb',
-    mode: 'source'
+    resources: {
+      users: {
+        store: 'sourceFile'
+      }
+    }
   };`);
   await writeFixture(cwd, 'users.json', JSON.stringify([
     {
@@ -397,6 +401,30 @@ test('non-mirror sync writes generated ids back to JSON fixtures', async () => {
     {
       id: '12',
       name: 'Katherine Johnson',
+    },
+  ]);
+});
+
+test('json store does not write generated ids back to JSON fixtures', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      name: 'Ada Lovelace'
+    }
+  ]));
+
+  const config = await loadConfig({ cwd });
+  await syncJsonFixtureDb(config);
+
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8')), [
+    {
+      name: 'Ada Lovelace',
+    },
+  ]);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+    {
+      id: '1',
+      name: 'Ada Lovelace',
     },
   ]);
 });

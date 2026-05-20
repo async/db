@@ -26,7 +26,7 @@ http://127.0.0.1:7331/__jsondb
 
 ## Expected Result
 
-`sync` writes `.jsondb/state/customers.json`. When `db/customers.csv` changes, the source hash changes and the runtime mirror refreshes from CSV.
+`sync` writes `.jsondb/state/customers.json`. When `db/customers.csv` changes, the source hash changes and the JSON store refreshes from CSV.
 
 ## REST Request To Try
 
@@ -38,7 +38,7 @@ curl 'http://127.0.0.1:7331/customers?select=id,name,email'
 
 ## Cleanup
 
-Generated `.jsondb/` output is ignored by git and can be removed whenever you want a fresh mirror.
+Generated `.jsondb/` output is ignored by git and can be removed whenever you want fresh runtime state.
 
 ## More Docs
 

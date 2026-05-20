@@ -29,7 +29,7 @@ Use `db/users.json` or `db/users.jsonc` when you already have sample records and
 ]
 ```
 
-Collections always get an id field. If a JSON, JSONC, or CSV collection fixture omits `id`, jsondb adds counter ids in the runtime mirror:
+Collections always get an id field. If a JSON, JSONC, or CSV collection fixture omits `id`, jsondb adds counter ids in the selected runtime store:
 
 ```json
 [
@@ -38,7 +38,7 @@ Collections always get an id field. If a JSON, JSONC, or CSV collection fixture 
 ]
 ```
 
-In default mirror mode, source files stay unchanged.
+By default, source files stay unchanged and generated ids are written to the selected runtime store.
 
 ## CSV Fixtures
 
@@ -53,9 +53,9 @@ id,name,email,active
 u_1,Ada Lovelace,ada@example.com,true
 ```
 
-`sync` parses the header row, infers a collection schema, and writes `.jsondb/state/users.json`. Source hashes are tracked so changed source fixtures refresh the runtime mirror, while unchanged source fixtures preserve runtime edits.
+`sync` parses the header row, infers a collection schema, and writes `.jsondb/state/users.json` through the default JSON store. Source hashes are tracked so changed source fixtures refresh the selected runtime store, while unchanged source fixtures preserve runtime edits.
 
-When a CSV is paired with a schema file, array fields stay arrays in the runtime mirror. For example, a schema field like `"tags": { "type": "array", "items": { "type": "string" } }` accepts a CSV cell such as `renewal;priority` or a JSON array string such as `["renewal","priority"]`.
+When a CSV is paired with a schema file, array fields stay arrays in runtime state. For example, a schema field like `"tags": { "type": "array", "items": { "type": "string" } }` accepts a CSV cell such as `renewal;priority` or a JSON array string such as `["renewal","priority"]`.
 
 ## Schema Files
 

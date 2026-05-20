@@ -1,5 +1,5 @@
 {
   "title": "CSV Fixtures",
-  "description": "CSV source loading with inferred fields, source hashes, and runtime JSON mirror refreshes.",
+  "description": "CSV source loading with inferred fields, source hashes, and runtime JSON store refreshes.",
   "tags": ["csv", "inference", "sync"]
 }

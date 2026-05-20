@@ -36,14 +36,14 @@ export function createStaticRuntimeAdapter(config) {
 
 function readOnlyResourceError(resource) {
   return jsonDbError(
-    'RUNTIME_RESOURCE_READ_ONLY',
-    `Resource "${resource.name}" is configured with a read-only runtime.`,
+    'STORE_RESOURCE_READ_ONLY',
+    `Resource "${resource.name}" is configured with a read-only store.`,
     {
       status: 405,
-      hint: 'Use a writable runtime such as "json" or remove the static runtime strategy for this resource.',
+      hint: 'Use a writable store such as "json" or remove the static store strategy for this resource.',
       details: {
         resource: resource.name,
-        runtime: 'static',
+        store: 'static',
       },
     },
   );

@@ -48,6 +48,7 @@
     "examples/*/jsondb.config.mjs",
     "examples/*/src/**",
     "docs/**/*.md",
+    "!docs/goals/**",
     "jsondb.config.example.mjs",
     "CHANGELOG.md",
     "README.md",

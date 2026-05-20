@@ -54,7 +54,9 @@ import { openJsonFixtureDb } from 'jsondb';
 const db = await openJsonFixtureDb({
   dbDir: './db',
   stateDir: './.jsondb',
-  mode: 'mirror',
+  stores: {
+    default: 'json',
+  },
 });
 
 const users = db.collection('users');
@@ -68,7 +70,11 @@ await users.create({
 
 const ada = await users.get('u_1');
 const hasGrace = await users.exists('u_2');
+
+await db.close();
 ```
+
+Call `db.close()` when a long-running process is done with the database so stores with open handles, such as SQLite, can release them.
 
 Singleton document usage:
 

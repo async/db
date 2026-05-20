@@ -31,6 +31,7 @@ export async function startJsonDbServer(options = {}) {
   server.once('close', () => {
     watcher?.close();
     events.close();
+    void db.close?.();
   });
 
   try {

@@ -66,14 +66,45 @@ export type JsonDbResourceOptions = {
   naming?: JsonDbResourceNamingStrategy;
   /** Customize fixture path -> resource identity. */
   customizeResource?: (context: JsonDbResourceCustomizeContext) => { name?: string } | null | undefined;
-  /** Per-resource runtime settings keyed by normalized resource name. */
+  /** Per-resource storage settings keyed by normalized resource name. */
   [resourceName: string]: JsonDbResourceNamingStrategy
     | ((context: JsonDbResourceCustomizeContext) => { name?: string } | null | undefined)
     | JsonDbPerResourceOptions
     | undefined;
 };
 
-export type JsonDbRuntimeStrategy = 'json' | 'memory' | 'source' | 'static' | string;
+export type JsonDbStoreName = 'json' | 'memory' | 'static' | 'sourceFile' | string;
+
+export type JsonDbStoreOptions = {
+  driver?: JsonDbStoreName;
+  [key: string]: unknown;
+};
+
+export type JsonDbCustomStore = {
+  name?: string;
+  capabilities?: JsonDbRuntimeCapabilities;
+  statePath?: (resource: Record<string, unknown>) => string | undefined;
+  hydrate?: (resources: Array<Record<string, unknown>>) => void | Promise<void>;
+  readResource?: (resource: Record<string, unknown>, fallback: unknown) => unknown | Promise<unknown>;
+  writeResource?: (resource: Record<string, unknown>, value: unknown) => void | Promise<void>;
+  read?: (resource: Record<string, unknown>, fallback: unknown) => unknown | Promise<unknown>;
+  write?: (resource: Record<string, unknown>, value: unknown) => void | Promise<void>;
+  withResourceWrite?: <Result>(
+    resource: Record<string, unknown>,
+    operation: () => Result | Promise<Result>,
+  ) => Result | Promise<Result>;
+  close?: () => void | Promise<void>;
+};
+
+export type JsonDbCustomStoreFactory =
+  (context: { config: JsonDbOptions; resources: unknown[]; storeName: string }) => JsonDbCustomStore;
+
+export type JsonDbStoresOptions = {
+  /** Default public store for resources without an explicit store. Defaults to "json". */
+  default?: JsonDbStoreName;
+  /** Named public store definitions. */
+  [storeName: string]: JsonDbStoreName | JsonDbStoreOptions | JsonDbCustomStore | JsonDbCustomStoreFactory | undefined;
+};
 
 export type JsonDbRuntimeCapabilities = {
   writable?: boolean;
@@ -94,15 +125,14 @@ export type JsonDbRuntimeAdapterFactory =
   | ((context: { config: JsonDbOptions; resources: unknown[] }) => JsonDbRuntimeAdapter);
 
 export type JsonDbPerResourceOptions = {
-  /** Runtime adapter name for this resource. Defaults to runtime.default. */
-  runtime?: JsonDbRuntimeStrategy | { adapter?: string; name?: string };
-};
-
-export type JsonDbRuntimeOptions = {
-  /** Default runtime adapter for resources without an explicit runtime. Defaults to "json". */
-  default?: JsonDbRuntimeStrategy;
-  /** Internal/future runtime adapter plugins. */
-  adapters?: JsonDbRuntimeAdapterFactory[];
+  /** Public store name for this resource. Defaults to stores.default. */
+  store?: JsonDbStoreName;
+  /** Query intent metadata for stores and diagnostics. */
+  indexes?: Array<{
+    fields: string[];
+    name?: string;
+    unique?: boolean;
+  }>;
 };
 
 export type JsonDbRuntimeEvent = {
@@ -172,6 +202,8 @@ export type JsonDbSourceReader = {
 export type JsonDbSourcesOptions = {
   /** Custom source readers. They run before built-in JSON, JSONC, CSV, and .schema.mjs readers. */
   readers?: JsonDbSourceReader[];
+  /** How jsondb handles writes back to source fixtures. Defaults to "preserve". */
+  writePolicy?: 'preserve' | 'allow';
 };
 
 export type JsonDbRestFormatContext = {
@@ -210,8 +242,6 @@ export type JsonDbOptions = {
   schemaManifest?: JsonDbSchemaManifestOptions;
   /** Optional source readers for custom schema or data file formats. */
   sources?: JsonDbSourcesOptions;
-  /** "mirror" keeps source fixtures unchanged; "source" may write generated ids back to plain .json fixtures. */
-  mode?: 'mirror' | 'source';
   /** Run sync automatically when opening the package API. */
   syncOnOpen?: boolean;
   /** Keep valid resources available when one source file has diagnostics. */
@@ -234,7 +264,7 @@ export type JsonDbOptions = {
   defaults?: {
     /** Apply schema defaults on create through package, REST, and GraphQL writes. */
     applyOnCreate?: boolean;
-    /** Apply defaults during safe additive mirror sync. */
+    /** Apply defaults during safe additive store hydration. */
     applyOnSafeMigration?: boolean;
   };
   seed?: {
@@ -247,8 +277,8 @@ export type JsonDbOptions = {
   collections?: Record<string, { idField?: string }>;
   /** Resource naming and fixture path identity options. */
   resources?: JsonDbResourceOptions;
-  /** Runtime storage strategy options. Defaults to the JSON mirror runtime. */
-  runtime?: JsonDbRuntimeOptions;
+  /** Public storage options. Defaults to the JSON store. */
+  stores?: JsonDbStoresOptions;
   server?: {
     /** Local HTTP host. Defaults to "127.0.0.1". */
     host?: string;
@@ -335,6 +365,7 @@ export type JsonFixtureDb<Types extends JsonDbTypeMap = JsonDbTypeMap> = {
   collection<Name extends keyof Types['collections'] & string>(name: Name): JsonDbCollection<Types['collections'][Name]>;
   document<Name extends keyof Types['documents'] & string>(name: Name): JsonDbDocument<Types['documents'][Name]>;
   resourceNames(): string[];
+  close(): Promise<void>;
 };
 
 export type GraphqlRequest = {
