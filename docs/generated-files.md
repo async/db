@@ -72,6 +72,7 @@ examples/advanced/src/generated/jsondb.types.ts
 examples/basic/src/generated/jsondb.types.ts
 examples/schema-first/src/generated/jsondb.types.ts
 examples/schema-manifest/src/generated/jsondb.types.ts
+examples/schema-ui/src/generated/jsondb.types.ts
 ```
 
 ## Schema Manifest Output
@@ -94,7 +95,7 @@ npm run db -- schema manifest --out ./src/generated/jsondb.schema.json
 
 The manifest includes normalized resource and field metadata such as `type`, `required`, `nullable`, `default`, `values`, nested `fields`, array `items`, relations, and generated UI defaults. The manifest file is metadata output only. Schema field defaults still drive configured runtime behavior such as create-time defaults and safe additive mirror sync.
 
-The example at [examples/schema-manifest/src/generated/jsondb.schema.json](../examples/schema-manifest/src/generated/jsondb.schema.json) is intentionally committed.
+The manifests at [examples/schema-manifest/src/generated/jsondb.schema.json](../examples/schema-manifest/src/generated/jsondb.schema.json) and [examples/schema-ui/src/generated/jsondb.schema.json](../examples/schema-ui/src/generated/jsondb.schema.json) are intentionally committed.
 
 ## Cleanup Rules
 

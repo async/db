@@ -36,7 +36,8 @@ Important files:
 - `src/hono.js`: optional Hono integration using dynamic `hono` import.
 - `src/sqlite.js`: optional SQLite adapter using dynamic `node:sqlite` import.
 - `src/client.js`: tiny HTTP client with GraphQL and REST batching support.
-- `scripts/serve-examples.js`: starts every repo example and serves an index of viewer links.
+- `scripts/serve-examples.js`: assigns ports and renders the examples index while launching each example stack.
+- `scripts/example-launcher.js`: resolves `examples/*/serve-example.mjs` hooks so an example can compose middleware ahead of jsondb; defaults to `startJsonDbServer`.
 - `src/schema-builders.js`: `.schema.mjs` authoring helpers exported as `jsondb/schema`.
 - `test/helpers.js`: shared test project helpers.
 - `test/**/*.test.js`: general Node test runner suite.
@@ -54,7 +55,7 @@ Common edit paths:
 - GraphQL parsing or execution: start in `src/graphql/parser.js` and `src/graphql/execute.js`.
 - Built-in viewer behavior: start in `src/web/viewer.js`.
 - CLI command behavior: start in `src/cli/index.js` and `src/cli/commands/`.
-- Example discovery and the examples index: start in `scripts/serve-examples.js` and `examples/*/example.json`.
+- Example discovery and the examples index: start in `scripts/serve-examples.js`, `scripts/example-launcher.js`, and `examples/*/example.json`. Optional per-example `serve-example.mjs` exports `startExampleServer({ cwd, host, port, repoRoot })`.
 
 ## Commands
 
@@ -92,6 +93,7 @@ examples/advanced/src/generated/jsondb.types.ts
 examples/basic/src/generated/jsondb.types.ts
 examples/schema-first/src/generated/jsondb.types.ts
 examples/schema-manifest/src/generated/jsondb.types.ts
+examples/schema-ui/src/generated/jsondb.types.ts
 ```
 
 Committed schema manifests are allowed when configured through `schemaOutFile`. The schema manifest example intentionally includes:
@@ -99,6 +101,8 @@ Committed schema manifests are allowed when configured through `schemaOutFile`. 
 ```txt
 examples/schema-manifest/src/generated/jsondb.schema.json
 examples/schema-manifest/src/generated/jsondb.types.ts
+examples/schema-ui/src/generated/jsondb.schema.json
+examples/schema-ui/src/generated/jsondb.types.ts
 ```
 
 If a smoke command writes `.jsondb/` inside any example, remove those generated files before finalizing unless the task explicitly asks to commit generated runtime state.

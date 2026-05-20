@@ -35,7 +35,7 @@ Until the package is published, install it from GitHub in the app or package tha
 }
 ```
 
-For local testing against the current main branch at the time of this docs update, replace the ref with `6ab2340fd983`. After package publication, prefer the published semver version. Then run:
+Replace the placeholder with the commit SHA or tag you reviewed. After package publication, prefer the published semver version. Then run:
 
 ```bash
 npm install
@@ -279,7 +279,7 @@ See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
 | `types.commitOutFile` output | Yes, when configured | Use for stable imports before sync runs. |
 | `schemaOutFile` output | Yes, when configured | Use for model-driven admin/CMS metadata. |
 | `examples/*/src/generated/jsondb.types.ts` | Yes, in selected examples | Intentionally committed example type output. |
-| `examples/schema-manifest/src/generated/jsondb.schema.json` | Yes | Intentionally committed example manifest. |
+| `examples/*/src/generated/jsondb.schema.json` | Yes, in selected examples | Intentionally committed example manifest. |
 
 Smoke commands may create `.jsondb/` under examples. Remove generated runtime state before finalizing unless a task explicitly asks to commit it.
 
@@ -298,6 +298,7 @@ The examples are a learning path. Run any example with `node ./src/cli.js sync -
 | Related local records | [`examples/relations`](./examples/relations) | Relation metadata, `expand`, and nested `select` |
 | CSV as the source of truth | [`examples/csv`](./examples/csv) | CSV inference, source hashes, mirror refreshes |
 | Admin/CMS-style field metadata | [`examples/schema-manifest`](./examples/schema-manifest) | `schemaOutFile` and manifest customization |
+| Schema JSON to simple CMS UI templates | [`examples/schema-ui`](./examples/schema-ui) | `serve.mjs` SSR view/editor HTML from manifest + mirror (`node ./examples/schema-ui/serve.mjs`); `/templates` route keeps static placeholders |
 | Diagnostics for schema/data drift | [`examples/diagnostics`](./examples/diagnostics) | Warnings surfaced without breaking unrelated resources |
 | Several advanced features together | [`examples/advanced`](./examples/advanced) | `.schema.mjs`, mixed mode, defaults, nested objects |
 | Hono auth and write hooks | [`examples/hono-auth`](./examples/hono-auth) | Optional Hono integration with auth lifecycle hooks |

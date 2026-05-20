@@ -79,6 +79,8 @@ examples/basic/src/generated/jsondb.types.ts
 examples/schema-first/src/generated/jsondb.types.ts
 examples/schema-manifest/src/generated/jsondb.schema.json
 examples/schema-manifest/src/generated/jsondb.types.ts
+examples/schema-ui/src/generated/jsondb.schema.json
+examples/schema-ui/src/generated/jsondb.types.ts
 ```
 
 See [Generated Files](./generated-files.md).

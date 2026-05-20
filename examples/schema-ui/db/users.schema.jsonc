@@ -1,0 +1,30 @@
+{
+  "kind": "collection",
+  "idField": "id",
+  "description": "Authors that can own CMS pages.",
+  "fields": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "description": "Stable author id."
+    },
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Author display name."
+    },
+    "email": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "description": "Author email address."
+    }
+  },
+  "seed": [
+    {
+      "id": "u_1",
+      "name": "Ada Lovelace",
+      "email": "ada@example.com"
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "collections": {
+    "pages": {
+      "kind": "collection",
+      "name": "pages",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "description": "Stable page id.",
+          "ui": {
+            "label": "Id",
+            "component": "text",
+            "readonly": true
+          }
+        },
+        "title": {
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "description": "Page title shown in the CMS list.",
+          "ui": {
+            "label": "Title",
+            "component": "text"
+          }
+        },
+        "status": {
+          "type": "enum",
+          "required": false,
+          "nullable": false,
+          "description": "Publication state.",
+          "default": "draft",
+          "values": [
+            "draft",
+            "review",
+            "published"
+          ],
+          "ui": {
+            "label": "Status",
+            "component": "segmented-control"
+          }
+        },
+        "authorId": {
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "description": "Page author.",
+          "relation": {
+            "name": "author",
+            "to": "users",
+            "toField": "id",
+            "cardinality": "one"
+          },
+          "ui": {
+            "label": "Author Id",
+            "component": "relationSelect",
+            "optionsFrom": "users"
+          }
+        },
+        "summary": {
+          "type": "string",
+          "required": false,
+          "nullable": false,
+          "description": "Short page summary.",
+          "maxLength": 160,
+          "ui": {
+            "label": "Summary",
+            "component": "textarea"
+          }
+        },
+        "bodyMarkdown": {
+          "type": "string",
+          "required": false,
+          "nullable": false,
+          "description": "Markdown body content.",
+          "ui": {
+            "label": "Body",
+            "component": "markdown"
+          }
+        }
+      },
+      "description": "CMS pages rendered by a tiny schema-driven UI example.",
+      "idField": "id",
+      "editor": {
+        "title": "Pages",
+        "description": "CMS pages edited from generated schema metadata."
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "name": "users",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "description": "Stable author id.",
+          "ui": {
+            "label": "Id",
+            "component": "text",
+            "readonly": true
+          }
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "description": "Author display name.",
+          "ui": {
+            "label": "Name",
+            "component": "text"
+          }
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "description": "Author email address.",
+          "unique": true,
+          "ui": {
+            "label": "Email",
+            "component": "email"
+          }
+        }
+      },
+      "description": "Authors that can own CMS pages.",
+      "idField": "id"
+    }
+  },
+  "documents": {}
+}

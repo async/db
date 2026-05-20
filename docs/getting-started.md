@@ -20,7 +20,7 @@ Until jsondb is published, install it from GitHub with a pinned, reviewed commit
 }
 ```
 
-For local testing against the current main branch at the time of this docs update, replace the ref with `6ab2340fd983`. After package publication, prefer the published semver version. Then run:
+Replace the placeholder with the commit SHA or tag you reviewed. After package publication, prefer the published semver version. Then run:
 
 ```bash
 npm install

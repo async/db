@@ -13,6 +13,7 @@ This folder is the durable markdown manual for jsondb. The root [README](../READ
 - [Fixtures And Schemas](./fixtures-and-schemas.md): JSON, JSONC, CSV, schema files, `.schema.mjs`, source readers, nested folders, inference, and validation.
 - [Generated Files](./generated-files.md): `.jsondb/`, state, generated TypeScript, committed generated outputs, schema manifests, and cleanup rules.
 - [Configuration](./configuration.md): `jsondb.config.mjs`, fixture folders, resource naming, strictness, mock delay/errors, server options, and forks.
+- [Schema UI example](../examples/schema-ui/README.md): manifest-driven CMS HTML with **`serve.mjs`** SSR from live mirror rows (`node ./examples/schema-ui/serve.mjs`).
 
 ## Serve And Integrate
 

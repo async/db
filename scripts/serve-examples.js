@@ -2,7 +2,7 @@
 import http from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { startJsonDbServer } from '../src/server.js';
+import { launchExampleHttpStack } from './example-launcher.js';
 
 const root = process.cwd();
 const options = parseArgs(process.argv.slice(2));
@@ -27,17 +27,21 @@ export async function serveExamples(options = {}) {
   const running = [];
   for (const [index, example] of examples.entries()) {
     const port = firstExamplePort + index;
-    const app = await startJsonDbServer({
+    const launched = await launchExampleHttpStack({
       cwd: example.cwd,
-      port,
       host,
+      port,
+      repoRoot: root,
     });
     running.push({
       ...example,
       port,
-      url: app.url,
-      viewerUrl: `${app.url}/__jsondb`,
-      server: app.server,
+      url: launched.url,
+      viewerUrl: launched.viewerUrl,
+      demoUrl: launched.demoUrl,
+      demoLinks: launched.demoLinks ?? [],
+      starterKind: launched.starterKind,
+      server: launched.server,
     });
   }
 
@@ -63,7 +67,8 @@ export async function serveExamples(options = {}) {
 
   console.log(`jsondb examples index: http://${host}:${indexPort}`);
   for (const example of running) {
-    console.log(`${example.name.padEnd(14)} ${example.viewerUrl}`);
+    const tail = example.demoUrl ? `${example.demoUrl} (demo) · ${example.viewerUrl}` : example.viewerUrl;
+    console.log(`${example.name.padEnd(14)} ${tail}`);
   }
   console.log('Press Ctrl+C to stop.');
 
@@ -109,9 +114,11 @@ export function renderExamplesIndex(examples) {
           <p class="mt-3 text-sm text-slate-700">${escapeHtml(example.description ?? '')}</p>
           <div class="mt-3 flex flex-wrap gap-1.5">${renderTags(example.tags ?? [])}</div>
           <div class="mt-4 flex flex-wrap gap-2">
-            <a class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800" href="${example.viewerUrl}">Open viewer</a>
-            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${example.url}/__jsondb/schema">Schema JSON</a>
-            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${example.url}/graphql">GraphQL SDL</a>
+            <a class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800" href="${escapeHtml(example.demoUrl ?? example.viewerUrl)}">${escapeHtml(example.demoUrl ? 'Open demo' : 'Open viewer')}</a>
+            ${example.demoUrl ? `<a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.viewerUrl)}">Built-in viewer</a>` : ''}
+            ${renderDemoLinks(example)}
+            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/__jsondb/schema">Schema JSON</a>
+            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/graphql">GraphQL SDL</a>
           </div>
         </article>`).join('');
 
@@ -128,7 +135,7 @@ export function renderExamplesIndex(examples) {
   <main class="mx-auto max-w-5xl px-5 py-8">
     <header class="mb-6">
       <h1 class="text-2xl font-bold tracking-normal">jsondb examples</h1>
-      <p class="mt-2 text-sm text-slate-600">Each example runs its own jsondb server. Open a viewer to inspect data, REST routes, GraphQL examples, and mutations.</p>
+      <p class="mt-2 text-sm text-slate-600">Each example listens on its own port. Examples may ship <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">serve-example.mjs</code> to mount custom middleware ahead of the jsondb REST stack.</p>
     </header>
     <section class="grid gap-4 sm:grid-cols-2">
 ${rows}
@@ -136,6 +143,22 @@ ${rows}
   </main>
 </body>
 </html>`;
+}
+
+function renderDemoLinks(example) {
+  const links = example.demoLinks ?? [];
+  return links.map((link) => {
+    const href = resolveAgainstExample(example.url, link.href);
+    return `<a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(href)}">${escapeHtml(link.label)}</a>`;
+  }).join('');
+}
+
+function resolveAgainstExample(baseUrl, href) {
+  try {
+    return new URL(href, `${baseUrl.replace(/\/$/u, '')}/`).href;
+  } catch {
+    return `${baseUrl}${href}`;
+  }
 }
 
 function publicExample(example) {
@@ -147,6 +170,9 @@ function publicExample(example) {
     relativePath: example.relativePath,
     url: example.url,
     viewerUrl: example.viewerUrl,
+    demoUrl: example.demoUrl,
+    demoLinks: example.demoLinks ?? [],
+    starterKind: example.starterKind,
     port: example.port,
   };
 }

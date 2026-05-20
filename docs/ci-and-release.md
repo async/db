@@ -76,6 +76,8 @@ examples/basic/src/generated/jsondb.types.ts
 examples/schema-first/src/generated/jsondb.types.ts
 examples/schema-manifest/src/generated/jsondb.schema.json
 examples/schema-manifest/src/generated/jsondb.types.ts
+examples/schema-ui/src/generated/jsondb.schema.json
+examples/schema-ui/src/generated/jsondb.types.ts
 ```
 
 If a smoke command writes `.jsondb/` inside an example, remove that generated runtime state before finalizing unless the task explicitly asks to commit it.
