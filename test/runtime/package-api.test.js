@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { openJsonFixtureDb } from '../../src/index.js';
+import { openDb } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('defaults apply when creating records through the package API', async () => {
@@ -25,7 +25,7 @@ test('defaults apply when creating records through the package API', async () =>
     }
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const user = await db.collection('users').create({
     id: 'u_3',
     name: 'Linus',
@@ -64,7 +64,7 @@ test('defaults can be disabled on package API create', async () => {
     }
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const user = await db.collection('users').create({
     id: 'u_3',
     name: 'Linus',
@@ -100,7 +100,7 @@ test('defaults do not backfill omitted fields during package API updates', async
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const users = db.collection('users');
   const updated = await users.patch('u_1', {
     name: 'Ada Byron',
@@ -130,7 +130,7 @@ test('package API duplicate ids produce actionable errors', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
 
   await assert.rejects(
     () => db.collection('users').create({
@@ -156,7 +156,7 @@ test('collection.exists returns whether an id is present', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const users = db.collection('users');
 
   assert.equal(await users.exists('u_1'), true);
@@ -183,7 +183,7 @@ test('inferred variants validate writes through the package API', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
 
   await assert.rejects(
     () => db.collection('pages').create({
@@ -216,7 +216,7 @@ test('package API resolves camelCase and kebab-case resource names', async () =>
     theme: 'finance',
   }));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
 
   assert.deepEqual(await db.collection('chartMappings').all(), [
     {
@@ -247,7 +247,7 @@ test('package API unknown resource errors include attempted normalized names', a
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
 
   assert.throws(
     () => db.collection('chart-mappingz'),
@@ -277,7 +277,7 @@ test('package create assigns a counter id when the body omits id', async () => {
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const user = await db.collection('users').create({
     name: 'Grace Hopper',
   });
@@ -301,7 +301,7 @@ test('package API rejects records that do not match schema field types', async (
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
 
   await assert.rejects(
     () => db.collection('users').create({
@@ -341,7 +341,7 @@ test('package API rejects constrained field values and unique duplicates', async
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
 
   await assert.rejects(
     () => db.collection('users').create({
@@ -386,7 +386,7 @@ test('package API serializes concurrent collection writes in one process', async
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await Promise.all(Array.from({ length: 12 }, (_, index) => db.collection('users').create({
     id: `u_${index}`,
     name: `User ${index}`,
@@ -409,7 +409,7 @@ test('package API serializes concurrent document writes in one process', async (
     }
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await Promise.all([
     db.document('settings').update({ locale: 'en-US' }),
     db.document('settings').update({ active: true }),
@@ -431,7 +431,7 @@ test('singleton documents support JSON pointer get and set', async () => {
     },
   }));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const settings = db.document('settings');
 
   await settings.set('/features/billing', true);
@@ -451,7 +451,7 @@ test('memory store supports CRUD without writing JSON state files', async () => 
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
 
   assert.deepEqual(await db.collection('users').all(), [
@@ -459,7 +459,7 @@ test('memory store supports CRUD without writing JSON state files', async () => 
     { id: 'u_2', name: 'Grace Hopper' },
   ]);
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
 });
@@ -481,7 +481,7 @@ test('named store aliases select their configured driver', async () => {
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
 
   assert.deepEqual(await db.collection('users').all(), [
@@ -489,7 +489,7 @@ test('named store aliases select their configured driver', async () => {
     { id: 'u_2', name: 'Grace Hopper' },
   ]);
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
 });
@@ -521,7 +521,7 @@ export default {
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
 
   assert.deepEqual(await db.collection('users').all(), [
@@ -529,7 +529,7 @@ export default {
     { id: 'u_2', name: 'Grace Hopper' },
   ]);
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
 });
@@ -551,7 +551,7 @@ test('missing configured store names produce store-facing diagnostics', async ()
   };`);
 
   await assert.rejects(
-    () => openJsonFixtureDb({ cwd }),
+    () => openDb({ cwd }),
     (error) => {
       assert.equal(error.code, 'STORE_NOT_FOUND');
       assert.match(error.message, /missingStore/);
@@ -599,7 +599,7 @@ export default {
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await Promise.all([
     db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' }),
     db.collection('users').create({ id: 'u_3', name: 'Katherine Johnson' }),
@@ -648,7 +648,7 @@ export default {
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await db.collection('users').all();
   await db.close();
   await db.close();
@@ -682,7 +682,7 @@ export default {
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const events = [];
   const unsubscribe = db.events.subscribe((event) => {
     events.push(event);
@@ -710,7 +710,7 @@ test('static store resources are readable and reject writes', async () => {
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
 
   assert.deepEqual(await db.document('settings').all(), { theme: 'light' });
   await assert.rejects(
@@ -729,7 +729,7 @@ test('store runtime emits live events only after successful writes', async () =>
     { id: 'u_1', name: 'Ada Lovelace' },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const events = [];
   const unsubscribe = db.events.subscribe((event) => {
     events.push(event);
@@ -764,22 +764,22 @@ test('sourceFile store writes plain JSON fixture while json store remains defaul
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await db.document('settings').update({ theme: 'dark' });
   await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
 
   assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/settings.json'), 'utf8')), {
     theme: 'dark',
   });
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
     { id: 'u_1', name: 'Ada Lovelace' },
     { id: 'u_2', name: 'Grace Hopper' },
   ]);
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/settings.json')),
+    () => access(path.join(cwd, '.db/state/settings.json')),
     { code: 'ENOENT' },
   );
-  assert.equal(JSON.parse(await readFile(path.join(cwd, '.jsondb/schema.generated.json'), 'utf8')).resources.settings.kind, 'document');
+  assert.equal(JSON.parse(await readFile(path.join(cwd, '.db/schema.generated.json'), 'utf8')).resources.settings.kind, 'document');
 });
 
 test('sourceFile store rejects non-JSON source resources with structured diagnostics', async () => {
@@ -810,7 +810,7 @@ test('sourceFile store rejects non-JSON source resources with structured diagnos
     };`);
 
     await assert.rejects(
-      () => openJsonFixtureDb({ cwd }),
+      () => openDb({ cwd }),
       (error) => {
         assert.equal(error.code, 'STORE_SOURCE_NOT_WRITABLE');
         assert.match(error.message, /sourceFile/);

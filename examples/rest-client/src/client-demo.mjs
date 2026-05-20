@@ -1,7 +1,7 @@
-import { createJsonDbClient } from 'jsondb/client';
+import { createDbClient } from '@async/db/client';
 
-const baseUrl = process.env.JSONDB_URL ?? 'http://127.0.0.1:7331';
-const db = createJsonDbClient({
+const baseUrl = process.env.ASYNC_DB_URL ?? 'http://127.0.0.1:7331';
+const db = createDbClient({
   baseUrl,
   batching: true,
 });

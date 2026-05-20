@@ -1,20 +1,20 @@
 import path from 'node:path';
 import { loadConfig } from '../../config.js';
-import { jsonDbError, listChoices } from '../../errors.js';
+import { dbError, listChoices } from '../../errors.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../../names.js';
 import { loadProjectSchema } from '../../schema.js';
-import { syncJsonFixtureDb } from '../../sync.js';
+import { syncDb } from '../../sync.js';
 import { createRuntime } from '../storage/runtime.js';
-import { JsonDbCollection } from './collection.js';
-import { JsonDbDocument } from './document.js';
+import { DbCollection } from './collection.js';
+import { DbDocument } from './document.js';
 
-export async function openJsonFixtureDb(options = {}) {
+export async function openDb(options = {}) {
   const config = await loadConfig(options);
   const syncOnOpen = options.syncOnOpen ?? true;
   const project = syncOnOpen
-    ? await syncJsonFixtureDb(config, { allowErrors: options.allowSourceErrors === true })
+    ? await syncDb(config, { allowErrors: options.allowSourceErrors === true })
     : await loadProjectSchema(config);
-  const db = new JsonFixtureDb(config, project.resources, project.diagnostics);
+  const db = new Db(config, project.resources, project.diagnostics);
   if (syncOnOpen) {
     await db.runtime.hydrate();
   }
@@ -22,7 +22,7 @@ export async function openJsonFixtureDb(options = {}) {
   return db;
 }
 
-export class JsonFixtureDb {
+export class Db {
   constructor(config, resources, diagnostics = []) {
     this.config = config;
     this.resources = new Map(resources.map((resource) => [resource.name, resource]));
@@ -35,20 +35,20 @@ export class JsonFixtureDb {
 
   collection(name) {
     const resource = this.requireResource(name, 'collection');
-    return new JsonDbCollection(this, resource);
+    return new DbCollection(this, resource);
   }
 
   document(name) {
     const resource = this.requireResource(name, 'document');
-    return new JsonDbDocument(this, resource);
+    return new DbDocument(this, resource);
   }
 
   requireResource(name, kind) {
     const { resource, candidates } = resolveResource(this.resources, name);
     if (!resource) {
-      throw jsonDbError(
+      throw dbError(
         'DB_UNKNOWN_RESOURCE',
-        `Unknown jsondb resource "${name}".`,
+        `Unknown db resource "${name}".`,
         {
           status: 404,
           hint: `Use one of: ${listChoices(this.resourceNames())}.`,
@@ -63,7 +63,7 @@ export class JsonFixtureDb {
     }
 
     if (resource.kind !== kind) {
-      throw jsonDbError(
+      throw dbError(
         'DB_RESOURCE_KIND_MISMATCH',
         `Resource "${name}" is a ${resource.kind}, not a ${kind}.`,
         {
@@ -103,7 +103,7 @@ function assertNoResourceAliasCollisions(resources) {
   }
 
   const collision = collisions[0];
-  throw jsonDbError(
+  throw dbError(
     'DB_RESOURCE_ALIAS_COLLISION',
     `Resource aliases are ambiguous for "${collision.alias}".`,
     {

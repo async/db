@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { syncJsonFixtureDb, loadConfig, loadProjectSchema } from '../../src/index.js';
+import { syncDb, loadConfig, loadProjectSchema } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('schema validation reports missing required relation targets', async () => {
@@ -239,7 +239,7 @@ test('strict unknown fields fail sync in mixed mode', async () => {
   const config = await loadConfig({ cwd });
 
   await assert.rejects(
-    () => syncJsonFixtureDb(config),
+    () => syncDb(config),
     /twitterHandle/,
   );
 });
@@ -260,8 +260,8 @@ test('schema-backed CSV arrays stay arrays in runtime state', async () => {
   await writeFixture(cwd, 'charts.csv', 'id,tags\nchart_1,renewal;priority\nchart_2,"[""growth"",""upsell""]"');
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
-  const state = JSON.parse(await readFile(path.join(cwd, '.jsondb/state/charts.json'), 'utf8'));
+  const result = await syncDb(config);
+  const state = JSON.parse(await readFile(path.join(cwd, '.db/state/charts.json'), 'utf8'));
 
   assert.deepEqual(result.diagnostics.filter((diagnostic) => diagnostic.severity === 'error'), []);
   assert.deepEqual(state, [
@@ -293,7 +293,7 @@ test('schema seed records are validated without a separate data file', async () 
   const config = await loadConfig({ cwd });
 
   await assert.rejects(
-    () => syncJsonFixtureDb(config),
+    () => syncDb(config),
     /missing required field "email"/,
   );
 });
@@ -345,7 +345,7 @@ test('schema validation rejects declared field type mismatches', async () => {
     ],
   );
   assert.match(project.diagnostics.map((diagnostic) => diagnostic.message).join('\n'), /profile\.flags\[0\]/);
-  await assert.rejects(() => syncJsonFixtureDb(config), /expected string/);
+  await assert.rejects(() => syncDb(config), /expected string/);
 });
 
 test('schema field constraints validate seed records and schema metadata', async () => {
@@ -426,5 +426,5 @@ test('schema field constraints validate seed records and schema metadata', async
   );
   assert.match(errors[0].message, /email/);
   assert.match(errors[0].hint, /pattern/);
-  await assert.rejects(() => syncJsonFixtureDb(config), /violates pattern/);
+  await assert.rejects(() => syncDb(config), /violates pattern/);
 });

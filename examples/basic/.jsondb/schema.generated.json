@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:04.641Z",
+  "resources": {
+    "settings": {
+      "kind": "document",
+      "typeName": "Settings",
+      "routePath": "/settings",
+      "fields": {
+        "features": {
+          "type": "object",
+          "required": false,
+          "fields": {
+            "billing": {
+              "type": "boolean",
+              "required": false
+            }
+          }
+        },
+        "locale": {
+          "type": "string",
+          "required": false
+        },
+        "theme": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "relations": [],
+      "seed": {
+        "theme": "light",
+        "locale": "en-US",
+        "features": {
+          "billing": false
+        }
+      },
+      "source": {
+        "typeSource": "data",
+        "dataPath": "/Users/patrickjs/ai/jsondb/examples/basic/db/settings.json",
+        "dataFormat": "json",
+        "dataHash": "665e9c3e2439aa89d2ca7bdefdc8a12811daf9453c4644e0f58a7b1ea2ebea25",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable user id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Display name shown in the UI."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Unique email address."
+        },
+        "role": {
+          "type": "enum",
+          "description": "Local authorization role.",
+          "default": "user",
+          "values": [
+            "admin",
+            "user"
+          ]
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com",
+          "role": "admin"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/basic/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "settings": [
+      "GET /settings",
+      "PUT /settings",
+      "PATCH /settings"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Settings {\n  features: JSON\n  locale: String\n  theme: String\n}\n\ntype User {\n  \"Stable user id.\"\n  id: ID!\n  \"Display name shown in the UI.\"\n  name: String!\n  \"Unique email address.\"\n  email: String!\n  \"Local authorization role.\"\n  role: String\n}",
+  "diagnostics": []
+}

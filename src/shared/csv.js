@@ -1,11 +1,11 @@
-import { jsonDbError } from './errors.js';
+import { dbError } from './errors.js';
 
 export function parseCsvRecords(text, filePath = 'CSV file') {
   const rows = parseCsvRows(text);
   const headerRow = rows.shift();
 
   if (!headerRow || headerRow.every((cell) => cell.value.trim() === '')) {
-    throw jsonDbError(
+    throw dbError(
       'CSV_MISSING_HEADER',
       `${filePath} must start with a header row.`,
       {
@@ -87,7 +87,7 @@ export function parseCsvRows(text) {
   }
 
   if (quoted) {
-    throw jsonDbError(
+    throw dbError(
       'CSV_UNTERMINATED_QUOTE',
       'CSV file has an unterminated quoted field.',
       {

@@ -1,1 +1,1 @@
-export { runJsonDbDoctor } from './features/doctor/index.js';
+export { runDbDoctor } from './features/doctor/index.js';

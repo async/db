@@ -26,7 +26,7 @@ export function createGeneratorRegistry(generators) {
 function honoGenerator() {
   return {
     name: 'hono',
-    usage: 'jsondb generate hono [--out <dir>] [--api <rest|graphql|rest,graphql|none>] [--db sqlite] [--app <standalone|module>] [--seed fixtures] [--allow-warnings]',
+    usage: 'async-db generate hono [--out <dir>] [--api <rest|graphql|rest,graphql|none>] [--db sqlite] [--app <standalone|module>] [--seed fixtures] [--allow-warnings]',
     async run(config, args) {
       return generateHonoStarter(config, {
         outDir: valueAfter(args, '--out'),

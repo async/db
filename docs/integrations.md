@@ -1,66 +1,68 @@
 # Integrations
 
-jsondb keeps integrations optional. The core package remains dependency-light; apps opt into Vite, Hono, SQLite, or generated starter code when they need those paths.
+@async/db keeps integrations optional. The core package remains dependency-light; apps opt into Vite, Hono, SQLite, or generated starter code when they need those paths.
 
 ## Vite Dev Server Plugin
 
-Vite apps can mount jsondb into the existing dev server instead of running `jsondb serve` on a second port:
+Vite apps can mount @async/db into the existing dev server instead of running `async-db serve` on a second port:
 
 ```js
 import { defineConfig } from 'vite';
-import { jsondbPlugin } from 'jsondb/vite';
+import { dbPlugin } from '@async/db/vite';
 
 export default defineConfig({
   plugins: [
-    jsondbPlugin(),
+    dbPlugin(),
   ],
 });
 ```
 
-The plugin is dev-only (`apply: 'serve'`). It does not run during `vite build`, and it does not add a mandatory Vite dependency to jsondb.
+The plugin is dev-only (`apply: 'serve'`). It does not run during `vite build`, and it does not add a mandatory Vite dependency to @async/db.
 
-By default, dev routes are scoped so they do not steal app URLs:
+By default, app data routes use `/db`, while dev-tool routes stay scoped under `/__db`:
 
 ```txt
-GET  /__jsondb
-GET  /__jsondb/schema
-POST /__jsondb/batch
-POST /__jsondb/graphql
-GET  /__jsondb/rest/users
-GET  /__jsondb/rest/users/u_1
+GET  /db/users.json
+GET  /__db
+GET  /__db/schema
+POST /__db/batch
+POST /__db/graphql
+GET  /__db/rest/users
+GET  /__db/rest/users/u_1
 ```
 
 Use the virtual browser client from app code:
 
 ```ts
-import jsondb, { fork } from 'virtual:jsondb/client';
+import db, { fork } from 'virtual:db/client';
 
-const users = await jsondb.rest.get('/users');
-const selected = await jsondb.rest.get('/users?select=id,name');
+const users = await db.rest.get('/users');
+const selected = await db.rest.get('/users?select=id,name');
 
 const legacyDb = fork('legacy-demo');
 const legacyUsers = await legacyDb.rest.get('/users');
 ```
 
-Plugin options include `cwd`, `dbDir`, `stateDir`, `forks`, `apiBase`, `restBasePath`, `graphqlPath`, `rootRoutes`, `clientVirtualModule`, and `clientImport`.
-The plugin uses `apiBase` first, then `server.apiBase`, then `/__jsondb` for scoped dev routes.
+Plugin options include `cwd`, `dbDir`, `stateDir`, `forks`, `apiBase`, `dataPath`, `restBasePath`, `graphqlPath`, `rootRoutes`, `clientVirtualModule`, and `clientImport`.
+The plugin uses `apiBase` first, then `server.apiBase`, then `/__db` for scoped dev routes.
+Use `server.dataPath: false` to disable the `/db` app-facing data route alias.
 
-Set `rootRoutes: true` only when you intentionally want Vite dev to also answer unscoped routes like `/users`. Standalone `jsondb serve` keeps those root REST routes by default.
+Set `rootRoutes: true` only when you intentionally want Vite dev to also answer unscoped routes like `/users`. Standalone `async-db serve` keeps those root REST routes by default.
 
-The plugin watches fixture sources, not generated runtime output. jsondb also skips rewriting generated and state files when their content is unchanged, so normal `sync` or `openJsonFixtureDb()` calls should not trigger Vite reloads by changing mtimes alone.
+The plugin watches fixture sources, not generated runtime output. @async/db also skips rewriting generated and state files when their content is unchanged, so normal `sync` or `openDb()` calls should not trigger Vite reloads by changing mtimes alone.
 
-If an app commits generated jsondb files under frontend source, Vite may still reload when those files genuinely change. Ignore only generated files that the browser does not need to hot reload.
+If an app commits generated files under frontend source, Vite may still reload when those files genuinely change. Ignore only generated files that the browser does not need to hot reload.
 
 ```ts
 export default defineConfig({
   server: {
     watch: {
       ignored: [
-        '../.jsondb/**',
+        '../.db/**',
         // Only include committed generated files here when browser code
         // does not import them at runtime.
-        'src/generated/jsondb.schema.json',
-        'src/generated/jsondb.types.ts',
+        'src/generated/db.schema.json',
+        'src/generated/db.types.ts',
       ],
     },
   },
@@ -69,12 +71,12 @@ export default defineConfig({
 
 ## Hono Route Registration
 
-Apps that own a Hono instance can register jsondb REST routes and wrap them with lifecycle hooks.
+Apps that own a Hono instance can register @async/db REST routes and wrap them with lifecycle hooks.
 
 ```ts
-import { registerRestRoutes } from 'jsondb/hono';
+import { registerDbRoutes } from '@async/db/hono';
 
-registerRestRoutes(app, db, {
+registerDbRoutes(app, db, {
   prefix: '/api',
   resources: ['pages', 'charts'],
   lifecycleHooks: {
@@ -104,9 +106,9 @@ Hook order is deterministic:
 2. `beforeWrite` for `create`, `patch`, `put`, or `delete`
 3. matching global method hook
 4. matching resource method hook
-5. JSONDB operation
+5. @async/db operation
 
-Any hook can return a Hono response to short-circuit the request. Write hooks can mutate `body` before JSONDB validates and writes it.
+Any hook can return a Hono response to short-circuit the request. Write hooks can mutate `body` before @async/db validates and writes it.
 
 See [examples/hono-auth](../examples/hono-auth/README.md) for a runnable Hono app with bearer-token auth.
 
@@ -115,12 +117,12 @@ See [examples/hono-auth](../examples/hono-auth/README.md) for a runnable Hono ap
 When fixtures and schemas have settled enough to graduate toward a real database API, generate a Hono starter:
 
 ```bash
-jsondb generate hono
-jsondb generate hono --api rest,graphql --out ./server
-jsondb generate hono --api none --app module
+async-db generate hono
+async-db generate hono --api rest,graphql --out ./server
+async-db generate hono --api none --app module
 ```
 
-The default output is `./jsondb-api` with REST routes, a portable repository interface, a `node:sqlite` adapter, validators, and an initial SQL migration.
+The default output is `./db-api` with REST routes, a portable repository interface, a `node:sqlite` adapter, validators, and an initial SQL migration.
 
 Generated standalone apps are TypeScript-first and target Node.js `>=22.13` because SQLite output uses `node:sqlite`.
 
@@ -134,10 +136,10 @@ Apps can also use optional runtime exports directly:
 
 ```ts
 import { Hono } from 'hono';
-import { createJsonDbHonoApp } from 'jsondb/hono';
+import { createDbHonoApp } from '@async/db/hono';
 
 const app = new Hono();
-app.route('/api', await createJsonDbHonoApp({
+app.route('/api', await createDbHonoApp({
   dbDir: './db',
   storage: {
     kind: 'sqlite',

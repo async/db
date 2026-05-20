@@ -1,9 +1,9 @@
-import { jsonDbError } from '../../errors.js';
+import { dbError } from '../../errors.js';
 import { assertRecordMatchesResource, validateUniqueCollectionFields } from '../../schema.js';
 import { applyDefaultsToRecord } from '../../sync.js';
 import { createRuntime } from '../storage/runtime.js';
 
-export class JsonDbCollection {
+export class DbCollection {
   constructor(db, resource) {
     this.db = normalizeDb(db, resource);
     this.config = this.db.config;
@@ -42,7 +42,7 @@ export class JsonDbCollection {
       });
 
       if (records.some((existing) => idMatches(existing?.[this.resource.idField], id))) {
-        throw jsonDbError(
+        throw dbError(
           'DB_CREATE_DUPLICATE_ID',
           `Cannot create "${this.resource.name}" record because id "${id}" already exists.`,
           {
@@ -140,7 +140,7 @@ function assertUniqueCollectionRecords(records, resource) {
     return;
   }
 
-  throw jsonDbError(
+  throw dbError(
     'DB_SCHEMA_VALIDATION_FAILED',
     `${resource.name} record does not match its schema: ${diagnostics[0].message}`,
     {

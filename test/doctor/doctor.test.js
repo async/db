@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
-import { loadConfig, loadProjectSchema, runJsonDbDoctor } from '../../src/index.js';
+import { loadConfig, loadProjectSchema, runDbDoctor } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 const execFileAsync = promisify(execFile);
@@ -18,7 +18,7 @@ test('doctor suggests likely relations without changing schema shape', async () 
   ]));
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
   const project = await loadProjectSchema(config);
   const suggestion = result.findings.find((finding) => finding.code === 'DOCTOR_RELATION_SUGGESTION');
 
@@ -46,7 +46,7 @@ test('doctor does not suggest missing relation targets when every duplicated val
   ]));
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
 
   assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_RELATION_MISSING_TARGET_VALUES'), false);
   assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_RELATION_SUGGESTION'), false);
@@ -61,7 +61,7 @@ test('doctor reports duplicate ids and inconsistent field types', async () => {
   ]));
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
 
   assert.equal(result.summary.warn, 3);
   assert.equal(result.summary.error, 0);
@@ -88,14 +88,14 @@ test('doctor suggests schema when polymorphic data cannot be inferred confidentl
   ]));
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
   const finding = result.findings.find((candidate) => candidate.code === 'DOCTOR_SCHEMA_RECOMMENDED');
 
   assert.equal(finding.severity, 'info');
   assert.equal(finding.resource, 'pages');
   assert.equal(finding.field, 'blocks');
   assert.match(finding.message, /pages\.blocks/);
-  assert.match(finding.hint, /jsondb schema infer pages --out db\/pages\.schema\.jsonc/);
+  assert.match(finding.hint, /async-db schema infer pages --out db\/pages\.schema\.jsonc/);
 });
 
 test('doctor reports explicit schemas that match data inference', async () => {
@@ -116,7 +116,7 @@ test('doctor reports explicit schemas that match data inference', async () => {
   }`);
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
   const finding = result.findings.find((candidate) => candidate.code === 'DOCTOR_SCHEMA_MATCHES_INFERENCE');
 
   assert.equal(finding.severity, 'info');
@@ -146,7 +146,7 @@ test('doctor keeps schema removal quiet when schema contains non-inferable contr
   }`);
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
 
   assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_SCHEMA_MATCHES_INFERENCE'), false);
 });
@@ -170,12 +170,12 @@ test('doctor suggests unbundling ignored schema seed in mixed mode', async () =>
   }`);
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
   const finding = result.findings.find((candidate) => candidate.code === 'SCHEMA_SEED_IGNORED_IN_MIXED_MODE');
 
   assert.equal(finding.severity, 'warn');
   assert.equal(finding.resource, 'users');
-  assert.match(finding.hint, /jsondb schema unbundle users/);
+  assert.match(finding.hint, /async-db schema unbundle users/);
 });
 
 test('doctor validates configured fork folders', async () => {
@@ -186,7 +186,7 @@ test('doctor validates configured fork folders', async () => {
   };`);
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
 
   assert.equal(result.summary.error, 2);
   assert.equal(result.findings.some((finding) => finding.code === 'FORK_SOURCE_MISSING' && finding.details?.fork === 'legacy-demo'), true);
@@ -213,7 +213,7 @@ test('doctor reports missing store names and large json stores without indexes',
   };`);
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
   const missingStore = result.findings.find((finding) => finding.code === 'DOCTOR_STORE_NOT_FOUND');
   const largeJsonStore = result.findings.find((finding) => finding.code === 'DOCTOR_LARGE_JSON_STORE_WITHOUT_INDEXES');
 
@@ -247,7 +247,7 @@ test('doctor accepts index metadata for large json-backed collections', async ()
   };`);
 
   const config = await loadConfig({ cwd });
-  const result = await runJsonDbDoctor(config);
+  const result = await runDbDoctor(config);
 
   assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_LARGE_JSON_STORE_WITHOUT_INDEXES'), false);
 });

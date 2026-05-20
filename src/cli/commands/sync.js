@@ -1,8 +1,8 @@
-import { syncJsonFixtureDb } from '../../sync.js';
+import { syncDb } from '../../sync.js';
 import { printDiagnostic } from '../output.js';
 
 export async function runSync(config) {
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
   for (const diagnostic of result.diagnostics) {
     printDiagnostic(diagnostic);
   }

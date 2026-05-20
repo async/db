@@ -1,0 +1,16 @@
+{
+  "resources": {
+    "settings": {
+      "path": "db/settings.jsonc",
+      "format": "jsonc",
+      "hash": "7aa5715a8bea67830cb328640e8244fd635b3362edfd1e2d524691535bf7a1c8",
+      "updatedAt": "2026-05-20T01:52:04.634Z"
+    },
+    "users": {
+      "path": "db/users.json",
+      "format": "json",
+      "hash": "c8262b4f749453b3abc4b0a7d9f229388447d874a7ea204811ca9300890912b2",
+      "updatedAt": "2026-05-20T01:52:04.634Z"
+    }
+  }
+}

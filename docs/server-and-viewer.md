@@ -1,6 +1,6 @@
 # Server And Viewer
 
-`jsondb serve` starts a local development server. It syncs on startup, watches fixture sources, serves REST and GraphQL endpoints, and exposes the built-in data viewer.
+`async-db serve` starts a local development server. It syncs on startup, watches fixture sources, serves REST and GraphQL endpoints, and exposes the built-in data viewer.
 
 ## Local Trust Boundary
 
@@ -20,10 +20,10 @@ Config and schema JavaScript are trusted project code. Do not treat `.schema.mjs
 Open the built-in viewer after starting the server:
 
 ```txt
-http://127.0.0.1:7331/__jsondb
+http://127.0.0.1:7331/__db
 ```
 
-The default viewer and dev-tool route base is `/__jsondb`. Change it with
+The default viewer and dev-tool route base is `/__db`. Change it with
 `server.apiBase` when an app needs a different reserved path; schema, batch,
 import, events, log, and fork routes move with that base.
 
@@ -44,13 +44,13 @@ The viewer includes:
 The built-in viewer reads the same JSON manifest that custom viewer UIs can use:
 
 ```txt
-GET /__jsondb/manifest
-GET /__jsondb/manifest.json
-GET /__jsondb/manifest.html
-GET /__jsondb/manifest.md
+GET /__db/manifest
+GET /__db/manifest.json
+GET /__db/manifest.html
+GET /__db/manifest.md
 ```
 
-`/manifest.json` returns JSON. `/manifest.html` returns the built-in formatted JSON viewer with dark mode by default, dark/light/system theme controls, copy, and pretty/raw formatting controls. `/manifest.md` returns Markdown with the manifest JSON in a fenced code block for AI clients. `/manifest` chooses from registered response formats using the request `Accept` header. If `server.apiBase` changes, the routes move with it, for example `GET /_jsondb/manifest`.
+`/manifest.json` returns JSON. `/manifest.html` returns the built-in formatted JSON viewer with dark mode by default, dark/light/system theme controls, copy, and pretty/raw formatting controls. `/manifest.md` returns Markdown with the manifest JSON in a fenced code block for AI clients. `/manifest` chooses from registered response formats using the request `Accept` header. If `server.apiBase` changes, the routes move with it, for example `GET /_db/manifest`.
 
 The manifest includes:
 
@@ -67,13 +67,13 @@ Add custom viewer links when a project ships its own data UI:
 Override the built-in Markdown renderer when a project needs a different shape:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 import { stringify as stringifyYaml } from 'yaml';
 
 export default defineConfig({
   server: {
     viewerLinks: [
-      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/jsondb' },
+      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/db' },
     ],
   },
 });
@@ -82,15 +82,15 @@ export default defineConfig({
 You can also write the same shape to a committed artifact:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  viewerManifestOutFile: './src/generated/jsondb.viewer.json',
+  viewerManifestOutFile: './src/generated/db.viewer.json',
 });
 ```
 
 ```bash
-jsondb viewer manifest --out ./src/generated/jsondb.viewer.json
+async-db viewer manifest --out ./src/generated/db.viewer.json
 ```
 
 ## REST Routes
@@ -99,14 +99,35 @@ REST routes are enabled by default. Set `rest.enabled: false` to turn off
 generated resource routes and REST batching while keeping dev-tool routes such
 as the viewer, schema, manifest, import, events, and GraphQL available.
 
+The app-facing REST route base defaults to `/db`, matching the fixture folder.
+For a fixture at `db/users.json`, fetch the synced runtime resource with:
+
+```js
+const users = await fetch('/db/users.json').then((response) => response.json());
+```
+
+Scoped REST remains available under the tool route base, such as
+`GET /__db/rest/users.json`. Standalone `async-db serve` also keeps root REST
+routes such as `GET /users` for local convenience. Set `server.dataPath: false`
+to disable only the `/db` alias.
+
+Use `?id=` only with the explicit JSON route:
+
+```txt
+GET /db/users.json?id=u_1
+```
+
+Extensionless REST routes keep normal REST semantics and return a structured
+error for `?id=`. Use `GET /db/users/u_1.json` or `GET /users/u_1` there.
+
 Collections:
 
 ```txt
-GET     /users
-GET     /users/:id
-POST    /users
-PATCH   /users/:id
-DELETE  /users/:id
+GET     /db/users.json
+GET     /db/users/:id.json
+POST    /db/users
+PATCH   /db/users/:id
+DELETE  /db/users/:id
 ```
 
 Singleton documents:
@@ -120,25 +141,26 @@ PATCH   /settings
 REST examples:
 
 ```bash
-curl http://127.0.0.1:7331/users
-curl 'http://127.0.0.1:7331/users?select=id,name&offset=0&limit=20'
-curl http://127.0.0.1:7331/users/u_1
+curl http://127.0.0.1:7331/db/users.json
+curl 'http://127.0.0.1:7331/db/users.json?select=id,name&offset=0&limit=20'
+curl 'http://127.0.0.1:7331/db/users.json?id=u_1&select=id,name'
+curl http://127.0.0.1:7331/db/users/u_1.json
 ```
 
 ```bash
-curl -X POST http://127.0.0.1:7331/users \
+curl -X POST http://127.0.0.1:7331/db/users \
   -H 'content-type: application/json' \
   -d '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
 ```
 
 ```bash
-curl -X PATCH http://127.0.0.1:7331/users/u_2 \
+curl -X PATCH http://127.0.0.1:7331/db/users/u_2 \
   -H 'content-type: application/json' \
   -d '{"name":"Rear Admiral Grace Hopper"}'
 ```
 
 ```bash
-curl -X DELETE http://127.0.0.1:7331/users/u_2
+curl -X DELETE http://127.0.0.1:7331/db/users/u_2
 ```
 
 ## REST Formats
@@ -146,20 +168,20 @@ curl -X DELETE http://127.0.0.1:7331/users/u_2
 Resource `GET` routes return JSON by default. The explicit `.json` extension uses the same shaped data:
 
 ```txt
-GET /users
-GET /users.json
-GET /users.html
-GET /users.md
-GET /users/u_1
-GET /users/u_1.json
-GET /users/u_1.html
-GET /users/u_1.md
+GET /db/users
+GET /db/users.json
+GET /db/users.html
+GET /db/users.md
+GET /db/users/u_1
+GET /db/users/u_1.json
+GET /db/users/u_1.html
+GET /db/users/u_1.md
 ```
 
 `.json`, `.html`, and `.md` are built in. Config entries with the same extension override the built-in resource renderer, and object entries can also override manifest rendering. Extensionless resource and manifest routes negotiate registered media types from `Accept`; unsupported `Accept` values fall back to the configured default format. Format renderers receive data after normal REST shaping, so `select`, `expand`, `offset`, and `limit` apply before rendering.
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   rest: {
@@ -186,7 +208,7 @@ export default defineConfig({
 });
 ```
 
-Function shorthand is resource-only for compatibility. Use object syntax when a format needs media-type negotiation or manifest support, such as `GET /__jsondb/manifest.yaml`. jsondb does not execute `.jsx` routes directly; JSX is a source/runtime choice for your renderer, while `.html` is the response format.
+Function shorthand is resource-only for compatibility. Use object syntax when a format needs media-type negotiation or manifest support, such as `GET /__db/manifest.yaml`. @async/db does not execute `.jsx` routes directly; JSX is a source/runtime choice for your renderer, while `.html` is the response format.
 
 ## Relationship Expansion
 
@@ -220,11 +242,11 @@ curl 'http://127.0.0.1:7331/posts/p_1?expand=author&select=id,title,author.name'
 REST batching is supported through:
 
 ```txt
-POST /__jsondb/batch
+POST /__db/batch
 ```
 
 If `server.apiBase` is changed, the batch endpoint follows that base, for
-example `POST /_jsondb/batch`.
+example `POST /_db/batch`.
 
 ```json
 [
@@ -251,7 +273,7 @@ Errors are shaped for humans and automation:
   "error": {
     "code": "REST_BATCH_INVALID_PATH",
     "message": "REST batch path must start with \"/\": users",
-    "hint": "Use absolute local paths such as \"/users\", \"/settings\", or \"/__jsondb/schema\".",
+    "hint": "Use absolute local paths such as \"/users\", \"/settings\", or \"/__db/schema\".",
     "details": {
       "path": "users"
     }
@@ -273,24 +295,24 @@ Unsupported in v1:
 
 - subscriptions
 - full GraphQL spec introspection
-- general-purpose GraphQL validation beyond jsondb's local subset
+- general-purpose GraphQL validation beyond @async/db's local subset
 - relation traversal from schema relation metadata; GraphQL projects stored fields in v1
 
 ## Watch Behavior
 
-`serve` watches fixture sources, ignores `.jsondb/`, reloads valid resources when files change, and surfaces file-specific diagnostics in the viewer without breaking unrelated resources.
+`serve` watches fixture sources, ignores `.db/`, reloads valid resources when files change, and surfaces file-specific diagnostics in the viewer without breaking unrelated resources.
 
-If an app commits generated jsondb files under frontend source folders, Vite may still reload when those files genuinely change. Only ignore generated files that the browser does not need to hot reload.
+If an app commits generated files under frontend source folders, Vite may still reload when those files genuinely change. Only ignore generated files that the browser does not need to hot reload.
 
 ## Advanced: Fork Routes
 
 Fork-scoped routes are derived automatically:
 
 ```txt
-GET  /__jsondb/forks/legacy-demo/rest/users
-POST /__jsondb/forks/legacy-demo/batch
-POST /__jsondb/forks/legacy-demo/graphql
-GET  /__jsondb/forks/legacy-demo/schema
+GET  /__db/forks/legacy-demo/rest/users
+POST /__db/forks/legacy-demo/batch
+POST /__db/forks/legacy-demo/graphql
+GET  /__db/forks/legacy-demo/schema
 ```
 
 These routes also follow `server.apiBase`.

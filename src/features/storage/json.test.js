@@ -6,7 +6,7 @@ import test from 'node:test';
 import { atomicWriteJson } from './json.js';
 
 test('atomicWriteJson writes complete pretty JSON documents', async () => {
-  const dir = await mkdir(path.join(tmpdir(), `jsondb-atomic-${Date.now()}-`), { recursive: true });
+  const dir = await mkdir(path.join(tmpdir(), `db-atomic-${Date.now()}-`), { recursive: true });
   const filePath = path.join(dir, 'users.json');
   await writeFile(filePath, '[{"id":"old"}]\n', 'utf8');
 

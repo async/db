@@ -14,8 +14,8 @@ const app = await startSchemaUiServer({
   skipSync: options.skipSync,
 });
 
-console.log(`Schema UI SSR + jsondb: ${app.url}/`);
-console.log(`Built-in viewer: ${app.url}/__jsondb`);
+console.log(`Schema UI SSR + db: ${app.url}/`);
+console.log(`Built-in viewer: ${app.url}/__db`);
 console.log(`Static templates (no records): ${app.url}/templates`);
 
 function parseArgs(argv) {

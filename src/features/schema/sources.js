@@ -49,7 +49,7 @@ export async function readSourceFile(config, filename) {
     return {
       sources: [],
       diagnostics: [sourceLoadDiagnostic(error, sourceFile, resolveSourceResourceName(config, filename), config, {
-        readerName: 'jsondb:source-context',
+        readerName: 'db:source-context',
       })],
     };
   }
@@ -150,11 +150,11 @@ function normalizeUserSourceReaders(readers) {
 function builtInSourceReaders() {
   return [
     {
-      name: 'jsondb:schema-mjs',
+      name: 'db:schema-mjs',
       match: ({ file, config }) => config.schema?.source !== 'data' && file.endsWith('.schema.mjs'),
       async read({ sourceFile }) {
         const url = pathToFileURL(sourceFile);
-        url.searchParams.set('jsondbSchemaLoad', String(Date.now()));
+        url.searchParams.set('dbSchemaLoad', String(Date.now()));
         const module = await import(url.href);
         return {
           kind: 'schema',
@@ -164,7 +164,7 @@ function builtInSourceReaders() {
       },
     },
     {
-      name: 'jsondb:schema-json',
+      name: 'db:schema-json',
       match: ({ file, config }) => config.schema?.source !== 'data' && file.endsWith('.schema.json'),
       async read({ readText }) {
         return {
@@ -175,7 +175,7 @@ function builtInSourceReaders() {
       },
     },
     {
-      name: 'jsondb:schema-jsonc',
+      name: 'db:schema-jsonc',
       match: ({ file, config }) => (
         config.schema?.source !== 'data'
         && config.schema?.allowJsonc !== false
@@ -190,7 +190,7 @@ function builtInSourceReaders() {
       },
     },
     {
-      name: 'jsondb:data-csv',
+      name: 'db:data-csv',
       match: ({ file, config }) => config.schema?.source !== 'schema' && file.endsWith('.csv'),
       async read({ readText, sourceFile }) {
         return {
@@ -201,7 +201,7 @@ function builtInSourceReaders() {
       },
     },
     {
-      name: 'jsondb:data-jsonc',
+      name: 'db:data-jsonc',
       match: ({ file, config }) => (
         config.schema?.source !== 'schema'
         && config.schema?.allowJsonc !== false
@@ -217,7 +217,7 @@ function builtInSourceReaders() {
       },
     },
     {
-      name: 'jsondb:data-json',
+      name: 'db:data-json',
       match: ({ file, config }) => config.schema?.source !== 'schema' && !isSchemaSourceFile(file) && file.endsWith('.json'),
       async read({ readText }) {
         return {
@@ -383,10 +383,10 @@ export function duplicateResourceDiagnostics(resourceSources) {
         resource: name,
         files,
         apiEffects: [
-          `.jsondb/state/${name}.json`,
+          `.db/state/${name}.json`,
           `REST ${routePathForResource(name)}`,
           `GraphQL ${name}/${typeNameForResource(name)}`,
-          `JsonDbCollections["${name}"]`,
+          `DbCollections["${name}"]`,
         ],
       },
     });
@@ -403,7 +403,7 @@ function sourceLoadDiagnostic(error, filePath, resource, config, options = {}) {
     resource,
     file: relativePath,
     message: `Could not load ${relativePath}: ${error.message}`,
-    hint: error.hint ?? 'Fix this source file and jsondb will reload the rest of the project.',
+    hint: error.hint ?? 'Fix this source file and db will reload the rest of the project.',
     details: {
       path: relativePath,
       reader: options.readerName,

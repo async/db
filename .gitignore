@@ -1,5 +1,5 @@
 node_modules/
-.jsondb/
+.db/
 coverage/
 *.log
 /.tmp

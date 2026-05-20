@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:30.982Z",
+  "resources": {
+    "pages": {
+      "kind": "collection",
+      "typeName": "Page",
+      "routePath": "/pages",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable page id used in routes and links."
+        },
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "Human-readable page title."
+        },
+        "visibility": {
+          "type": "enum",
+          "description": "Whether the page can be shown publicly.",
+          "default": "private",
+          "values": [
+            "public",
+            "private"
+          ]
+        },
+        "body": {
+          "type": "string",
+          "description": "Short markdown-like page body for the demo."
+        },
+        "createdAt": {
+          "type": "datetime",
+          "description": "Timestamp assigned by the pages create hook."
+        },
+        "updatedAt": {
+          "type": "datetime",
+          "description": "Timestamp assigned by the shared write hook."
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "home",
+          "title": "Home",
+          "visibility": "public",
+          "body": "Welcome to the JSONDB Hono auth example.",
+          "createdAt": "2026-05-14T00:00:00.000Z",
+          "updatedAt": "2026-05-14T00:00:00.000Z"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/hono-auth/db/pages.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable user id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Display name shown in the app."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Email address used for local sign-in.",
+          "unique": true
+        },
+        "role": {
+          "type": "enum",
+          "description": "Local authorization role.",
+          "default": "user",
+          "values": [
+            "admin",
+            "user"
+          ]
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_admin",
+          "name": "Admin Example",
+          "email": "admin@example.com",
+          "role": "admin"
+        },
+        {
+          "id": "u_user",
+          "name": "Reader Example",
+          "email": "reader@example.com",
+          "role": "user"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/hono-auth/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [],
+  "rest": {
+    "pages": [
+      "GET /pages",
+      "GET /pages/:id",
+      "POST /pages",
+      "PATCH /pages/:id",
+      "DELETE /pages/:id"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Page {\n  \"Stable page id used in routes and links.\"\n  id: ID!\n  \"Human-readable page title.\"\n  title: String!\n  \"Whether the page can be shown publicly.\"\n  visibility: String\n  \"Short markdown-like page body for the demo.\"\n  body: String\n  \"Timestamp assigned by the pages create hook.\"\n  createdAt: String\n  \"Timestamp assigned by the shared write hook.\"\n  updatedAt: String\n}\n\ntype User {\n  \"Stable user id.\"\n  id: ID!\n  \"Display name shown in the app.\"\n  name: String!\n  \"Email address used for local sign-in.\"\n  email: String!\n  \"Local authorization role.\"\n  role: String\n}",
+  "diagnostics": []
+}

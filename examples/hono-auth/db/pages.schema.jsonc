@@ -36,7 +36,7 @@
       "id": "home",
       "title": "Home",
       "visibility": "public",
-      "body": "Welcome to the JSONDB Hono auth example.",
+      "body": "Welcome to the db Hono auth example.",
       "createdAt": "2026-05-14T00:00:00.000Z",
       "updatedAt": "2026-05-14T00:00:00.000Z"
     }

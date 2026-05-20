@@ -4,18 +4,18 @@ This guide takes a project from one fixture file to a local API, viewer, generat
 
 ## Install
 
-Until jsondb is published, install it from GitHub with a pinned, reviewed commit SHA or release tag:
+Until @async/db is published, install it from GitHub with a pinned, reviewed commit SHA or release tag:
 
 ```json
 {
   "devDependencies": {
-    "jsondb": "github:PatrickJS/jsondb#<reviewed-commit-sha-or-tag>"
+    "@async/db": "github:PatrickJS/async-db#<reviewed-commit-sha-or-tag>"
   },
   "scripts": {
-    "db": "jsondb",
-    "db:sync": "jsondb sync",
-    "db:serve": "jsondb serve",
-    "db:types": "jsondb types"
+    "db": "async-db",
+    "db:sync": "async-db sync",
+    "db:serve": "async-db serve",
+    "db:types": "async-db types"
   }
 }
 ```
@@ -26,11 +26,11 @@ Replace the placeholder with the commit SHA or tag you reviewed. After package p
 npm install
 ```
 
-The scripts use the local `node_modules/.bin/jsondb` binary, so each project controls its own jsondb version.
+The scripts use the local `node_modules/.bin/async-db` binary, so each project controls its own @async/db version.
 
 ## Create A Fixture
 
-jsondb uses `./db` by default:
+@async/db uses `./db` by default:
 
 ```bash
 mkdir -p db
@@ -54,12 +54,12 @@ npm run db:sync
 Sync reads fixtures and writes generated runtime output:
 
 ```txt
-.jsondb/schema.generated.json
-.jsondb/types/index.ts
-.jsondb/state/users.json
+.db/schema.generated.json
+.db/types/index.ts
+.db/state/users.json
 ```
 
-By default, app writes update the generated JSON store under `.jsondb/state`. Source fixtures stay unchanged.
+By default, app writes update the generated JSON store under `.db/state`. Source fixtures stay unchanged.
 
 ## Serve
 
@@ -72,24 +72,30 @@ npm run db:serve
 Open the viewer:
 
 ```txt
-http://127.0.0.1:7331/__jsondb
+http://127.0.0.1:7331/__db
 ```
 
 In terminal 2, call the REST API:
 
 ```bash
-curl http://127.0.0.1:7331/users
+curl http://127.0.0.1:7331/db/users.json
+```
+
+You can also read one record through the fixture-shaped URL:
+
+```bash
+curl 'http://127.0.0.1:7331/db/users.json?id=u_1'
 ```
 
 Create another record:
 
 ```bash
-curl -X POST http://127.0.0.1:7331/users \
+curl -X POST http://127.0.0.1:7331/db/users \
   -H 'content-type: application/json' \
   -d '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
 ```
 
-The new record is written to `.jsondb/state/users.json`, not `db/users.json`.
+The new record is written to `.db/state/users.json`, not `db/users.json`.
 
 ## Add A Schema
 
@@ -139,7 +145,7 @@ node ./src/cli.js serve --cwd ./examples/basic
 Open:
 
 ```txt
-http://127.0.0.1:7331/__jsondb
+http://127.0.0.1:7331/__db
 ```
 
 The example README has the exact files and requests for that workflow: [examples/basic](../examples/basic/README.md).

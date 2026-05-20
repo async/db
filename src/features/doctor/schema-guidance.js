@@ -26,8 +26,8 @@ function schemaRecommendedFindings(resources) {
         source: 'doctor',
         resource: resource.name,
         field: fieldPath,
-        message: `${resource.name}.${fieldPath} has polymorphic array data that jsondb cannot infer confidently.`,
-        hint: `Run jsondb schema infer ${resource.name} --out db/${resource.name}.schema.jsonc to lock the current inferred shape into an explicit schema.`,
+        message: `${resource.name}.${fieldPath} has polymorphic array data that db cannot infer confidently.`,
+        hint: `Run async-db schema infer ${resource.name} --out db/${resource.name}.schema.jsonc to lock the current inferred shape into an explicit schema.`,
         details: {
           resource: resource.name,
           field: fieldPath,

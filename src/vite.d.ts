@@ -1,22 +1,24 @@
-import type { JsonDbClient, JsonDbOptions } from './index.d.ts';
+import type { DbClient, DbOptions } from './index.d.ts';
 
-export type JsonDbVirtualClient = JsonDbClient & {
+export type DbVirtualClient = DbClient & {
   /** Create a client scoped to a configured database fork. */
-  fork(name: string): JsonDbClient;
+  fork(name: string): DbClient;
 };
 
-export type JsonDbVitePluginOptions = Pick<JsonDbOptions, 'cwd' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'mode' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'mock' | 'forks'> & {
-  /** Scoped base for jsondb dev tools. Defaults to "/__jsondb". */
+export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'mock' | 'forks'> & {
+  /** Scoped base for db dev tools. Defaults to "/__db". */
   apiBase?: string;
+  /** App-facing REST data route alias. Defaults to "/db"; set false to disable. */
+  dataPath?: string | false;
   /** Serve root REST routes such as "/users" during Vite dev. Defaults to false. */
   rootRoutes?: boolean;
   /** Scoped REST resource base. Defaults to "<apiBase>/rest". */
   restBasePath?: string;
   /** Scoped GraphQL endpoint. Defaults to "<apiBase>/graphql". */
   graphqlPath?: string;
-  /** Virtual module id for the browser-safe client. Defaults to "virtual:jsondb/client"; false disables it. */
+  /** Virtual module id for the browser-safe client. Defaults to "virtual:db/client"; false disables it. */
   clientVirtualModule?: string | false;
-  /** Import specifier used inside the virtual client. Defaults to "jsondb/client". */
+  /** Import specifier used inside the virtual client. Defaults to "@async/db/client". */
   clientImport?: string;
 };
 
@@ -40,11 +42,11 @@ export type ViteLikePlugin = {
   load(id: string): string | null | Promise<string | null>;
 };
 
-export function jsondbPlugin(options?: JsonDbVitePluginOptions): ViteLikePlugin;
+export function dbPlugin(options?: DbVitePluginOptions): ViteLikePlugin;
 
-declare module 'virtual:jsondb/client' {
-  export const client: JsonDbVirtualClient;
-  export function fork(name: string): JsonDbClient;
+declare module 'virtual:db/client' {
+  export const client: DbVirtualClient;
+  export function fork(name: string): DbClient;
   export const createForkClient: typeof fork;
   export default client;
 }

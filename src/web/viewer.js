@@ -1,10 +1,10 @@
-export function renderJsonDbViewer(options = {}) {
+export function renderDbViewer(options = {}) {
   const graphqlPath = options.graphqlPath ?? '/graphql';
-  const schemaPath = options.schemaPath ?? '/__jsondb/schema';
-  const manifestPath = options.manifestPath ?? '/__jsondb/manifest.json';
-  const eventsPath = options.eventsPath ?? '/__jsondb/events';
-  const importPath = options.importPath ?? '/__jsondb/import';
-  const restBatchPath = options.restBatchPath ?? '/__jsondb/batch';
+  const schemaPath = options.schemaPath ?? '/__db/schema';
+  const manifestPath = options.manifestPath ?? '/__db/manifest.json';
+  const eventsPath = options.eventsPath ?? '/__db/events';
+  const importPath = options.importPath ?? '/__db/import';
+  const restBatchPath = options.restBatchPath ?? '/__db/batch';
   const restBasePath = options.restBasePath ?? '';
   const sourceDirLabel = options.sourceDirLabel ?? 'db/';
   const buttonClass = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-emerald-700 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:translate-y-px';
@@ -41,7 +41,7 @@ export function renderJsonDbViewer(options = {}) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>jsondb viewer</title>
+  <title>db viewer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
@@ -49,7 +49,7 @@ export function renderJsonDbViewer(options = {}) {
   <div class="grid min-h-screen grid-rows-[auto_1fr]">
     <header class="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 class="text-lg font-bold tracking-normal text-slate-950">jsondb viewer</h1>
+        <h1 class="text-lg font-bold tracking-normal text-slate-950">db viewer</h1>
         <div class="${mutedClass}" id="subtitle">Loading local fixture database</div>
       </div>
       <div class="${rowClass} sm:justify-end" id="status"></div>
@@ -76,7 +76,7 @@ export function renderJsonDbViewer(options = {}) {
             <h2 id="resource-title" class="text-base font-bold tracking-normal text-slate-950">Select a resource</h2>
             <div class="${mutedClass}" id="resource-detail"></div>
           </div>
-          <div class="${rowClass}" role="tablist" aria-label="jsondb viewer sections">
+          <div class="${rowClass}" role="tablist" aria-label="db viewer sections">
             <button type="button" class="${activeTabClass}" data-tab="data">Data</button>
             <button type="button" class="${tabClass}" data-tab="rest">REST</button>
             <button type="button" class="${tabClass}" data-tab="graphql">GraphQL</button>
@@ -756,7 +756,7 @@ export function renderJsonDbViewer(options = {}) {
         return state.resources[0]?.name;
       }
 
-      const storedResource = localStorage.getItem('jsondb:selectedResource');
+      const storedResource = localStorage.getItem('db:selectedResource');
       if (storedResource) {
         const resolvedStoredResource = resolveResourceName(storedResource);
         if (resolvedStoredResource) {
@@ -812,14 +812,14 @@ export function renderJsonDbViewer(options = {}) {
     }
 
     function rememberResource(name) {
-      localStorage.setItem('jsondb:selectedResource', name);
+      localStorage.setItem('db:selectedResource', name);
       const url = new URL(window.location.href);
       url.searchParams.set('resource', name);
       window.history.replaceState({}, '', url);
     }
 
     function clearRememberedResource(clearQuery) {
-      localStorage.removeItem('jsondb:selectedResource');
+      localStorage.removeItem('db:selectedResource');
       if (clearQuery) {
         const url = new URL(window.location.href);
         url.searchParams.delete('resource');
@@ -833,7 +833,7 @@ export function renderJsonDbViewer(options = {}) {
       }
 
       const events = new EventSource(EVENTS_PATH);
-      events.addEventListener('jsondb', (event) => {
+      events.addEventListener('db', (event) => {
         const payload = JSON.parse(event.data);
         if (payload.type === 'connected') {
           return;
@@ -863,7 +863,7 @@ export function renderJsonDbViewer(options = {}) {
           method: 'POST',
           headers: {
             'content-type': 'text/csv; charset=utf-8',
-            'x-jsondb-file-name': file.name,
+            'x-db-file-name': file.name,
           },
           body: file,
         });
@@ -998,7 +998,7 @@ export function renderJsonDbViewer(options = {}) {
     }
 
     function showFatal(error) {
-      els.subtitle.textContent = 'Unable to load jsondb viewer';
+      els.subtitle.textContent = 'Unable to load db viewer';
       els.dataView.innerHTML = '<pre class="' + CODE_CLASS + '"></pre>';
       els.dataView.querySelector('pre').textContent = error.stack || error.message;
     }

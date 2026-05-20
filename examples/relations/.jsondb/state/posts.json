@@ -1,0 +1,14 @@
+[
+  {
+    "id": "p_1",
+    "title": "Analytical engines for local demos",
+    "authorId": "u_1",
+    "status": "published"
+  },
+  {
+    "id": "p_2",
+    "title": "Orbital mechanics as fixture data",
+    "authorId": "u_2",
+    "status": "draft"
+  }
+]

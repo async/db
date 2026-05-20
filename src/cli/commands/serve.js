@@ -1,4 +1,4 @@
-import { startJsonDbServer } from '../../server.js';
+import { startDbServer } from '../../server.js';
 import { isHelpRequested, valueAfter } from '../args.js';
 import { printServeHelp } from '../output.js';
 
@@ -10,11 +10,11 @@ export async function runServe(config, args) {
 
   const host = valueAfter(args, '--host') ?? config.server.host;
   const port = valueAfter(args, '--port') ?? config.server.port;
-  const { url } = await startJsonDbServer({
+  const { url } = await startDbServer({
     ...config,
     host,
     port,
   });
-  console.log(`jsondb server listening at ${url}`);
+  console.log(`db server listening at ${url}`);
   return new Promise(() => {});
 }

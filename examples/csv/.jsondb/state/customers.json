@@ -1,0 +1,29 @@
+[
+  {
+    "customerId": "c_1",
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "plan": "team",
+    "active": true,
+    "signupScore": 98,
+    "postalCode": "02139"
+  },
+  {
+    "customerId": "c_2",
+    "name": "Grace Hopper",
+    "email": "grace@example.com",
+    "plan": "enterprise",
+    "active": true,
+    "signupScore": 95,
+    "postalCode": "10001"
+  },
+  {
+    "customerId": "c_3",
+    "name": "Katherine Johnson",
+    "email": "katherine@example.com",
+    "plan": "starter",
+    "active": false,
+    "signupScore": 88,
+    "postalCode": "23666"
+  }
+]

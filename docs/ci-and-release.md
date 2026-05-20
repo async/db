@@ -23,7 +23,7 @@ npm pack --dry-run
 If the default npm cache has ownership or permission issues on this machine, use a temp cache for the pack check:
 
 ```bash
-npm --cache /private/tmp/jsondb-npm-cache pack --dry-run
+npm --cache /private/tmp/db-npm-cache pack --dry-run
 ```
 
 ## Useful Smoke Commands
@@ -53,11 +53,11 @@ examples/*/README.md
 examples/*/example.json
 examples/*/package.json
 examples/*/db/**
-examples/*/jsondb.config.mjs
+examples/*/db.config.mjs
 examples/*/src/**
 docs/**/*.md
 !docs/goals/**
-jsondb.config.example.mjs
+db.config.example.mjs
 CHANGELOG.md
 README.md
 SPEC.md
@@ -67,21 +67,21 @@ Docs restructuring affects the published package because `docs/**/*.md` is inclu
 
 ## Generated Runtime Output
 
-Generated `.jsondb/` output should normally stay uncommitted.
+Generated `.db/` output should normally stay uncommitted.
 
 Committed generated files are allowed when configured:
 
 ```txt
-examples/advanced/src/generated/jsondb.types.ts
-examples/basic/src/generated/jsondb.types.ts
-examples/schema-first/src/generated/jsondb.types.ts
-examples/schema-manifest/src/generated/jsondb.schema.json
-examples/schema-manifest/src/generated/jsondb.types.ts
-examples/schema-ui/src/generated/jsondb.schema.json
-examples/schema-ui/src/generated/jsondb.types.ts
+examples/advanced/src/generated/db.types.ts
+examples/basic/src/generated/db.types.ts
+examples/schema-first/src/generated/db.types.ts
+examples/schema-manifest/src/generated/db.schema.json
+examples/schema-manifest/src/generated/db.types.ts
+examples/schema-ui/src/generated/db.schema.json
+examples/schema-ui/src/generated/db.types.ts
 ```
 
-If a smoke command writes `.jsondb/` inside an example, remove that generated runtime state before finalizing unless the task explicitly asks to commit it.
+If a smoke command writes `.db/` inside an example, remove that generated runtime state before finalizing unless the task explicitly asks to commit it.
 
 ## Docs Link Checks
 

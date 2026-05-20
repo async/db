@@ -1,12 +1,12 @@
-import { openJsonFixtureDb } from '../db.js';
+import { openDb } from '../db.js';
 import { serializeError } from '../errors.js';
-import { createJsonDbRequestHandler, createViewerEventHub, watchSourceDir } from '../server.js';
+import { createDbRequestHandler, createViewerEventHub, watchSourceDir } from '../server.js';
 import { sendJson } from '../rest/handler.js';
 
-const DEFAULT_VIRTUAL_CLIENT_MODULE = 'virtual:jsondb/client';
-const DEFAULT_CLIENT_IMPORT = 'jsondb/client';
+const DEFAULT_VIRTUAL_CLIENT_MODULE = 'virtual:db/client';
+const DEFAULT_CLIENT_IMPORT = '@async/db/client';
 
-export function jsondbPlugin(options = {}) {
+export function dbPlugin(options = {}) {
   const routes = resolveViteRoutes(options);
   const virtualModuleId = options.clientVirtualModule === false
     ? null
@@ -14,12 +14,12 @@ export function jsondbPlugin(options = {}) {
   const resolvedVirtualModuleId = virtualModuleId ? `\0${virtualModuleId}` : null;
 
   return {
-    name: 'jsondb:vite',
+    name: 'db:vite',
     apply: 'serve',
 
     async configureServer(server) {
-      const db = await openJsonFixtureDb({
-        ...jsondbOptions(options),
+      const db = await openDb({
+        ...dbOptions(options),
         allowSourceErrors: true,
       });
       const events = createViewerEventHub();
@@ -28,13 +28,13 @@ export function jsondbPlugin(options = {}) {
           server.config?.logger?.warn?.(message);
         },
       });
-      const handler = createJsonDbRequestHandler(db, {
+      const handler = createDbRequestHandler(db, {
         ...routes,
         events,
       });
 
       server.middlewares.use((request, response, next) => {
-        handler(request, response, next).catch((error) => {
+        return handler(request, response, next).catch((error) => {
           sendJson(response, error.status ?? 500, serializeError(error, 'SERVER_ERROR'));
         });
       });
@@ -60,9 +60,10 @@ export function jsondbPlugin(options = {}) {
 }
 
 function resolveViteRoutes(options) {
-  const apiBase = normalizeBasePath(options.apiBase ?? options.server?.apiBase ?? '/__jsondb');
+  const apiBase = normalizeBasePath(options.apiBase ?? options.server?.apiBase ?? '/__db');
   return {
     apiBase,
+    dataPath: options.dataPath ?? options.server?.dataPath,
     rootRoutes: options.rootRoutes === true,
     restBasePath: normalizeBasePath(options.restBasePath ?? `${apiBase}/rest`),
     graphqlPath: normalizeBasePath(options.graphqlPath ?? `${apiBase}/graphql`),
@@ -71,9 +72,9 @@ function resolveViteRoutes(options) {
 
 function renderVirtualClient(routes, clientImport) {
   const forkBasePath = `${routes.apiBase || ''}/forks`;
-  return `import { createJsonDbClient } from ${JSON.stringify(clientImport)};
+  return `import { createDbClient } from ${JSON.stringify(clientImport)};
 
-export const client = createJsonDbClient({
+export const client = createDbClient({
   restBasePath: ${JSON.stringify(routes.restBasePath)},
   restBatchPath: ${JSON.stringify(`${routes.apiBase}/batch`)},
   graphqlPath: ${JSON.stringify(routes.graphqlPath)},
@@ -82,11 +83,11 @@ export const client = createJsonDbClient({
 export function fork(name) {
   const forkName = String(name ?? '');
   if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(forkName)) {
-    throw new Error(\`Invalid jsondb fork name "\${forkName}". Use letters, numbers, underscores, or hyphens.\`);
+    throw new Error(\`Invalid db fork name "\${forkName}". Use letters, numbers, underscores, or hyphens.\`);
   }
 
   const forkBase = \`${forkBasePath}/\${encodeURIComponent(forkName)}\`;
-  return createJsonDbClient({
+  return createDbClient({
     restBasePath: \`\${forkBase}/rest\`,
     restBatchPath: \`\${forkBase}/batch\`,
     graphqlPath: \`\${forkBase}/graphql\`,
@@ -100,17 +101,18 @@ export default client;
 `;
 }
 
-function jsondbOptions(options) {
+function dbOptions(options) {
   const {
     apiBase,
+    dataPath,
     rootRoutes,
     restBasePath,
     graphqlPath,
     clientVirtualModule,
     clientImport,
-    ...jsondb
+    ...db
   } = options;
-  return jsondb;
+  return db;
 }
 
 function normalizeBasePath(value) {

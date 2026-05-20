@@ -8,7 +8,7 @@ Use this when local fixtures need related records but you still want plain ids i
 
 - [db/users.schema.jsonc](./db/users.schema.jsonc): target collection.
 - [db/posts.schema.jsonc](./db/posts.schema.jsonc): `authorId` declares a relation to `users.id`.
-- [jsondb.config.mjs](./jsondb.config.mjs): default mirror setup using `defineConfig`.
+- [db.config.mjs](./db.config.mjs): default mirror setup using `defineConfig`.
 
 ## Run It
 
@@ -22,7 +22,7 @@ node ./src/cli.js serve --cwd ./examples/relations
 Open the viewer:
 
 ```txt
-http://127.0.0.1:7331/__jsondb
+http://127.0.0.1:7331/__db
 ```
 
 ## Expected Result
@@ -41,7 +41,7 @@ Relation expansion is intentionally explicit and depth 1 in this version.
 
 ## Cleanup
 
-Generated `.jsondb/` output is ignored by git and can be removed whenever you want a fresh mirror.
+Generated `.db/` output is ignored by git and can be removed whenever you want a fresh mirror.
 
 ## More Docs
 

@@ -1,11 +1,11 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { startJsonDbServer } from '../src/server.js';
+import { startDbServer } from '../src/server.js';
 
 /**
  * Launch one example HTTP stack. Uses `serve-example.mjs` when the example ships it;
- * otherwise starts the stock jsondb server for that cwd.
+ * otherwise starts the stock db server for that cwd.
  *
  * Runner code (`serve-examples.js`) owns ports and catalog metadata; examples own how
  * requests are handled by exporting `startExampleServer(context)` from `serve-example.mjs`.
@@ -18,7 +18,7 @@ import { startJsonDbServer } from '../src/server.js';
  *   viewerUrl: string;
  *   demoUrl?: string;
  *   demoLinks?: Array<{ label: string; href: string }>;
- *   starterKind: 'jsondb' | 'custom';
+ *   starterKind: 'db' | 'custom';
  * }>}
  */
 export async function launchExampleHttpStack(context) {
@@ -28,7 +28,7 @@ export async function launchExampleHttpStack(context) {
   try {
     await access(hookFsPath);
   } catch {
-    const app = await startJsonDbServer({
+    const app = await startDbServer({
       cwd,
       host,
       port,
@@ -36,11 +36,11 @@ export async function launchExampleHttpStack(context) {
     });
 
     return {
-      starterKind: 'jsondb',
+      starterKind: 'db',
       server: app.server,
       db: app.db,
       url: app.url,
-      viewerUrl: `${app.url}/__jsondb`,
+      viewerUrl: `${app.url}/__db`,
       demoUrl: undefined,
       demoLinks: [],
     };
@@ -62,7 +62,7 @@ export async function launchExampleHttpStack(context) {
     server: started.server,
     db: started.db,
     url: started.url,
-    viewerUrl: started.viewerUrl ?? `${started.url}/__jsondb`,
+    viewerUrl: started.viewerUrl ?? `${started.url}/__db`,
     demoUrl: started.demoUrl,
     demoLinks: Array.isArray(started.demoLinks) ? started.demoLinks : [],
   };

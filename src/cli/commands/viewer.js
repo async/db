@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { jsonDbError } from '../../errors.js';
+import { dbError } from '../../errors.js';
 import { loadProjectSchema } from '../../schema.js';
 import { generateViewerManifest } from '../../viewer-manifest.js';
 import { isHelpRequested, valueAfter } from '../args.js';
@@ -12,11 +12,11 @@ export async function runViewer(config, args) {
   }
 
   if (args[0] !== 'manifest') {
-    throw jsonDbError(
+    throw dbError(
       'VIEWER_UNKNOWN_COMMAND',
       `Unknown viewer command "${args[0] ?? ''}".`,
       {
-        hint: 'Use jsondb viewer manifest [--out <file>].',
+        hint: 'Use async-db viewer manifest [--out <file>].',
       },
     );
   }

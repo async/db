@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-20T01:52:30.988Z",
+  "resources": {
+    "posts": {
+      "kind": "collection",
+      "typeName": "Post",
+      "routePath": "/posts",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable post id."
+        },
+        "title": {
+          "type": "string",
+          "required": true,
+          "description": "Post title shown in lists."
+        },
+        "authorId": {
+          "type": "string",
+          "required": true,
+          "description": "User id for the author.",
+          "relation": {
+            "name": "author",
+            "to": "users",
+            "toField": "id",
+            "cardinality": "one"
+          }
+        },
+        "status": {
+          "type": "enum",
+          "default": "draft",
+          "values": [
+            "draft",
+            "published"
+          ]
+        }
+      },
+      "relations": [
+        {
+          "name": "author",
+          "sourceResource": "posts",
+          "sourceField": "authorId",
+          "targetResource": "users",
+          "targetField": "id",
+          "cardinality": "one"
+        }
+      ],
+      "seed": [
+        {
+          "id": "p_1",
+          "title": "Analytical engines for local demos",
+          "authorId": "u_1",
+          "status": "published"
+        },
+        {
+          "id": "p_2",
+          "title": "Orbital mechanics as fixture data",
+          "authorId": "u_2",
+          "status": "draft"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/relations/db/posts.schema.jsonc",
+        "generatedIds": false
+      }
+    },
+    "users": {
+      "kind": "collection",
+      "typeName": "User",
+      "routePath": "/users",
+      "idField": "id",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Stable user id."
+        },
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Display name shown beside authored content."
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "description": "Author email address.",
+          "unique": true
+        }
+      },
+      "relations": [],
+      "seed": [
+        {
+          "id": "u_1",
+          "name": "Ada Lovelace",
+          "email": "ada@example.com"
+        },
+        {
+          "id": "u_2",
+          "name": "Katherine Johnson",
+          "email": "katherine@example.com"
+        }
+      ],
+      "source": {
+        "typeSource": "schema",
+        "schemaPath": "/Users/patrickjs/ai/jsondb/examples/relations/db/users.schema.jsonc",
+        "generatedIds": false
+      }
+    }
+  },
+  "relations": [
+    {
+      "name": "author",
+      "sourceResource": "posts",
+      "sourceField": "authorId",
+      "targetResource": "users",
+      "targetField": "id",
+      "cardinality": "one"
+    }
+  ],
+  "rest": {
+    "posts": [
+      "GET /posts",
+      "GET /posts/:id",
+      "POST /posts",
+      "PATCH /posts/:id",
+      "DELETE /posts/:id"
+    ],
+    "users": [
+      "GET /users",
+      "GET /users/:id",
+      "POST /users",
+      "PATCH /users/:id",
+      "DELETE /users/:id"
+    ]
+  },
+  "graphql": "scalar JSON\n\ntype Post {\n  \"Stable post id.\"\n  id: ID!\n  \"Post title shown in lists.\"\n  title: String!\n  \"User id for the author.\"\n  authorId: String!\n  status: String\n}\n\ntype User {\n  \"Stable user id.\"\n  id: ID!\n  \"Display name shown beside authored content.\"\n  name: String!\n  \"Author email address.\"\n  email: String!\n}",
+  "diagnostics": []
+}

@@ -86,7 +86,7 @@ function clampRate(value) {
 }
 
 function shouldSkipMock(config, url) {
-  return url?.pathname === normalizeBasePath(config.server?.apiBase ?? '/__jsondb');
+  return url?.pathname === normalizeBasePath(config.server?.apiBase ?? '/__db');
 }
 
 function normalizeBasePath(value) {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { openJsonFixtureDb } from '../index.js';
+import { openDb } from '../index.js';
 import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
 import { handleRestRequest } from './handler.js';
 
@@ -15,14 +15,14 @@ test('REST handler resolves generated kebab-case collection routes', async () =>
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/audit-events'),
+    new URL('http://db.local/audit-events'),
   );
 
   assert.equal(response.status, 200);
@@ -38,7 +38,7 @@ test('REST handler resolves generated kebab-case collection routes', async () =>
     db,
     makeRequest('GET'),
     camelResponse,
-    new URL('http://jsondb.local/auditEvents'),
+    new URL('http://db.local/auditEvents'),
   );
 
   assert.equal(camelResponse.status, 200);
@@ -54,14 +54,14 @@ test('REST unknown resource errors include normalized name attempts', async () =
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/chart-mappingz'),
+    new URL('http://db.local/chart-mappingz'),
   );
 
   assert.equal(response.status, 404);
@@ -70,7 +70,7 @@ test('REST unknown resource errors include normalized name attempts', async () =
   assert.deepEqual(response.json().error.details.availableResources, ['chartMappings']);
 });
 
-test('REST handler serves the built-in jsondb viewer', async () => {
+test('REST handler serves the built-in db viewer', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
     {
@@ -79,19 +79,19 @@ test('REST handler serves the built-in jsondb viewer', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/__jsondb'),
+    new URL('http://db.local/__db'),
   );
 
   assert.equal(response.status, 200);
   assert.match(response.headers['content-type'], /text\/html/);
-  assert.match(response.body, /jsondb viewer/);
+  assert.match(response.body, /db viewer/);
   assert.match(response.body, /REST Specs/);
   assert.match(response.body, /GraphQL Examples/);
 });
@@ -105,46 +105,46 @@ test('REST root returns JSON discovery links by default', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/'),
+    new URL('http://db.local/'),
   );
 
   assert.equal(response.status, 200);
   assert.match(response.headers['content-type'], /application\/json/);
   assert.deepEqual(response.json(), {
     resources: ['users'],
-    viewer: '/__jsondb',
+    viewer: '/__db',
     viewers: [{
       label: 'Data Viewer',
-      href: '/__jsondb',
+      href: '/__db',
       source: 'built-in',
     }],
-    formats: builtInFormatMetadata('/__jsondb'),
-    manifest: '/__jsondb/manifest',
-    manifestJson: '/__jsondb/manifest.json',
-    manifestHtml: '/__jsondb/manifest.html',
-    manifestMarkdown: '/__jsondb/manifest.md',
-    schema: '/__jsondb/schema',
+    formats: builtInFormatMetadata('/__db'),
+    manifest: '/__db/manifest',
+    manifestJson: '/__db/manifest.json',
+    manifestHtml: '/__db/manifest.html',
+    manifestMarkdown: '/__db/manifest.md',
+    schema: '/__db/schema',
     graphql: '/graphql',
     links: {
-      viewer: '/__jsondb',
+      viewer: '/__db',
       viewers: [{
         label: 'Data Viewer',
-        href: '/__jsondb',
+        href: '/__db',
         source: 'built-in',
       }],
-      formats: builtInFormatMetadata('/__jsondb'),
-      manifest: '/__jsondb/manifest',
-      manifestJson: '/__jsondb/manifest.json',
-      manifestHtml: '/__jsondb/manifest.html',
-      manifestMarkdown: '/__jsondb/manifest.md',
-      schema: '/__jsondb/schema',
+      formats: builtInFormatMetadata('/__db'),
+      manifest: '/__db/manifest',
+      manifestJson: '/__db/manifest.json',
+      manifestHtml: '/__db/manifest.html',
+      manifestMarkdown: '/__db/manifest.md',
+      schema: '/__db/schema',
       graphql: '/graphql',
       resources: {
         users: '/users',
@@ -162,10 +162,10 @@ test('REST root discovery links use configured server apiBase', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     server: {
-      apiBase: '/_jsondb',
+      apiBase: '/_db',
     },
   });
   const response = makeResponse();
@@ -174,38 +174,38 @@ test('REST root discovery links use configured server apiBase', async () => {
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/'),
+    new URL('http://db.local/'),
   );
 
   assert.equal(response.status, 200);
   assert.deepEqual(response.json(), {
     resources: ['users'],
-    viewer: '/_jsondb',
+    viewer: '/_db',
     viewers: [{
       label: 'Data Viewer',
-      href: '/_jsondb',
+      href: '/_db',
       source: 'built-in',
     }],
-    formats: builtInFormatMetadata('/_jsondb'),
-    manifest: '/_jsondb/manifest',
-    manifestJson: '/_jsondb/manifest.json',
-    manifestHtml: '/_jsondb/manifest.html',
-    manifestMarkdown: '/_jsondb/manifest.md',
-    schema: '/_jsondb/schema',
+    formats: builtInFormatMetadata('/_db'),
+    manifest: '/_db/manifest',
+    manifestJson: '/_db/manifest.json',
+    manifestHtml: '/_db/manifest.html',
+    manifestMarkdown: '/_db/manifest.md',
+    schema: '/_db/schema',
     graphql: '/graphql',
     links: {
-      viewer: '/_jsondb',
+      viewer: '/_db',
       viewers: [{
         label: 'Data Viewer',
-        href: '/_jsondb',
+        href: '/_db',
         source: 'built-in',
       }],
-      formats: builtInFormatMetadata('/_jsondb'),
-      manifest: '/_jsondb/manifest',
-      manifestJson: '/_jsondb/manifest.json',
-      manifestHtml: '/_jsondb/manifest.html',
-      manifestMarkdown: '/_jsondb/manifest.md',
-      schema: '/_jsondb/schema',
+      formats: builtInFormatMetadata('/_db'),
+      manifest: '/_db/manifest',
+      manifestJson: '/_db/manifest.json',
+      manifestHtml: '/_db/manifest.html',
+      manifestMarkdown: '/_db/manifest.md',
+      schema: '/_db/schema',
       graphql: '/graphql',
       resources: {
         users: '/users',
@@ -223,7 +223,7 @@ test('REST root returns HTML discovery links for browser requests', async () => 
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -232,18 +232,18 @@ test('REST root returns HTML discovery links for browser requests', async () => 
       accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     }),
     response,
-    new URL('http://jsondb.local/'),
+    new URL('http://db.local/'),
   );
 
   assert.equal(response.status, 200);
   assert.match(response.headers['content-type'], /text\/html/);
-  assert.match(response.body, /jsondb/);
+  assert.match(response.body, /db/);
   assert.match(response.body, /Data Viewer/);
-  assert.match(response.body, /href="\/__jsondb"/);
+  assert.match(response.body, /href="\/__db"/);
   assert.match(response.body, /Viewer Manifest/);
-  assert.match(response.body, /href="\/__jsondb\/manifest"/);
+  assert.match(response.body, /href="\/__db\/manifest"/);
   assert.match(response.body, /Schema/);
-  assert.match(response.body, /href="\/__jsondb\/schema"/);
+  assert.match(response.body, /href="\/__db\/schema"/);
   assert.match(response.body, /GraphQL/);
   assert.match(response.body, /href="\/graphql"/);
   assert.match(response.body, /chartMappings/);
@@ -264,18 +264,18 @@ test('REST root discovery marks GraphQL unavailable when disabled', async () => 
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const json = makeResponse();
   const html = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), json, new URL('http://jsondb.local/'));
+  await handleRestRequest(db, makeRequest('GET'), json, new URL('http://db.local/'));
   await handleRestRequest(
     db,
     makeRequest('GET', undefined, {
       accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     }),
     html,
-    new URL('http://jsondb.local/'),
+    new URL('http://db.local/'),
   );
 
   assert.equal(json.status, 200);
@@ -298,29 +298,29 @@ test('REST discovery and viewer manifest include configured custom viewer links'
     },
   ]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     server: {
       viewerLinks: [
-        { label: 'Custom Viewer', href: 'http://127.0.0.1:5173/jsondb' },
+        { label: 'Custom Viewer', href: 'http://127.0.0.1:5173/db' },
       ],
     },
   });
   const root = makeResponse();
   const manifest = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), root, new URL('http://jsondb.local/'));
-  await handleRestRequest(db, makeRequest('GET'), manifest, new URL('http://jsondb.local/__jsondb/manifest.json'));
+  await handleRestRequest(db, makeRequest('GET'), root, new URL('http://db.local/'));
+  await handleRestRequest(db, makeRequest('GET'), manifest, new URL('http://db.local/__db/manifest.json'));
 
   assert.deepEqual(root.json().links.viewers, [
     {
       label: 'Data Viewer',
-      href: '/__jsondb',
+      href: '/__db',
       source: 'built-in',
     },
     {
       label: 'Custom Viewer',
-      href: 'http://127.0.0.1:5173/jsondb',
+      href: 'http://127.0.0.1:5173/db',
       source: 'custom',
     },
   ]);
@@ -331,7 +331,7 @@ test('REST root discovery includes registered response format metadata', async (
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     rest: {
       formats: {
@@ -347,13 +347,13 @@ test('REST root discovery includes registered response format metadata', async (
   });
   const response = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), response, new URL('http://jsondb.local/'));
+  await handleRestRequest(db, makeRequest('GET'), response, new URL('http://db.local/'));
 
   assert.deepEqual(response.json().formats.yaml, {
     extension: '.yaml',
     mediaTypes: ['application/yaml', 'text/yaml'],
     contentType: 'application/yaml; charset=utf-8',
-    manifestPath: '/__jsondb/manifest.yaml',
+    manifestPath: '/__db/manifest.yaml',
   });
 });
 
@@ -366,7 +366,7 @@ test('REST explicit .json routes keep raw JSON even for browser requests', async
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const manifest = makeResponse();
   const users = makeResponse();
 
@@ -376,7 +376,7 @@ test('REST explicit .json routes keep raw JSON even for browser requests', async
       accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     }),
     manifest,
-    new URL('http://jsondb.local/__jsondb/manifest.json'),
+    new URL('http://db.local/__db/manifest.json'),
   );
   await handleRestRequest(
     db,
@@ -384,12 +384,12 @@ test('REST explicit .json routes keep raw JSON even for browser requests', async
       accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     }),
     users,
-    new URL('http://jsondb.local/users.json'),
+    new URL('http://db.local/users.json'),
   );
 
   assert.equal(manifest.status, 200);
   assert.match(manifest.headers['content-type'], /application\/json/);
-  assert.equal(manifest.json().kind, 'jsondb.viewerManifest');
+  assert.equal(manifest.json().kind, 'db.viewerManifest');
   assert.equal(users.status, 200);
   assert.match(users.headers['content-type'], /application\/json/);
   assert.deepEqual(users.json(), [{ id: 'u_1', name: 'Ada Lovelace' }]);
@@ -404,7 +404,7 @@ test('REST explicit .html routes render the formatted JSON viewer', async () => 
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const manifest = makeResponse();
   const users = makeResponse();
 
@@ -412,13 +412,13 @@ test('REST explicit .html routes render the formatted JSON viewer', async () => 
     db,
     makeRequest('GET'),
     manifest,
-    new URL('http://jsondb.local/__jsondb/manifest.html'),
+    new URL('http://db.local/__db/manifest.html'),
   );
   await handleRestRequest(
     db,
     makeRequest('GET'),
     users,
-    new URL('http://jsondb.local/users.html'),
+    new URL('http://db.local/users.html'),
   );
 
   assert.equal(manifest.status, 200);
@@ -431,7 +431,7 @@ test('REST explicit .html routes render the formatted JSON viewer', async () => 
   assert.match(manifest.body, /data-format-choice="pretty" aria-pressed="true"/);
   assert.match(manifest.body, /data-format-choice="raw"/);
   assert.match(manifest.body, /id="copy-json"/);
-  assert.match(manifest.body, /&quot;kind&quot;: &quot;jsondb\.viewerManifest&quot;/);
+  assert.match(manifest.body, /&quot;kind&quot;: &quot;db\.viewerManifest&quot;/);
   assert.match(manifest.body, /&quot;api&quot;: \{/);
   assert.equal(users.status, 200);
   assert.match(users.headers['content-type'], /text\/html/);
@@ -446,7 +446,7 @@ test('REST explicit .md routes render AI-friendly markdown', async () => {
     locale: 'en-US',
   }));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const manifest = makeResponse();
   const settings = makeResponse();
 
@@ -454,20 +454,20 @@ test('REST explicit .md routes render AI-friendly markdown', async () => {
     db,
     makeRequest('GET'),
     manifest,
-    new URL('http://jsondb.local/__jsondb/manifest.md'),
+    new URL('http://db.local/__db/manifest.md'),
   );
   await handleRestRequest(
     db,
     makeRequest('GET'),
     settings,
-    new URL('http://jsondb.local/settings.md'),
+    new URL('http://db.local/settings.md'),
   );
 
   assert.equal(manifest.status, 200);
   assert.match(manifest.headers['content-type'], /text\/markdown/);
-  assert.match(manifest.body, /^# jsondb viewer manifest/m);
+  assert.match(manifest.body, /^# db viewer manifest/m);
   assert.match(manifest.body, /```json/);
-  assert.match(manifest.body, /"kind": "jsondb\.viewerManifest"/);
+  assert.match(manifest.body, /"kind": "db\.viewerManifest"/);
   assert.equal(settings.status, 200);
   assert.match(settings.headers['content-type'], /text\/markdown/);
   assert.match(settings.body, /^# settings/m);
@@ -484,7 +484,7 @@ test('REST extensionless manifest and resource routes negotiate HTML or JSON', a
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const manifestHtml = makeResponse();
   const usersHtml = makeResponse();
   const manifestJson = makeResponse();
@@ -496,7 +496,7 @@ test('REST extensionless manifest and resource routes negotiate HTML or JSON', a
       accept: 'text/html,application/xhtml+xml,application/json;q=0.5,*/*;q=0.1',
     }),
     manifestHtml,
-    new URL('http://jsondb.local/__jsondb/manifest'),
+    new URL('http://db.local/__db/manifest'),
   );
   await handleRestRequest(
     db,
@@ -504,7 +504,7 @@ test('REST extensionless manifest and resource routes negotiate HTML or JSON', a
       accept: 'text/html,application/xhtml+xml,application/json;q=0.5,*/*;q=0.1',
     }),
     usersHtml,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
   await handleRestRequest(
     db,
@@ -512,7 +512,7 @@ test('REST extensionless manifest and resource routes negotiate HTML or JSON', a
       accept: 'application/json',
     }),
     manifestJson,
-    new URL('http://jsondb.local/__jsondb/manifest'),
+    new URL('http://db.local/__db/manifest'),
   );
   await handleRestRequest(
     db,
@@ -520,15 +520,15 @@ test('REST extensionless manifest and resource routes negotiate HTML or JSON', a
       accept: 'application/json',
     }),
     usersJson,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
 
   assert.match(manifestHtml.headers['content-type'], /text\/html/);
-  assert.match(manifestHtml.body, /jsondb viewer manifest/);
+  assert.match(manifestHtml.body, /db viewer manifest/);
   assert.match(usersHtml.headers['content-type'], /text\/html/);
   assert.match(usersHtml.body, /&quot;name&quot;: &quot;Ada Lovelace&quot;/);
   assert.match(manifestJson.headers['content-type'], /application\/json/);
-  assert.equal(manifestJson.json().kind, 'jsondb.viewerManifest');
+  assert.equal(manifestJson.json().kind, 'db.viewerManifest');
   assert.match(usersJson.headers['content-type'], /application\/json/);
   assert.deepEqual(usersJson.json(), [{ id: 'u_1', name: 'Ada Lovelace' }]);
 });
@@ -542,7 +542,7 @@ test('REST extensionless manifest and resource routes negotiate markdown', async
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const manifest = makeResponse();
   const users = makeResponse();
 
@@ -552,7 +552,7 @@ test('REST extensionless manifest and resource routes negotiate markdown', async
       accept: 'text/markdown,application/json;q=0.5,*/*;q=0.1',
     }),
     manifest,
-    new URL('http://jsondb.local/__jsondb/manifest'),
+    new URL('http://db.local/__db/manifest'),
   );
   await handleRestRequest(
     db,
@@ -560,11 +560,11 @@ test('REST extensionless manifest and resource routes negotiate markdown', async
       accept: 'text/markdown,application/json;q=0.5,*/*;q=0.1',
     }),
     users,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
 
   assert.match(manifest.headers['content-type'], /text\/markdown/);
-  assert.match(manifest.body, /^# jsondb viewer manifest/m);
+  assert.match(manifest.body, /^# db viewer manifest/m);
   assert.match(users.headers['content-type'], /text\/markdown/);
   assert.match(users.body, /^# users/m);
   assert.match(users.body, /- Kind: `collection`/);
@@ -579,7 +579,7 @@ test('REST format registry renders object formats for resource and manifest rout
     },
   ]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     rest: {
       formats: {
@@ -599,8 +599,8 @@ test('REST format registry renders object formats for resource and manifest rout
   const users = makeResponse();
   const manifest = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), users, new URL('http://jsondb.local/users.yaml'));
-  await handleRestRequest(db, makeRequest('GET'), manifest, new URL('http://jsondb.local/__jsondb/manifest.yaml'));
+  await handleRestRequest(db, makeRequest('GET'), users, new URL('http://db.local/users.yaml'));
+  await handleRestRequest(db, makeRequest('GET'), manifest, new URL('http://db.local/__db/manifest.yaml'));
 
   assert.equal(users.status, 200);
   assert.match(users.headers['content-type'], /application\/yaml/);
@@ -609,7 +609,7 @@ test('REST format registry renders object formats for resource and manifest rout
   assert.equal(manifest.status, 200);
   assert.match(manifest.headers['content-type'], /application\/yaml/);
   assert.match(manifest.body, /format: yaml/);
-  assert.match(manifest.body, /kind: jsondb\.viewerManifest/);
+  assert.match(manifest.body, /kind: db\.viewerManifest/);
 });
 
 test('REST format registry negotiates custom media types and falls back to default', async () => {
@@ -621,7 +621,7 @@ test('REST format registry negotiates custom media types and falls back to defau
     },
   ]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     rest: {
       formats: {
@@ -646,7 +646,7 @@ test('REST format registry negotiates custom media types and falls back to defau
       accept: 'application/json;q=0.4,application/yaml;q=0.9,text/html;q=0.2',
     }),
     yamlUsers,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
   await handleRestRequest(
     db,
@@ -654,7 +654,7 @@ test('REST format registry negotiates custom media types and falls back to defau
       accept: 'application/json;q=0.4,application/yaml;q=0.9,text/html;q=0.2',
     }),
     yamlManifest,
-    new URL('http://jsondb.local/__jsondb/manifest'),
+    new URL('http://db.local/__db/manifest'),
   );
   await handleRestRequest(
     db,
@@ -662,7 +662,7 @@ test('REST format registry negotiates custom media types and falls back to defau
       accept: 'application/xml',
     }),
     fallbackUsers,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
   await handleRestRequest(
     db,
@@ -670,17 +670,17 @@ test('REST format registry negotiates custom media types and falls back to defau
       accept: 'application/xml',
     }),
     fallbackManifest,
-    new URL('http://jsondb.local/__jsondb/manifest'),
+    new URL('http://db.local/__db/manifest'),
   );
 
   assert.match(yamlUsers.headers['content-type'], /application\/yaml/);
   assert.match(yamlUsers.body, /Ada Lovelace/);
   assert.match(yamlManifest.headers['content-type'], /application\/yaml/);
-  assert.match(yamlManifest.body, /jsondb\.viewerManifest/);
+  assert.match(yamlManifest.body, /db\.viewerManifest/);
   assert.match(fallbackUsers.headers['content-type'], /application\/json/);
   assert.deepEqual(fallbackUsers.json(), [{ id: 'u_1', name: 'Ada Lovelace' }]);
   assert.match(fallbackManifest.headers['content-type'], /application\/json/);
-  assert.equal(fallbackManifest.json().kind, 'jsondb.viewerManifest');
+  assert.equal(fallbackManifest.json().kind, 'db.viewerManifest');
 });
 
 test('REST format registry lets object entries override built-in JSON and markdown', async () => {
@@ -689,7 +689,7 @@ test('REST format registry lets object entries override built-in JSON and markdo
     theme: 'dark',
   }));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     rest: {
       formats: {
@@ -723,24 +723,24 @@ test('REST format registry lets object entries override built-in JSON and markdo
   const settingsMarkdown = makeResponse();
   const manifestMarkdown = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), settingsJson, new URL('http://jsondb.local/settings.json'));
-  await handleRestRequest(db, makeRequest('GET'), manifestJson, new URL('http://jsondb.local/__jsondb/manifest.json'));
-  await handleRestRequest(db, makeRequest('GET'), settingsMarkdown, new URL('http://jsondb.local/settings.md'));
-  await handleRestRequest(db, makeRequest('GET'), manifestMarkdown, new URL('http://jsondb.local/__jsondb/manifest.md'));
+  await handleRestRequest(db, makeRequest('GET'), settingsJson, new URL('http://db.local/settings.json'));
+  await handleRestRequest(db, makeRequest('GET'), manifestJson, new URL('http://db.local/__db/manifest.json'));
+  await handleRestRequest(db, makeRequest('GET'), settingsMarkdown, new URL('http://db.local/settings.md'));
+  await handleRestRequest(db, makeRequest('GET'), manifestMarkdown, new URL('http://db.local/__db/manifest.md'));
 
   assert.match(settingsJson.headers['content-type'], /application\/vnd\.custom\+json/);
   assert.deepEqual(JSON.parse(settingsJson.body), { wrapped: { theme: 'dark' } });
   assert.match(manifestJson.headers['content-type'], /application\/vnd\.custom\+json/);
-  assert.equal(JSON.parse(manifestJson.body).wrapped.kind, 'jsondb.viewerManifest');
+  assert.equal(JSON.parse(manifestJson.body).wrapped.kind, 'db.viewerManifest');
   assert.equal(settingsMarkdown.body, '# custom settings\n{"theme":"dark"}\n');
-  assert.equal(manifestMarkdown.body, '# custom manifest\njsondb.viewerManifest\n');
+  assert.equal(manifestMarkdown.body, '# custom manifest\ndb.viewerManifest\n');
 });
 
 test('REST unknown format errors list registered custom formats', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     rest: {
       formats: {
@@ -755,7 +755,7 @@ test('REST unknown format errors list registered custom formats', async () => {
   });
   const response = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), response, new URL('http://jsondb.local/users.xml'));
+  await handleRestRequest(db, makeRequest('GET'), response, new URL('http://db.local/users.xml'));
 
   assert.equal(response.status, 404);
   assert.equal(response.json().error.code, 'REST_UNKNOWN_FORMAT');
@@ -772,14 +772,14 @@ test('REST schema endpoint exposes route paths for the viewer', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/__jsondb/schema'),
+    new URL('http://db.local/__db/schema'),
   );
 
   assert.equal(response.status, 200);
@@ -806,14 +806,14 @@ test('REST collection reads support select offset and limit', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/posts?select=id,title&offset=1&limit=1'),
+    new URL('http://db.local/posts?select=id,title&offset=1&limit=1'),
   );
 
   assert.equal(response.status, 200);
@@ -834,14 +834,14 @@ test('REST resource .json extension uses the JSON format', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/users.json'),
+    new URL('http://db.local/users.json'),
   );
 
   assert.equal(response.status, 200);
@@ -854,6 +854,66 @@ test('REST resource .json extension uses the JSON format', async () => {
   ]);
 });
 
+test('REST collection .json route can read one record by id query param', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+    },
+    {
+      id: 'u_2',
+      name: 'Grace Hopper',
+      email: 'grace@example.com',
+    },
+  ]));
+
+  const db = await openDb({ cwd });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('GET'),
+    response,
+    new URL('http://db.local/users.json?id=u_2&select=id,name'),
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers['content-type'], /application\/json/);
+  assert.deepEqual(response.json(), {
+    id: 'u_2',
+    name: 'Grace Hopper',
+  });
+});
+
+test('REST extensionless collection route rejects id query param', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ]));
+
+  const db = await openDb({ cwd });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('GET'),
+    response,
+    new URL('http://db.local/users?id=u_1'),
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(response.json().error.code, 'REST_ID_QUERY_REQUIRES_JSON_ROUTE');
+  assert.equal(response.json().error.details.resource, 'users');
+  assert.equal(response.json().error.details.id, 'u_1');
+  assert.match(response.json().error.hint, /\/users\.json\?id=u_1/);
+  assert.match(response.json().error.hint, /\/users\/u_1/);
+});
+
 test('REST formats can override default and json resource rendering', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
@@ -863,7 +923,7 @@ test('REST formats can override default and json resource rendering', async () =
     },
   ]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     rest: {
       formats: {
@@ -885,8 +945,8 @@ test('REST formats can override default and json resource rendering', async () =
   const defaultResponse = makeResponse();
   const jsonResponse = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), defaultResponse, new URL('http://jsondb.local/users'));
-  await handleRestRequest(db, makeRequest('GET'), jsonResponse, new URL('http://jsondb.local/users.json'));
+  await handleRestRequest(db, makeRequest('GET'), defaultResponse, new URL('http://db.local/users'));
+  await handleRestRequest(db, makeRequest('GET'), jsonResponse, new URL('http://db.local/users.json'));
 
   assert.equal(defaultResponse.body, '# users\n1 records\n');
   assert.match(defaultResponse.headers['content-type'], /text\/markdown/);
@@ -903,7 +963,7 @@ test('REST formats can render user-defined markdown and html extensions', async 
     },
   ]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     rest: {
       formats: {
@@ -925,8 +985,8 @@ test('REST formats can render user-defined markdown and html extensions', async 
   const markdownResponse = makeResponse();
   const htmlResponse = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), markdownResponse, new URL('http://jsondb.local/users.md'));
-  await handleRestRequest(db, makeRequest('GET'), htmlResponse, new URL('http://jsondb.local/users/u_1.html'));
+  await handleRestRequest(db, makeRequest('GET'), markdownResponse, new URL('http://db.local/users.md'));
+  await handleRestRequest(db, makeRequest('GET'), htmlResponse, new URL('http://db.local/users/u_1.html'));
 
   assert.equal(markdownResponse.body, '# users\nAda Lovelace\n');
   assert.match(markdownResponse.headers['content-type'], /text\/markdown/);
@@ -938,10 +998,10 @@ test('REST resource requests reject unknown format extensions', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
-  await handleRestRequest(db, makeRequest('GET'), response, new URL('http://jsondb.local/users.xml'));
+  await handleRestRequest(db, makeRequest('GET'), response, new URL('http://db.local/users.xml'));
 
   assert.equal(response.status, 404);
   assert.equal(response.json().error.code, 'REST_UNKNOWN_FORMAT');
@@ -958,14 +1018,14 @@ test('REST single record reads support select', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/posts/p_1?select=id,title'),
+    new URL('http://db.local/posts/p_1?select=id,title'),
   );
 
   assert.equal(response.status, 200);
@@ -984,7 +1044,7 @@ test('REST select and pagination errors are structured', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const selectResponse = makeResponse();
   const limitResponse = makeResponse();
 
@@ -992,13 +1052,13 @@ test('REST select and pagination errors are structured', async () => {
     db,
     makeRequest('GET'),
     selectResponse,
-    new URL('http://jsondb.local/posts?select=id,badField'),
+    new URL('http://db.local/posts?select=id,badField'),
   );
   await handleRestRequest(
     db,
     makeRequest('GET'),
     limitResponse,
-    new URL('http://jsondb.local/posts?limit=0'),
+    new URL('http://db.local/posts?limit=0'),
   );
 
   assert.equal(selectResponse.status, 400);
@@ -1046,14 +1106,14 @@ test('REST reads can expand explicit to-one relations and project nested fields'
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/posts/p_1?expand=author&select=id,title,author.name'),
+    new URL('http://db.local/posts/p_1?expand=author&select=id,title,author.name'),
   );
 
   assert.equal(response.status, 200);
@@ -1100,14 +1160,14 @@ test('REST nested select requires explicit expand', async () => {
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRequest('GET'),
     response,
-    new URL('http://jsondb.local/posts/p_1?select=id,author.name'),
+    new URL('http://db.local/posts/p_1?select=id,author.name'),
   );
 
   assert.equal(response.status, 400);
@@ -1117,16 +1177,16 @@ test('REST nested select requires explicit expand', async () => {
 
 test('REST viewer import endpoint saves CSV fixtures and reloads resources', async () => {
   const cwd = await makeProject();
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRawRequest('POST', 'User ID,Email,Active\nu_1,ada@example.com,true\n', {
-      'x-jsondb-file-name': 'Uploaded Users.csv',
+      'x-db-file-name': 'Uploaded Users.csv',
     }),
     response,
-    new URL('http://jsondb.local/__jsondb/import'),
+    new URL('http://db.local/__db/import'),
   );
 
   assert.equal(response.status, 201);
@@ -1144,35 +1204,35 @@ test('REST viewer import endpoint saves CSV fixtures and reloads resources', asy
 
 test('REST viewer import endpoint saves CSV fixtures to configured dbDir', async () => {
   const cwd = await makeProject();
-  const db = await openJsonFixtureDb({ cwd, dbDir: './jsondb' });
+  const db = await openDb({ cwd, dbDir: './db' });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRawRequest('POST', 'id,name\nu_1,Ada\n', {
-      'x-jsondb-file-name': 'Uploaded Users.csv',
+      'x-db-file-name': 'Uploaded Users.csv',
     }),
     response,
-    new URL('http://jsondb.local/__jsondb/import'),
+    new URL('http://db.local/__db/import'),
   );
 
   assert.equal(response.status, 201);
-  assert.equal(response.json().dataPath, 'jsondb/uploadedUsers.csv');
-  await access(path.join(cwd, 'jsondb/uploadedUsers.csv'));
+  assert.equal(response.json().dataPath, 'db/uploadedUsers.csv');
+  await access(path.join(cwd, 'db/uploadedUsers.csv'));
 });
 
 test('REST viewer import endpoint rejects invalid CSV without writing a fixture', async () => {
   const cwd = await makeProject();
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
     db,
     makeRawRequest('POST', 'id,name\n"u_1,Ada\n', {
-      'x-jsondb-file-name': 'Bad Upload.csv',
+      'x-db-file-name': 'Bad Upload.csv',
     }),
     response,
-    new URL('http://jsondb.local/__jsondb/import'),
+    new URL('http://db.local/__db/import'),
   );
 
   assert.equal(response.status, 400);
@@ -1199,7 +1259,7 @@ test('REST handler creates collection records and applies defaults', async () =>
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1209,7 +1269,7 @@ test('REST handler creates collection records and applies defaults', async () =>
       name: 'Ada Lovelace',
     }),
     response,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
 
   assert.equal(response.status, 201);
@@ -1244,7 +1304,7 @@ test('REST handler updates do not backfill omitted schema defaults', async () =>
     ]
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1253,7 +1313,7 @@ test('REST handler updates do not backfill omitted schema defaults', async () =>
       name: 'Ada Byron',
     }),
     response,
-    new URL('http://jsondb.local/users/u_1'),
+    new URL('http://db.local/users/u_1'),
   );
 
   assert.equal(response.status, 200);
@@ -1274,7 +1334,7 @@ test('REST handler writes through the selected non-JSON store', async () => {
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1284,7 +1344,7 @@ test('REST handler writes through the selected non-JSON store', async () => {
       name: 'Grace Hopper',
     }),
     response,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
 
   assert.equal(response.status, 201);
@@ -1293,7 +1353,7 @@ test('REST handler writes through the selected non-JSON store', async () => {
     { id: 'u_2', name: 'Grace Hopper' },
   ]);
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
 });
@@ -1310,7 +1370,7 @@ test('REST handler writes through a SQLite store binding', async (t) => {
   await writeFixture(cwd, 'users.json', JSON.stringify([
     { id: 'u_1', name: 'Ada Lovelace' },
   ]));
-  await writeConfig(cwd, `import { sqliteStore } from 'jsondb/sqlite';
+  await writeConfig(cwd, `import { sqliteStore } from '@async/db/sqlite';
 
 export default {
   resources: {
@@ -1323,7 +1383,7 @@ export default {
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1333,17 +1393,17 @@ export default {
       name: 'Grace Hopper',
     }),
     response,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
 
   assert.equal(response.status, 201);
-  await access(path.join(cwd, '.jsondb/runtime.sqlite'));
+  await access(path.join(cwd, '.db/runtime.sqlite'));
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
 
-  const reopened = await openJsonFixtureDb({ cwd });
+  const reopened = await openDb({ cwd });
   assert.deepEqual(await reopened.collection('users').all(), [
     { id: 'u_1', name: 'Ada Lovelace' },
     { id: 'u_2', name: 'Grace Hopper' },
@@ -1363,7 +1423,7 @@ test('REST handler rejects writes that do not match schema field types', async (
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1374,7 +1434,7 @@ test('REST handler rejects writes that do not match schema field types', async (
       role: 'owner',
     }),
     response,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
 
   assert.equal(response.status, 400);
@@ -1389,7 +1449,7 @@ test('REST handler updates singleton documents', async () => {
     locale: 'en-US',
   }));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1398,7 +1458,7 @@ test('REST handler updates singleton documents', async () => {
       theme: 'dark',
     }),
     response,
-    new URL('http://jsondb.local/settings'),
+    new URL('http://db.local/settings'),
   );
 
   assert.equal(response.status, 200);
@@ -1421,7 +1481,7 @@ test('REST batch is sequential and keeps earlier successful writes when a later 
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1447,7 +1507,7 @@ test('REST batch is sequential and keeps earlier successful writes when a later 
       },
     ]),
     response,
-    new URL('http://jsondb.local/__jsondb/batch'),
+    new URL('http://db.local/__db/batch'),
   );
 
   assert.equal(response.status, 200);
@@ -1480,7 +1540,7 @@ test('REST handler supports batched requests', async () => {
     "seed": []
   }`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1500,7 +1560,7 @@ test('REST handler supports batched requests', async () => {
       },
     ]),
     response,
-    new URL('http://jsondb.local/__jsondb/batch'),
+    new URL('http://db.local/__db/batch'),
   );
 
   assert.equal(response.status, 200);
@@ -1536,7 +1596,7 @@ test('REST batch errors include code hint and item index', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1548,7 +1608,7 @@ test('REST batch errors include code hint and item index', async () => {
       },
     ]),
     response,
-    new URL('http://jsondb.local/__jsondb/batch'),
+    new URL('http://db.local/__db/batch'),
   );
 
   assert.equal(response.status, 200);
@@ -1562,7 +1622,7 @@ test('REST batch invalid body hint uses custom apiBase batch path', async () => 
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1571,20 +1631,20 @@ test('REST batch invalid body hint uses custom apiBase batch path', async () => 
       requests: 'nope',
     }),
     response,
-    new URL('http://jsondb.local/_jsondb/batch'),
-    { apiBase: '/_jsondb' },
+    new URL('http://db.local/_db/batch'),
+    { apiBase: '/_db' },
   );
 
   assert.equal(response.status, 400);
   assert.equal(response.json().error.code, 'REST_BATCH_INVALID_BODY');
-  assert.match(response.json().error.hint, /POST \/_jsondb\/batch/);
+  assert.match(response.json().error.hint, /POST \/_db\/batch/);
 });
 
 test('REST batch rejects nested requests to a custom apiBase batch path', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1592,13 +1652,13 @@ test('REST batch rejects nested requests to a custom apiBase batch path', async 
     makeRequest('POST', [
       {
         method: 'POST',
-        path: '/dev/jsondb/batch',
+        path: '/dev/db/batch',
         body: [],
       },
     ]),
     response,
-    new URL('http://jsondb.local/dev/jsondb/batch'),
-    { apiBase: '/dev/jsondb' },
+    new URL('http://db.local/dev/db/batch'),
+    { apiBase: '/dev/db' },
   );
 
   assert.equal(response.status, 200);
@@ -1612,7 +1672,7 @@ test('REST batch nested request detection uses the effective batch path only', a
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const response = makeResponse();
 
   await handleRestRequest(
@@ -1620,13 +1680,13 @@ test('REST batch nested request detection uses the effective batch path only', a
     makeRequest('POST', [
       {
         method: 'POST',
-        path: '/__jsondb/batch',
+        path: '/__db/batch',
         body: [],
       },
     ]),
     response,
-    new URL('http://jsondb.local/_jsondb/batch'),
-    { apiBase: '/_jsondb' },
+    new URL('http://db.local/_db/batch'),
+    { apiBase: '/_db' },
   );
 
   assert.equal(response.status, 200);
@@ -1639,7 +1699,7 @@ test('REST handler returns 413 for oversized JSON bodies', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     server: {
       maxBodyBytes: 12,
@@ -1654,7 +1714,7 @@ test('REST handler returns 413 for oversized JSON bodies', async () => {
       name: 'payload is too large',
     }),
     response,
-    new URL('http://jsondb.local/users'),
+    new URL('http://db.local/users'),
   );
 
   assert.equal(response.status, 413);

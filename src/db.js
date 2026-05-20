@@ -1,3 +1,3 @@
-export { JsonFixtureDb, openJsonFixtureDb, stateFileForDebug } from './features/runtime/db.js';
-export { JsonDbCollection } from './features/runtime/collection.js';
-export { JsonDbDocument } from './features/runtime/document.js';
+export { Db, openDb, stateFileForDebug } from './features/runtime/db.js';
+export { DbCollection } from './features/runtime/collection.js';
+export { DbDocument } from './features/runtime/document.js';

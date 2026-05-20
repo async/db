@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when you want to see how jsondb reports local fixture drift. It intentionally includes schema/data mismatches so the viewer can show source diagnostics while valid resources still work.
+Use this when you want to see how db reports local fixture drift. It intentionally includes schema/data mismatches so the viewer can show source diagnostics while valid resources still work.
 
 ## Files To Inspect
 
@@ -22,7 +22,7 @@ node ./src/cli.js serve --cwd ./examples/diagnostics
 Open the viewer:
 
 ```txt
-http://127.0.0.1:7331/__jsondb
+http://127.0.0.1:7331/__db
 ```
 
 ## Expected Result
@@ -41,7 +41,7 @@ Expected diagnostics include an extra `twitterHandle` field in `users.json` and 
 
 ## Cleanup
 
-Generated `.jsondb/` output is ignored by git and can be removed whenever you want a fresh mirror.
+Generated `.db/` output is ignored by git and can be removed whenever you want a fresh mirror.
 
 ## More Docs
 

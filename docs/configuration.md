@@ -1,12 +1,12 @@
 # Configuration
 
-Most projects can skip `jsondb.config.mjs` at first. Add config when defaults stop matching the project.
+Most projects can skip `db.config.mjs` at first. Add config when defaults stop matching the project.
 
 Use `defineConfig` for editor autocomplete and inline type checks:
 
 ```js
 // @ts-check
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   stores: {
@@ -18,7 +18,7 @@ export default defineConfig({
 });
 ```
 
-See [jsondb.config.example.mjs](../jsondb.config.example.mjs) for a commented config with common values.
+See [db.config.example.mjs](../db.config.example.mjs) for a commented config with common values.
 
 ## Config Map
 
@@ -27,12 +27,13 @@ See [jsondb.config.example.mjs](../jsondb.config.example.mjs) for a commented co
 | Fixture folder | `./db` | `dbDir` |
 | Custom source formats | Built-in readers | `sources.readers` |
 | Nested resource names | Fixture basename | `resources.naming` or `resources.customizeResource` |
-| Runtime store behavior | JSON files under `.jsondb/state` | `stores.default` or `resources.<name>.store` |
+| Runtime store behavior | JSON files under `.db/state` | `stores.default` or `resources.<name>.store` |
 | Index intent metadata | Off | `resources.<name>.indexes` |
-| Importable generated types | `.jsondb/types/index.ts` | `types.commitOutFile` |
+| Importable generated types | `.db/types/index.ts` | `types.commitOutFile` |
 | Importable schema manifest | Off | `schemaOutFile` |
 | Importable viewer manifest | Off | `viewerManifestOutFile` |
 | REST response formats | `.json`, `.html`, `.md` | `rest.formats` |
+| App-facing data route base | `/db` | `server.dataPath` |
 | Unknown fields | Warn | `schema.unknownFields` |
 | Schema defaults | Create and safe hydration | `defaults` |
 | Schema-only mock records | Off | `seed.generateFromSchema` |
@@ -40,17 +41,17 @@ See [jsondb.config.example.mjs](../jsondb.config.example.mjs) for a commented co
 | Random local failures | Off | `mock.errors` |
 | GraphQL endpoint | `/graphql`, enabled | `graphql` |
 | Legacy database shapes | Off | `forks` |
-| Host, port, dev-tool route base, body limit | `127.0.0.1:7331`, `/__jsondb`, 1 MB bodies | `server` |
+| Host, port, dev-tool route base, body limit | `127.0.0.1:7331`, `/__db`, 1 MB bodies | `server` |
 
 ## Full Example
 
 ```js
 // @ts-check
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   dbDir: './db',
-  stateDir: './.jsondb',
+  stateDir: './.db',
 
   sources: {
     writePolicy: 'preserve',
@@ -63,14 +64,14 @@ export default defineConfig({
 
   types: {
     enabled: true,
-    outFile: './.jsondb/types/index.ts',
-    commitOutFile: './src/generated/jsondb.types.ts',
+    outFile: './.db/types/index.ts',
+    commitOutFile: './src/generated/db.types.ts',
     useReadonly: false,
     emitComments: true,
   },
 
-  schemaOutFile: './src/generated/jsondb.schema.json',
-  viewerManifestOutFile: './src/generated/jsondb.viewer.json',
+  schemaOutFile: './src/generated/db.schema.json',
+  viewerManifestOutFile: './src/generated/db.viewer.json',
 
   schema: {
     unknownFields: 'warn',
@@ -87,12 +88,13 @@ export default defineConfig({
   },
 
   server: {
-    apiBase: '/__jsondb',
+    apiBase: '/__db',
+    dataPath: '/db',
     host: '127.0.0.1',
     port: 7331,
     maxBodyBytes: 1048576,
     viewerLinks: [
-      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/jsondb' },
+      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/db' },
     ],
   },
 
@@ -135,10 +137,10 @@ export default defineConfig({
 Use `dbDir` when fixtures live somewhere other than `./db`:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  dbDir: './jsondb',
+  dbDir: './db',
 });
 ```
 
@@ -146,12 +148,12 @@ Existing `sourceDir` configs still work; `dbDir` is the shorter fixture-folder n
 
 ## Source And Store Binding
 
-Source fixtures and runtime persistence are separate concerns. By default, source fixtures stay unchanged and app writes go to the generated JSON store under `.jsondb/state`.
+Source fixtures and runtime persistence are separate concerns. By default, source fixtures stay unchanged and app writes go to the generated JSON store under `.db/state`.
 
 Use `resources.<name>.store` to bind a resource to a different store:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   stores: {
@@ -179,7 +181,7 @@ The `sourceFile` store is intentionally narrow. It is only for resources where s
 Unknown fields in schema-backed data warn by default. Use strict checks when fixture drift should fail:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   schema: {
@@ -197,7 +199,7 @@ Schema defaults apply when creating collection records through the package API, 
 Safe runtime hydration also applies defaults to additive store migrations by default. Disable that separately when existing runtime records should remain untouched:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   defaults: {
@@ -212,7 +214,7 @@ export default defineConfig({
 Generate mock runtime records for schema-only resources with empty seed data:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   seed: {
@@ -226,10 +228,10 @@ Data files in `db/*.json`, `db/*.jsonc`, and `db/*.csv` remain the source of tru
 
 ## Mock Delay And Errors
 
-jsondb delays local responses by `30-100ms` by default. Use `0` to disable delay, a number for fixed delay, or a tuple for a range.
+@async/db delays local responses by `30-100ms` by default. Use `0` to disable delay, a number for fixed delay, or a tuple for a range.
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   mock: {
@@ -250,11 +252,12 @@ Random errors stay off by default. Turn them on when testing retries and error U
 Use `server` for a different host, port, dev-tool route base, or JSON body limit:
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   server: {
-    apiBase: '/__jsondb',
+    apiBase: '/__db',
+    dataPath: '/db',
     host: '127.0.0.1',
     port: 7331,
     maxBodyBytes: 1048576,
@@ -267,6 +270,11 @@ viewer, schema, batch, import, live events, runtime log, and fork routes. REST
 resources such as `/users` and the standalone GraphQL path stay unchanged unless
 you configure those surfaces separately.
 
+`server.dataPath` scopes the app-facing REST resource alias. It defaults to
+`/db`, so `db/users.json` is available at `GET /db/users.json`. Set it to
+`false` to disable the alias and use scoped REST under `/__db/rest` plus
+standalone root REST routes.
+
 ## Database Forks
 
 Use forks when part of an app needs an older fixture shape while other pages move to a new shape.
@@ -274,12 +282,12 @@ Use forks when part of an app needs an older fixture shape while other pages mov
 ```txt
 db/                         current database shape
 db.forks/legacy-demo/       old demo/page shape
-.jsondb/state/              generated state for db/
-.jsondb/forks/legacy-demo/  generated state for the fork
+.db/state/              generated state for db/
+.db/forks/legacy-demo/  generated state for the fork
 ```
 
 ```js
-import { defineConfig } from 'jsondb/config';
+import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   forks: ['legacy-demo'],

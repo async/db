@@ -1,4 +1,4 @@
-import { jsonDbError } from '../../errors.js';
+import { dbError } from '../../errors.js';
 import { applyDefaultsToSeed } from '../sync/defaults.js';
 import { seedForRuntimeState } from '../sync/synthetic-seed.js';
 import { atomicWriteJson, readJsonState, withJsonStateWrite } from './json.js';
@@ -51,7 +51,7 @@ function assertWritableSource(resource) {
     return;
   }
 
-  throw jsonDbError(
+  throw dbError(
     'STORE_SOURCE_NOT_WRITABLE',
     `Resource "${resource.name}" cannot use the sourceFile store because it is not backed by a plain JSON data file.`,
     {

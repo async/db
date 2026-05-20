@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when you have fixture data before you have a contract. jsondb infers collections, singleton documents, REST routes, GraphQL fields, and TypeScript types from plain JSON.
+Use this when you have fixture data before you have a contract. db infers collections, singleton documents, REST routes, GraphQL fields, and TypeScript types from plain JSON.
 
 ## Files To Inspect
 
@@ -22,12 +22,12 @@ node ./src/cli.js serve --cwd ./examples/data-first
 Open the viewer:
 
 ```txt
-http://127.0.0.1:7331/__jsondb
+http://127.0.0.1:7331/__db
 ```
 
 ## Expected Result
 
-`sync` infers schema and writes generated runtime state under `examples/data-first/.jsondb/`.
+`sync` infers schema and writes generated runtime state under `examples/data-first/.db/`.
 
 ## REST Request To Try
 
@@ -39,7 +39,7 @@ curl 'http://127.0.0.1:7331/users?select=id,name,email'
 
 ## Cleanup
 
-Generated `.jsondb/` output is ignored by git and can be removed whenever you want a fresh mirror.
+Generated `.db/` output is ignored by git and can be removed whenever you want a fresh mirror.
 
 ## More Docs
 

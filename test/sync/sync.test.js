@@ -3,7 +3,7 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { openJsonFixtureDb, syncJsonFixtureDb, loadConfig } from '../../src/index.js';
+import { openDb, syncDb, loadConfig } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('data-first fixtures generate schema, types, and runtime state', async () => {
@@ -18,19 +18,19 @@ test('data-first fixtures generate schema, types, and runtime state', async () =
   ]));
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
 
   assert.equal(result.schema.resources.users.kind, 'collection');
-  assert.match(await readFile(path.join(cwd, '.jsondb/types/index.ts'), 'utf8'), /export type User =/);
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8'))[0].id, 'u_1');
+  assert.match(await readFile(path.join(cwd, '.db/types/index.ts'), 'utf8'), /export type User =/);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8'))[0].id, 'u_1');
 });
 
-test('openJsonFixtureDb leaves generated files untouched when fixtures are unchanged', async () => {
+test('openDb leaves generated files untouched when fixtures are unchanged', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    schemaOutFile: './src/generated/jsondb.schema.json',
+    schemaOutFile: './src/generated/db.schema.json',
     types: {
-      commitOutFile: './src/generated/jsondb.types.ts'
+      commitOutFile: './src/generated/db.types.ts'
     }
   };`);
   await writeFixture(cwd, 'users.json', JSON.stringify([
@@ -40,25 +40,25 @@ test('openJsonFixtureDb leaves generated files untouched when fixtures are uncha
     },
   ]));
 
-  await openJsonFixtureDb({ cwd });
+  await openDb({ cwd });
 
   const generatedPaths = [
-    '.jsondb/schema.generated.json',
-    '.jsondb/types/index.ts',
-    '.jsondb/state/users.json',
-    '.jsondb/state/.sources.json',
-    'src/generated/jsondb.schema.json',
-    'src/generated/jsondb.types.ts',
+    '.db/schema.generated.json',
+    '.db/types/index.ts',
+    '.db/state/users.json',
+    '.db/state/.sources.json',
+    'src/generated/db.schema.json',
+    'src/generated/db.types.ts',
   ].map((filePath) => path.join(cwd, filePath));
   const before = await fileMtimes(generatedPaths);
-  const metadataBefore = JSON.parse(await readFile(path.join(cwd, '.jsondb/state/.sources.json'), 'utf8'));
+  const metadataBefore = JSON.parse(await readFile(path.join(cwd, '.db/state/.sources.json'), 'utf8'));
 
   await delay(20);
-  await openJsonFixtureDb({ cwd });
+  await openDb({ cwd });
 
   assert.deepEqual(await fileMtimes(generatedPaths), before);
   assert.equal(
-    JSON.parse(await readFile(path.join(cwd, '.jsondb/state/.sources.json'), 'utf8')).resources.users.updatedAt,
+    JSON.parse(await readFile(path.join(cwd, '.db/state/.sources.json'), 'utf8')).resources.users.updatedAt,
     metadataBefore.resources.users.updatedAt,
   );
 });
@@ -82,13 +82,13 @@ test('nested fixture folders are discovered and keep relative source paths', asy
   ])}\n`, 'utf8');
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
-  const metadata = JSON.parse(await readFile(path.join(cwd, '.jsondb/state/.sources.json'), 'utf8'));
+  const result = await syncDb(config);
+  const metadata = JSON.parse(await readFile(path.join(cwd, '.db/state/.sources.json'), 'utf8'));
 
   assert.equal(result.schema.resources.pages.kind, 'collection');
   assert.match(result.logs.join('\n'), /Loaded db\/content\/pages\.schema\.jsonc/);
   assert.equal(metadata.resources.pages.path, 'db/content/pages.json');
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/pages.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/pages.json'), 'utf8')), [
     {
       id: 'home',
       title: 'Home',
@@ -106,7 +106,7 @@ test('nested fixture duplicate resource names produce actionable diagnostics', a
   const config = await loadConfig({ cwd });
 
   await assert.rejects(
-    () => syncJsonFixtureDb(config),
+    () => syncDb(config),
     (error) => {
       assert.equal(error.diagnostics?.[0]?.code, 'DUPLICATE_RESOURCE_NAME');
       assert.match(error.diagnostics[0].message, /Duplicate resource name "pages"/);
@@ -143,11 +143,11 @@ test('resource aliases that collapse across camelCase and kebab-case fail fast',
   };
 
   await assert.rejects(
-    () => syncJsonFixtureDb(config),
+    () => syncDb(config),
     rejectsWithAliasCollision,
   );
   await assert.rejects(
-    () => syncJsonFixtureDb(config, { allowErrors: true }),
+    () => syncDb(config, { allowErrors: true }),
     rejectsWithAliasCollision,
   );
 });
@@ -166,7 +166,7 @@ test('path-derived resource names that collapse before aliases still fail fast',
   const config = await loadConfig({ cwd });
 
   await assert.rejects(
-    () => syncJsonFixtureDb(config),
+    () => syncDb(config),
     (error) => {
       assert.equal(error.diagnostics?.[0]?.code, 'DUPLICATE_RESOURCE_NAME');
       assert.match(error.diagnostics[0].message, /Duplicate resource name "chartMapping"/);
@@ -199,13 +199,13 @@ test('resource naming strategies and customizeResource support duplicate filenam
   await writeFile(path.join(cwd, 'db/marketing/pages.json'), `${JSON.stringify([{ id: 'marketing-home' }])}\n`, 'utf8');
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
 
   assert.deepEqual(Object.keys(result.schema.resources), ['cmsPages', 'landingPages']);
   assert.equal(result.schema.resources.cmsPages.routePath, '/cms-pages');
   assert.equal(result.schema.resources.landingPages.typeName, 'LandingPage');
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/cmsPages.json'), 'utf8')), [{ id: 'cms-home' }]);
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/landingPages.json'), 'utf8')), [{ id: 'marketing-home' }]);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/cmsPages.json'), 'utf8')), [{ id: 'cms-home' }]);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/landingPages.json'), 'utf8')), [{ id: 'marketing-home' }]);
 });
 
 test('resource-specific config keys resolve kebab-case aliases', async () => {
@@ -225,7 +225,7 @@ test('resource-specific config keys resolve kebab-case aliases', async () => {
   ]));
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
+  const result = await syncDb(config);
 
   assert.equal(result.schema.resources.chartMappings.idField, 'mappingKey');
   assert.equal(result.schema.resources.chartMappings.fields.mappingKey.required, true);
@@ -240,9 +240,9 @@ test('CSV fixtures infer schema and refresh runtime state when the source hash c
   ].join('\n'));
 
   const config = await loadConfig({ cwd });
-  const firstSync = await syncJsonFixtureDb(config);
-  const statePath = path.join(cwd, '.jsondb/state/users.json');
-  const metadataPath = path.join(cwd, '.jsondb/state/.sources.json');
+  const firstSync = await syncDb(config);
+  const statePath = path.join(cwd, '.db/state/users.json');
+  const metadataPath = path.join(cwd, '.db/state/.sources.json');
 
   assert.equal(firstSync.schema.resources.users.kind, 'collection');
   assert.equal(firstSync.schema.resources.users.idField, 'id');
@@ -267,7 +267,7 @@ test('CSV fixtures infer schema and refresh runtime state when the source hash c
   ]);
 
   await writeFile(statePath, `${JSON.stringify([{ id: 'runtime_edit', name: 'Runtime Edit' }], null, 2)}\n`);
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
   assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), [
     {
       id: 'runtime_edit',
@@ -279,7 +279,7 @@ test('CSV fixtures infer schema and refresh runtime state when the source hash c
     'id,name,active,score,zip',
     'u_3,Linus Torvalds,true,99,00901',
   ].join('\n'));
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
   assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), [
     {
@@ -311,9 +311,9 @@ test('JSON fixture hashes refresh mirror state only when the source file changes
   ]));
 
   const config = await loadConfig({ cwd });
-  const firstSync = await syncJsonFixtureDb(config);
-  const statePath = path.join(cwd, '.jsondb/state/users.json');
-  const metadataPath = path.join(cwd, '.jsondb/state/.sources.json');
+  const firstSync = await syncDb(config);
+  const statePath = path.join(cwd, '.db/state/users.json');
+  const metadataPath = path.join(cwd, '.db/state/.sources.json');
 
   assert.equal(firstSync.schema.resources.users.fields.id.type, 'string');
   assert.equal(firstSync.schema.resources.users.fields.id.required, true);
@@ -332,7 +332,7 @@ test('JSON fixture hashes refresh mirror state only when the source file changes
   assert.doesNotMatch(await readFile(path.join(cwd, 'db/users.json'), 'utf8'), /"id"/);
 
   await writeFile(statePath, `${JSON.stringify([{ id: 'runtime_edit', name: 'Runtime Edit' }], null, 2)}\n`);
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
   assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), [
     {
       id: 'runtime_edit',
@@ -346,7 +346,7 @@ test('JSON fixture hashes refresh mirror state only when the source file changes
       email: 'linus@example.com',
     },
   ]));
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
   assert.deepEqual(JSON.parse(await readFile(statePath, 'utf8')), [
     {
@@ -366,7 +366,7 @@ test('sourceFile store writes generated ids back to JSON fixtures', async () => 
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
     sourceDir: './db',
-    stateDir: './.jsondb',
+    stateDir: './.db',
     resources: {
       users: {
         store: 'sourceFile'
@@ -387,7 +387,7 @@ test('sourceFile store writes generated ids back to JSON fixtures', async () => 
   ]));
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
   assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8')), [
     {
@@ -414,14 +414,14 @@ test('json store does not write generated ids back to JSON fixtures', async () =
   ]));
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
   assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8')), [
     {
       name: 'Ada Lovelace',
     },
   ]);
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
     {
       id: '1',
       name: 'Ada Lovelace',
@@ -441,20 +441,20 @@ test('types.commitOutFile writes a committed type copy', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
     sourceDir: './db',
-    stateDir: './.jsondb',
+    stateDir: './.db',
     types: {
       enabled: true,
-      outFile: './.jsondb/types/index.ts',
-      commitOutFile: './src/generated/jsondb.types.ts'
+      outFile: './.db/types/index.ts',
+      commitOutFile: './src/generated/db.types.ts'
     }
   };`);
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
   const config = await loadConfig({ cwd });
-  await syncJsonFixtureDb(config);
+  await syncDb(config);
 
-  const ignoredTypes = await readFile(path.join(cwd, '.jsondb/types/index.ts'), 'utf8');
-  const committedTypes = await readFile(path.join(cwd, 'src/generated/jsondb.types.ts'), 'utf8');
+  const ignoredTypes = await readFile(path.join(cwd, '.db/types/index.ts'), 'utf8');
+  const committedTypes = await readFile(path.join(cwd, 'src/generated/db.types.ts'), 'utf8');
 
   assert.equal(committedTypes, ignoredTypes);
   assert.match(committedTypes, /users: User;/);

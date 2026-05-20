@@ -2,7 +2,7 @@ import { assertRecordMatchesResource } from '../../schema.js';
 import { createRuntime } from '../storage/runtime.js';
 import { getPointer, setPointer } from './json-pointer.js';
 
-export class JsonDbDocument {
+export class DbDocument {
   constructor(db, resource) {
     this.db = normalizeDb(db, resource);
     this.config = this.db.config;

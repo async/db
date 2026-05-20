@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { jsonDbContext, registerRestRoutes } from './hono.js';
-import { openJsonFixtureDb } from '../index.js';
+import { dbContext, registerDbRoutes } from './hono.js';
+import { openDb } from '../index.js';
 import { makeProject, writeFixture } from '../../test/helpers.js';
 
-test('jsonDbContext reuses the opened db when created from options', async () => {
+test('dbContext reuses the opened db when created from options', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
-  const middleware = jsonDbContext({ cwd });
+  const middleware = dbContext({ cwd });
   const first = fakeContext();
   const second = fakeContext();
   let nextCalls = 0;
@@ -20,17 +20,17 @@ test('jsonDbContext reuses the opened db when created from options', async () =>
   });
 
   assert.equal(nextCalls, 2);
-  assert.equal(first.get('jsondb'), second.get('jsondb'));
+  assert.equal(first.get('db'), second.get('db'));
 });
 
-test('registerRestRoutes supports prefix resource filters and hook short-circuiting', async () => {
+test('registerDbRoutes supports prefix resource filters and hook short-circuiting', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'pages.json', JSON.stringify([{ id: 'home', title: 'Home' }]));
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const app = fakeHonoApp();
 
-  registerRestRoutes(app, db, {
+  registerDbRoutes(app, db, {
     prefix: '/api',
     resources: ['pages'],
     hooks: {
@@ -55,13 +55,13 @@ test('registerRestRoutes supports prefix resource filters and hook short-circuit
   });
 });
 
-test('registerRestRoutes supports resource hooks that mutate write bodies', async () => {
+test('registerDbRoutes supports resource hooks that mutate write bodies', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'pages.json', JSON.stringify([]));
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const app = fakeHonoApp();
 
-  registerRestRoutes(app, db, {
+  registerDbRoutes(app, db, {
     prefix: '/api',
     resourceOptions: {
       pages: {
@@ -88,14 +88,14 @@ test('registerRestRoutes supports resource hooks that mutate write bodies', asyn
   });
 });
 
-test('registerRestRoutes runs lifecycle hooks before global and resource hooks', async () => {
+test('registerDbRoutes runs lifecycle hooks before global and resource hooks', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'pages.json', JSON.stringify([]));
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const app = fakeHonoApp();
   const calls = [];
 
-  registerRestRoutes(app, db, {
+  registerDbRoutes(app, db, {
     prefix: '/api',
     lifecycleHooks: {
       beforeRequest(ctx) {
@@ -148,14 +148,14 @@ test('registerRestRoutes runs lifecycle hooks before global and resource hooks',
   });
 });
 
-test('registerRestRoutes only runs beforeWrite for mutating methods', async () => {
+test('registerDbRoutes only runs beforeWrite for mutating methods', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'pages.json', JSON.stringify([{ id: 'home', title: 'Home' }]));
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const app = fakeHonoApp();
   const calls = [];
 
-  registerRestRoutes(app, db, {
+  registerDbRoutes(app, db, {
     prefix: '/api',
     lifecycleHooks: {
       beforeRequest(ctx) {
@@ -190,14 +190,14 @@ test('registerRestRoutes only runs beforeWrite for mutating methods', async () =
   ]);
 });
 
-test('registerRestRoutes supports beforeRequest short-circuiting', async () => {
+test('registerDbRoutes supports beforeRequest short-circuiting', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'pages.json', JSON.stringify([]));
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const app = fakeHonoApp();
   let methodHookCalled = false;
 
-  registerRestRoutes(app, db, {
+  registerDbRoutes(app, db, {
     prefix: '/api',
     lifecycleHooks: {
       beforeRequest(ctx) {
@@ -224,14 +224,14 @@ test('registerRestRoutes supports beforeRequest short-circuiting', async () => {
   assert.equal(await db.collection('pages').exists('home'), false);
 });
 
-test('registerRestRoutes supports beforeWrite short-circuiting', async () => {
+test('registerDbRoutes supports beforeWrite short-circuiting', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'pages.json', JSON.stringify([]));
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const app = fakeHonoApp();
   let methodHookCalled = false;
 
-  registerRestRoutes(app, db, {
+  registerDbRoutes(app, db, {
     prefix: '/api',
     lifecycleHooks: {
       beforeRequest() {},
@@ -302,7 +302,7 @@ function fakeHonoContext(options = {}) {
       async json() {
         return options.body ?? {};
       },
-      url: options.url ?? 'http://jsondb.local/api/pages',
+      url: options.url ?? 'http://db.local/api/pages',
     },
     json(body, status = 200) {
       return {

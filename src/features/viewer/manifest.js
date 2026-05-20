@@ -35,7 +35,7 @@ export function renderViewerManifest(resources, config = {}, options = {}) {
 
   return {
     version: 1,
-    kind: 'jsondb.viewerManifest',
+    kind: 'db.viewerManifest',
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     api: {
       viewer: routes.viewerPath,
@@ -111,7 +111,7 @@ function resourceApi(resource, routes) {
 }
 
 function normalizeViewerRoutes(config, routes = {}) {
-  const apiBase = normalizeBasePath(routes.apiBase ?? config.server?.apiBase ?? '/__jsondb');
+  const apiBase = normalizeBasePath(routes.apiBase ?? config.server?.apiBase ?? '/__db');
   const restBasePath = routes.restBasePath === null
     ? ''
     : normalizeBasePath(routes.restBasePath ?? '');

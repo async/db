@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 export async function makeProject() {
-  const cwd = await mkdtemp(path.join(tmpdir(), 'jsondb-test-'));
+  const cwd = await mkdtemp(path.join(tmpdir(), 'async-db-test-'));
   await mkdir(path.join(cwd, 'db'), { recursive: true });
-  await mkdir(path.join(cwd, 'node_modules'), { recursive: true });
-  await symlink(path.resolve('.'), path.join(cwd, 'node_modules', 'jsondb'), 'dir');
+  await mkdir(path.join(cwd, 'node_modules/@async'), { recursive: true });
+  await symlink(path.resolve('.'), path.join(cwd, 'node_modules/@async/db'), 'dir');
   return cwd;
 }
 
@@ -15,5 +15,5 @@ export async function writeFixture(cwd, filename, content) {
 }
 
 export async function writeConfig(cwd, content) {
-  await writeFile(path.join(cwd, 'jsondb.config.mjs'), `${content}\n`, 'utf8');
+  await writeFile(path.join(cwd, 'db.config.mjs'), `${content}\n`, 'utf8');
 }

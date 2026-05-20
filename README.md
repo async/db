@@ -1,15 +1,15 @@
-# jsondb
+# @async/db
 
-jsondb is a local fixture database for app development and tests.
+@async/db is the Async data workflow package for local fixtures, generated APIs, and production graduation.
 
 Use it to:
 
-- Put editable JSON, JSONC, or CSV fixtures in `db/`.
+- Put editable JSON, JSONC, or CSV fixtures in `db/` as the built-in prototype source mode.
 - Browse records in a lightweight built-in viewer.
 - Call local REST routes while the backend contract is still forming.
 - Generate TypeScript types from fixtures and schemas.
 - Emit schema metadata for admin, CMS, or form-building screens.
-- Start data-first, then add schemas only when stricter contracts pay for themselves.
+- Start data-first, then graduate toward SQLite-backed APIs when stricter contracts and production storage pay for themselves.
 
 ## File Map
 
@@ -17,18 +17,18 @@ Use it to:
 | --- | --- |
 | `db/*.json`, `db/*.jsonc`, `db/*.csv` | Fixture data |
 | `db/*.schema.json`, `db/*.schema.jsonc`, `db/*.schema.mjs` | Optional stricter schema contracts |
-| `.jsondb/state/*` | Generated writable JSON store state |
-| `.jsondb/schema.generated.json`, `.jsondb/types/index.ts` | Generated metadata and types |
+| `.db/state/*` | Generated writable JSON store state |
+| `.db/schema.generated.json`, `.db/types/index.ts` | Generated metadata and types |
 
 ## Quick Summary
 
 Most projects can start with the defaults:
 
 1. Put fixtures in `db/`.
-2. Run `jsondb sync` to generate schema metadata, TypeScript types, and runtime state.
-3. Run `jsondb serve` to start the local API and viewer.
-4. Open `http://127.0.0.1:7331/__jsondb`.
-5. Call REST routes like `GET /users` and `POST /users`.
+2. Run `async-db sync` to generate schema metadata, TypeScript types, and runtime state.
+3. Run `async-db serve` to start the local API and viewer.
+4. Open `http://127.0.0.1:7331/__db`.
+5. Call REST routes like `GET /db/users.json` and `POST /db/users`.
 6. Add schema only when the fixture shape needs a clearer contract.
 
 The default server is REST-first. GraphQL is available at `/graphql`, but you do not need it for the core workflow.
@@ -40,7 +40,7 @@ Start with [`examples/basic`](./examples/basic) for the shortest schema-backed w
 Other useful paths:
 
 - [`examples/data-first`](./examples/data-first): plain fixtures before schemas exist.
-- [`examples/rest-client`](./examples/rest-client): calling jsondb from app or test code.
+- [`examples/rest-client`](./examples/rest-client): calling @async/db from app or test code.
 - [`examples/schema-manifest`](./examples/schema-manifest): schema metadata for admin/CMS UI.
 - [`examples/hono-auth`](./examples/hono-auth): optional Hono auth and write hooks.
 
@@ -53,13 +53,13 @@ Until the package is published, install it from GitHub in the app or package tha
 ```json
 {
   "devDependencies": {
-    "jsondb": "github:PatrickJS/jsondb#<reviewed-commit-sha-or-tag>"
+    "@async/db": "github:PatrickJS/async-db#<reviewed-commit-sha-or-tag>"
   },
   "scripts": {
-    "db": "jsondb",
-    "db:sync": "jsondb sync",
-    "db:serve": "jsondb serve",
-    "db:types": "jsondb types"
+    "db": "async-db",
+    "db:sync": "async-db sync",
+    "db:serve": "async-db serve",
+    "db:types": "async-db types"
   }
 }
 ```
@@ -70,7 +70,7 @@ Replace the placeholder with the commit SHA or tag you reviewed. After package p
 npm install
 ```
 
-The `jsondb` dependency name is also the import name for helpers like `jsondb/config`, `jsondb/schema`, and `jsondb/client`.
+The package import name is `@async/db`; helpers are available from `@async/db/config`, `@async/db/schema`, and `@async/db/client`.
 
 ## Five-Minute Start
 
@@ -104,19 +104,19 @@ npm run db:serve
 Open the viewer:
 
 ```txt
-http://127.0.0.1:7331/__jsondb
+http://127.0.0.1:7331/__db
 ```
 
 Call the REST API from terminal 2:
 
 ```bash
-curl http://127.0.0.1:7331/users
+curl http://127.0.0.1:7331/db/users.json
 ```
 
 Create a local record:
 
 ```bash
-curl -X POST http://127.0.0.1:7331/users \
+curl -X POST http://127.0.0.1:7331/db/users \
   -H 'content-type: application/json' \
   -d '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
 ```
@@ -124,9 +124,9 @@ curl -X POST http://127.0.0.1:7331/users \
 The default sync output is generated:
 
 ```txt
-.jsondb/schema.generated.json
-.jsondb/types/index.ts
-.jsondb/state/users.json
+.db/schema.generated.json
+.db/types/index.ts
+.db/state/users.json
 ```
 
 `serve` syncs on startup, watches the fixture folder, refreshes valid resources when files change, and surfaces file-specific diagnostics in the viewer without breaking unrelated resources.
@@ -138,18 +138,19 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 | Behavior | Default |
 | --- | --- |
 | Source fixtures | Read from `./db` recursively. |
-| Runtime writes | Go to the default JSON store under `.jsondb/state`. |
+| App data routes | Exposed under `/db` by default, such as `GET /db/users.json`. |
+| Runtime writes | Go to the default JSON store under `.db/state`. |
 | Source writes | Only happen for resources bound to the `sourceFile` store, and only for supported writebacks such as generated ids in plain `.json` collections. |
-| Generated output | `.jsondb/` is runtime output and normally stays uncommitted. |
+| Generated output | `.db/` is runtime output and normally stays uncommitted. |
 | Local server | Binds to `127.0.0.1:7331` by default and exposes writable local development endpoints. |
-| Trusted code | `.schema.mjs`, `jsondb.config.mjs`, source readers, and manifest hooks execute as local project code. |
+| Trusted code | `.schema.mjs`, `db.config.mjs`, source readers, and manifest hooks execute as local project code. |
 | Mock latency | Responses include a small `30-100ms` delay by default so loading states are visible. |
 
-jsondb is local development/test infrastructure. It is not a production database, not an auth layer, and not a broad JSON Schema compatibility project.
+@async/db is local development/test infrastructure. It is not a production database, not an auth layer, and not a broad JSON Schema compatibility project.
 
 ## Add Schema When It Pays For It
 
-Data-first fixtures are enough until the shape matters. Inspect what jsondb infers:
+Data-first fixtures are enough until the shape matters. Inspect what @async/db infers:
 
 ```bash
 npm run db -- schema infer
@@ -195,20 +196,20 @@ See [docs/concepts.md](./docs/concepts.md) and [docs/fixtures-and-schemas.md](./
 
 ## Admin/CMS Schema Metadata
 
-Schemas can also drive local admin, CMS, custom data viewers, and form-building screens. Use `GET /__jsondb/manifest.json` at runtime when a UI runs beside `jsondb serve`, or configure `viewerManifestOutFile` when app code needs a committed JSON artifact with the same viewer metadata. Browser requests can open `GET /__jsondb/manifest.html`; AI clients can use `GET /__jsondb/manifest.md`; `GET /__jsondb/manifest` lets the `Accept` header choose among registered response formats.
+Schemas can also drive local admin, CMS, custom data viewers, and form-building screens. Use `GET /__db/manifest.json` at runtime when a UI runs beside `async-db serve`, or configure `viewerManifestOutFile` when app code needs a committed JSON artifact with the same viewer metadata. Browser requests can open `GET /__db/manifest.html`; AI clients can use `GET /__db/manifest.md`; `GET /__db/manifest` lets the `Accept` header choose among registered response formats.
 
 Use `schemaOutFile` when an app only needs the smaller model metadata file without server route links, diagnostics, or viewer capabilities.
 
 ```js
-import { defineConfig, mergeManifest } from 'jsondb/config';
+import { defineConfig, mergeManifest } from '@async/db/config';
 
 export default defineConfig({
-  schemaOutFile: './src/generated/jsondb.schema.json',
-  viewerManifestOutFile: './src/generated/jsondb.viewer.json',
+  schemaOutFile: './src/generated/db.schema.json',
+  viewerManifestOutFile: './src/generated/db.viewer.json',
 
   server: {
     viewerLinks: [
-      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/jsondb' },
+      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/db' },
     ],
   },
 
@@ -261,7 +262,7 @@ With the `db` script from the install snippet:
 npm run db -- sync
 npm run db -- types
 npm run db -- types --watch
-npm run db -- types --out ./src/generated/jsondb.types.ts
+npm run db -- types --out ./src/generated/db.types.ts
 npm run db -- schema
 npm run db -- schema users
 npm run db -- schema infer users
@@ -273,7 +274,7 @@ npm run db -- serve
 npm run db -- generate hono
 ```
 
-With pnpm and the same `"db": "jsondb"` script:
+With pnpm and the same `"db": "async-db"` script:
 
 ```bash
 pnpm db sync
@@ -290,11 +291,11 @@ Set `rest.enabled: false` when an app wants schema, manifest, viewer, import, ev
 Set `graphql.enabled: false` when an app wants REST and dev-tool routes without a GraphQL endpoint.
 
 ```txt
-GET     /users
-GET     /users/:id
-POST    /users
-PATCH   /users/:id
-DELETE  /users/:id
+GET     /db/users.json
+GET     /db/users/:id.json
+POST    /db/users
+PATCH   /db/users/:id
+DELETE  /db/users/:id
 
 GET     /settings
 PUT     /settings
@@ -304,12 +305,16 @@ PATCH   /settings
 Use `select`, `offset`, and `limit` when a prototype only needs part of a collection:
 
 ```bash
-curl 'http://127.0.0.1:7331/users?select=id,name&offset=0&limit=20'
+curl 'http://127.0.0.1:7331/db/users.json?select=id,name&offset=0&limit=20'
+curl 'http://127.0.0.1:7331/db/users.json?id=u_1&select=id,name'
 ```
 
-The viewer at `/__jsondb` lets you inspect resources, import CSV files into the configured fixture folder, view generated schema metadata, read GraphQL SDL/operation references, and try REST requests without writing client code first.
+The `?id=` shortcut is only for explicit JSON routes. Extensionless REST routes
+use normal record URLs such as `/db/users/u_1` or `/users/u_1`.
 
-The built-in viewer and custom viewer UIs use the same JSON manifest at `/__jsondb/manifest.json`. `/__jsondb/manifest.html` opens a formatted JSON viewer, `/__jsondb/manifest.md` returns an AI-friendly Markdown wrapper, and `/__jsondb/manifest` chooses from registered media types in `Accept`. Apps can use `api.formats` from the manifest to discover supported extensions and build their own viewer UI against REST or GraphQL records.
+The viewer at `/__db` lets you inspect resources, import CSV files into the configured fixture folder, view generated schema metadata, read GraphQL SDL/operation references, and try REST requests without writing client code first.
+
+The built-in viewer and custom viewer UIs use the same JSON manifest at `/__db/manifest.json`. `/__db/manifest.html` opens a formatted JSON viewer, `/__db/manifest.md` returns an AI-friendly Markdown wrapper, and `/__db/manifest` chooses from registered media types in `Accept`. Apps can use `api.formats` from the manifest to discover supported extensions and build their own viewer UI against REST or GraphQL records.
 
 See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
 
@@ -317,16 +322,16 @@ See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
 
 | Path | Commit? | Notes |
 | --- | --- | --- |
-| `.jsondb/` | Normally no | Runtime stores, source metadata, generated schema, and generated types. |
-| `.jsondb/state/*.json` | Normally no | Writable local JSON store state. |
-| `.jsondb/types/index.ts` | Normally no | Default generated TypeScript output. |
+| `.db/` | Normally no | Runtime stores, source metadata, generated schema, and generated types. |
+| `.db/state/*.json` | Normally no | Writable local JSON store state. |
+| `.db/types/index.ts` | Normally no | Default generated TypeScript output. |
 | `types.commitOutFile` output | Yes, when configured | Use for stable imports before sync runs. |
 | `schemaOutFile` output | Yes, when configured | Use for model-driven admin/CMS metadata. |
 | `viewerManifestOutFile` output | Yes, when configured | Use for custom data viewers that need metadata plus route links. |
-| `examples/*/src/generated/jsondb.types.ts` | Yes, in selected examples | Intentionally committed example type output. |
-| `examples/*/src/generated/jsondb.schema.json` | Yes, in selected examples | Intentionally committed example manifest. |
+| `examples/*/src/generated/db.types.ts` | Yes, in selected examples | Intentionally committed example type output. |
+| `examples/*/src/generated/db.schema.json` | Yes, in selected examples | Intentionally committed example manifest. |
 
-Smoke commands may create `.jsondb/` under examples. Remove generated runtime state before finalizing unless a task explicitly asks to commit it.
+Smoke commands may create `.db/` under examples. Remove generated runtime state before finalizing unless a task explicitly asks to commit it.
 
 See [docs/generated-files.md](./docs/generated-files.md).
 
@@ -339,7 +344,7 @@ The examples are a learning path. Run any example with `node ./src/cli.js sync -
 | The shortest schema-backed workflow | [`examples/basic`](./examples/basic) | Sync, viewer, REST create, committed generated types |
 | Plain data before schemas exist | [`examples/data-first`](./examples/data-first) | Inferred collections, documents, routes, and types |
 | Contract-first resources | [`examples/schema-first`](./examples/schema-first) | Schema-only resources, empty seed records, committed types |
-| Calling jsondb from app or test code | [`examples/rest-client`](./examples/rest-client) | `createJsonDbClient`, direct REST calls, REST batching |
+| Calling @async/db from app or test code | [`examples/rest-client`](./examples/rest-client) | `createDbClient`, direct REST calls, REST batching |
 | Related local records | [`examples/relations`](./examples/relations) | Relation metadata, `expand`, and nested `select` |
 | CSV as the source of truth | [`examples/csv`](./examples/csv) | CSV inference, source hashes, mirror refreshes |
 | Admin/CMS-style field metadata | [`examples/schema-manifest`](./examples/schema-manifest) | `schemaOutFile` and manifest customization |
@@ -358,7 +363,7 @@ Each example README is the runnable authority for that example.
 | Understand the model | [docs/concepts.md](./docs/concepts.md) |
 | Author fixtures and schemas | [docs/fixtures-and-schemas.md](./docs/fixtures-and-schemas.md) |
 | Manage generated output | [docs/generated-files.md](./docs/generated-files.md) |
-| Configure jsondb | [docs/configuration.md](./docs/configuration.md) |
+| Configure @async/db | [docs/configuration.md](./docs/configuration.md) |
 | Serve local data and use REST/GraphQL/viewer | [docs/server-and-viewer.md](./docs/server-and-viewer.md) |
 | Use the package API, CLI, or exports | [docs/package-api.md](./docs/package-api.md) |
 | Integrate with Vite, Hono, or SQLite | [docs/integrations.md](./docs/integrations.md) |

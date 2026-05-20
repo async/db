@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openJsonFixtureDb } from 'jsondb';
-import { registerRestRoutes } from 'jsondb/hono';
+import { openDb } from '@async/db';
+import { registerDbRoutes } from '@async/db/hono';
 
 const exampleRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -18,11 +18,11 @@ const demoSessions = new Map([
 export async function createApp(options = {}) {
   const { Hono } = await import('hono');
   const app = new Hono();
-  const db = options.db ?? await openJsonFixtureDb({
+  const db = options.db ?? await openDb({
     cwd: options.cwd ?? path.resolve(exampleRoot),
   });
 
-  registerRestRoutes(app, db, {
+  registerDbRoutes(app, db, {
     prefix: '/api',
     resources: ['pages', 'users'],
     lifecycleHooks: {

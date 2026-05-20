@@ -1,9 +1,9 @@
 export {
-  migrateSqliteJsonDb,
-  openSqliteJsonDb,
+  migrateSqliteDb,
+  openSqliteDb,
   sqliteStore,
   sqliteStoreCapabilities,
-  SqliteJsonDb,
-  SqliteJsonDbCollection,
-  SqliteJsonDbDocument,
+  SqliteDb,
+  SqliteDbCollection,
+  SqliteDbDocument,
 } from './integrations/sqlite.js';

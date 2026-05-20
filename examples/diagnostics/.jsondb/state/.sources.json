@@ -1,0 +1,10 @@
+{
+  "resources": {
+    "users": {
+      "path": "db/users.json",
+      "format": "json",
+      "hash": "5ba4aad944b36ea9ebd34ebf2c84c10b456a71799df1ce9e39f6110cb4d73cc6",
+      "updatedAt": "2026-05-20T01:52:11.029Z"
+    }
+  }
+}

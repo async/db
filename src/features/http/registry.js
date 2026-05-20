@@ -64,7 +64,7 @@ function graphqlDisabledHttpFeature() {
         error: {
           code: 'GRAPHQL_DISABLED',
           message: 'GraphQL endpoint is disabled.',
-          hint: 'Set graphql.enabled to true in jsondb.config.mjs to enable the GraphQL endpoint.',
+          hint: 'Set graphql.enabled to true in db.config.mjs to enable the GraphQL endpoint.',
           details: {
             graphqlEnabled: false,
             path: routes.graphqlPath,
@@ -87,7 +87,7 @@ function subscribeRuntimeLog(request, response, db) {
   });
   response.write(': connected\n\n');
   const unsubscribe = db.events.subscribe((event) => {
-    response.write(`event: jsondb-log\ndata: ${JSON.stringify(event)}\n\n`);
+    response.write(`event: db-log\ndata: ${JSON.stringify(event)}\n\n`);
   });
   request.on('close', unsubscribe);
 }

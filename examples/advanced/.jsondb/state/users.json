@@ -1,0 +1,23 @@
+[
+  {
+    "id": "u_1",
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "role": "admin",
+    "profile": {
+      "title": "Mathematician",
+      "location": "London"
+    },
+    "twitterHandle": "@ada"
+  },
+  {
+    "id": "u_2",
+    "name": "Katherine Johnson",
+    "email": "katherine@example.com",
+    "role": "editor",
+    "profile": {
+      "title": "Research mathematician",
+      "location": "Virginia"
+    }
+  }
+]

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { openJsonFixtureDb } from './index.js';
-import { openSqliteJsonDb } from './sqlite.js';
+import { openDb } from './index.js';
+import { openSqliteDb } from './sqlite.js';
 import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
 
 test('SQLite adapter supports collection and document CRUD when node:sqlite is available', async (t) => {
@@ -56,7 +56,7 @@ test('SQLite adapter supports collection and document CRUD when node:sqlite is a
     "seed": {}
   }`);
 
-  const db = await openSqliteJsonDb({
+  const db = await openSqliteDb({
     cwd,
     file: ':memory:',
   });
@@ -133,7 +133,7 @@ test('SQLite adapter updates do not backfill omitted schema defaults', async (t)
     "seed": []
   }`);
 
-  const db = await openSqliteJsonDb({
+  const db = await openSqliteDb({
     cwd,
     file: ':memory:',
   });
@@ -184,7 +184,7 @@ test('sqliteStore registers through stores config and coexists with json store',
   await writeFixture(cwd, 'settings.json', JSON.stringify({
     theme: 'light',
   }));
-  await writeConfig(cwd, `import { sqliteStore } from 'jsondb/sqlite';
+  await writeConfig(cwd, `import { sqliteStore } from '@async/db/sqlite';
 
 export default {
   resources: {
@@ -197,20 +197,20 @@ export default {
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
   await db.document('settings').update({ theme: 'dark' });
 
-  await access(path.join(cwd, '.jsondb/runtime.sqlite'));
+  await access(path.join(cwd, '.db/runtime.sqlite'));
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/settings.json'), 'utf8')), {
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/settings.json'), 'utf8')), {
     theme: 'dark',
   });
 
-  const reopened = await openJsonFixtureDb({ cwd });
+  const reopened = await openDb({ cwd });
   assert.deepEqual(await reopened.collection('users').all(), [
     { id: 'u_1', name: 'Ada Lovelace' },
     { id: 'u_2', name: 'Grace Hopper' },
@@ -219,7 +219,7 @@ export default {
   await writeFixture(cwd, 'users.json', JSON.stringify([
     { id: 'u_3', name: 'Katherine Johnson' },
   ]));
-  const rehydrated = await openJsonFixtureDb({ cwd });
+  const rehydrated = await openDb({ cwd });
   assert.deepEqual(await rehydrated.collection('users').all(), [
     { id: 'u_3', name: 'Katherine Johnson' },
   ]);
@@ -237,7 +237,7 @@ test('sqliteStore resolves explicit relative file paths from the project cwd', a
   await writeFixture(cwd, 'users.json', JSON.stringify([
     { id: 'u_1', name: 'Ada Lovelace' },
   ]));
-  await writeConfig(cwd, `import { sqliteStore } from 'jsondb/sqlite';
+  await writeConfig(cwd, `import { sqliteStore } from '@async/db/sqlite';
 
 export default {
   resources: {
@@ -246,21 +246,21 @@ export default {
     }
   },
   stores: {
-    sqlite: sqliteStore({ file: './.jsondb/custom-runtime.sqlite' })
+    sqlite: sqliteStore({ file: './.db/custom-runtime.sqlite' })
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
 
-  await access(path.join(cwd, '.jsondb/custom-runtime.sqlite'));
+  await access(path.join(cwd, '.db/custom-runtime.sqlite'));
   await assert.rejects(
-    () => access(path.join(cwd, '.jsondb/state/users.json')),
+    () => access(path.join(cwd, '.db/state/users.json')),
     { code: 'ENOENT' },
   );
 });
 
-test('sqliteStore database handle closes through JsonFixtureDb.close', async (t) => {
+test('sqliteStore database handle closes through Db.close', async (t) => {
   try {
     await import('node:sqlite');
   } catch {
@@ -272,7 +272,7 @@ test('sqliteStore database handle closes through JsonFixtureDb.close', async (t)
   await writeFixture(cwd, 'users.json', JSON.stringify([
     { id: 'u_1', name: 'Ada Lovelace' },
   ]));
-  await writeConfig(cwd, `import { sqliteStore } from 'jsondb/sqlite';
+  await writeConfig(cwd, `import { sqliteStore } from '@async/db/sqlite';
 
 export default {
   resources: {
@@ -285,7 +285,7 @@ export default {
   }
 };`);
 
-  const db = await openJsonFixtureDb({ cwd });
+  const db = await openDb({ cwd });
   const users = db.collection('users');
   assert.deepEqual(await users.all(), [
     { id: 'u_1', name: 'Ada Lovelace' },
@@ -298,7 +298,7 @@ export default {
     /closed|database/i,
   );
 
-  const reopened = await openJsonFixtureDb({ cwd });
+  const reopened = await openDb({ cwd });
   assert.deepEqual(await reopened.collection('users').all(), [
     { id: 'u_1', name: 'Ada Lovelace' },
   ]);

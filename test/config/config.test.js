@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { syncJsonFixtureDb, loadConfig } from '../../src/index.js';
+import { syncDb, loadConfig } from '../../src/index.js';
 import { mergeManifest, resourceNameFromPath } from '../../src/config-public.js';
 import { makeProject, writeConfig } from '../helpers.js';
 
@@ -11,16 +11,33 @@ test('default config adds a small local mock delay range', async () => {
   const config = await loadConfig({ cwd });
 
   assert.deepEqual(config.mock.delay, [30, 100]);
-  assert.equal(config.server.apiBase, '/__jsondb');
+  assert.equal(config.server.apiBase, '/__db');
+  assert.equal(config.server.dataPath, '/db');
+  assert.equal(config.stateDir, path.join(cwd, '.db'));
+  assert.equal(config.types.outFile, path.join(cwd, '.db/types/index.ts'));
+});
+
+test('server dataPath can be disabled', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    server: {
+      dataPath: false,
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+
+  assert.equal(config.server.apiBase, '/__db');
+  assert.equal(config.server.dataPath, false);
 });
 
 test('dbDir config changes the fixture source folder', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    dbDir: './jsondb',
+    dbDir: './db',
   };`);
-  await mkdir(path.join(cwd, 'jsondb'), { recursive: true });
-  await writeFile(path.join(cwd, 'jsondb/users.json'), `${JSON.stringify([
+  await mkdir(path.join(cwd, 'db'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/users.json'), `${JSON.stringify([
     {
       id: 'u_1',
       name: 'Ada Lovelace',
@@ -28,24 +45,24 @@ test('dbDir config changes the fixture source folder', async () => {
   ])}\n`, 'utf8');
 
   const config = await loadConfig({ cwd });
-  const result = await syncJsonFixtureDb(config);
-  const metadata = JSON.parse(await readFile(path.join(cwd, '.jsondb/state/.sources.json'), 'utf8'));
+  const result = await syncDb(config);
+  const metadata = JSON.parse(await readFile(path.join(cwd, '.db/state/.sources.json'), 'utf8'));
 
-  assert.equal(config.dbDir, path.join(cwd, 'jsondb'));
-  assert.equal(config.sourceDir, path.join(cwd, 'jsondb'));
+  assert.equal(config.dbDir, path.join(cwd, 'db'));
+  assert.equal(config.sourceDir, path.join(cwd, 'db'));
   assert.equal(result.schema.resources.users.kind, 'collection');
-  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.jsondb/state/users.json'), 'utf8')), [
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
     {
       id: 'u_1',
       name: 'Ada Lovelace',
     },
   ]);
-  assert.equal(metadata.resources.users.path, 'jsondb/users.json');
+  assert.equal(metadata.resources.users.path, 'db/users.json');
 });
 
 test('config files can use the typed defineConfig helper', async () => {
   const cwd = await makeProject();
-  await writeConfig(cwd, `import { defineConfig } from 'jsondb/config';
+  await writeConfig(cwd, `import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   stores: {

@@ -11,7 +11,7 @@ const BUILT_IN_FORMATS = {
     mediaTypes: ['text/html'],
     contentType: 'text/html; charset=utf-8',
     renderResource: ({ data, url }) => renderJsonViewer(data, { title: jsonViewerTitle(url) }),
-    renderManifest: ({ data }) => renderJsonViewer(data, { title: 'jsondb viewer manifest' }),
+    renderManifest: ({ data }) => renderJsonViewer(data, { title: 'db viewer manifest' }),
   },
   md: {
     mediaTypes: ['text/markdown'],
@@ -21,8 +21,8 @@ const BUILT_IN_FORMATS = {
       ['Kind', resource.kind],
       ['Route', resource.routePath],
     ]),
-    renderManifest: ({ data, routes }) => renderMarkdownJson('jsondb viewer manifest', data, [
-      ['Kind', 'jsondb.viewerManifest'],
+    renderManifest: ({ data, routes }) => renderMarkdownJson('db viewer manifest', data, [
+      ['Kind', 'db.viewerManifest'],
       ['JSON', routes?.manifestJsonPath ?? manifestPathForFormat(routes, 'json')],
     ]),
   },
@@ -119,7 +119,7 @@ export function manifestPathForFormat(routes = {}, format) {
     return routes.manifestMarkdownPath;
   }
 
-  return `${routes.manifestPath ?? '/__jsondb/manifest'}.${format}`;
+  return `${routes.manifestPath ?? '/__db/manifest'}.${format}`;
 }
 
 export function renderMarkdownJson(title, value, metadata = []) {
@@ -285,10 +285,10 @@ function contentTypeForMediaTypes(mediaTypes = []) {
 
 function jsonViewerTitle(url) {
   if (!url?.pathname) {
-    return 'jsondb JSON';
+    return 'db JSON';
   }
 
-  return url.pathname.split('/').filter(Boolean).pop() ?? 'jsondb JSON';
+  return url.pathname.split('/').filter(Boolean).pop() ?? 'db JSON';
 }
 
 function escapeMarkdownInline(value) {

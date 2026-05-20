@@ -3,24 +3,24 @@ import { EventEmitter } from 'node:events';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { openJsonFixtureDb } from './db.js';
+import { openDb } from './db.js';
 import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
-import { createJsonDbRequestHandler, reloadJsonFixtureDb, watchSourceDir } from './server.js';
+import { createDbRequestHandler, reloadDb, watchSourceDir } from './server.js';
 
 test('server reload path keeps valid resources when another source file fails', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true });
   await writeFixture(cwd, 'posts.json', JSON.stringify([{ id: 'p_1', title: 'Hello' }]));
 
-  const withPosts = await reloadJsonFixtureDb(db);
+  const withPosts = await reloadDb(db);
   assert.equal(withPosts.schema.resources.posts.routePath, '/posts');
   assert.equal(Boolean(db.resources.get('posts')), true);
 
   await writeFixture(cwd, 'broken.json', '{"id": ');
 
-  const withError = await reloadJsonFixtureDb(db);
+  const withError = await reloadDb(db);
   assert.equal(Boolean(withError.schema.resources.users), true);
   assert.equal(Boolean(withError.schema.resources.posts), true);
   assert.equal(withError.diagnostics[0].code, 'SOURCE_LOAD_FAILED');
@@ -33,7 +33,7 @@ test('server source watch falls back without crashing when file watchers are una
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true });
   const published = [];
   const warnings = [];
   const error = new Error('too many open files, watch');
@@ -63,7 +63,7 @@ test('server source watch handles watcher error events without crashing', async 
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true });
   const published = [];
   const warnings = [];
   const fsWatcher = new EventEmitter();
@@ -97,7 +97,7 @@ test('server source watch ignores dot folders inside db', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true });
   const published = [];
   const fsWatcher = new EventEmitter();
   fsWatcher.close = () => {};
@@ -113,7 +113,7 @@ test('server source watch ignores dot folders inside db', async () => {
     },
   });
 
-  fsWatcher.listener('change', '.jsondb/state/users.json');
+  fsWatcher.listener('change', '.db/state/users.json');
   fsWatcher.listener('change', '.cache/internal.json');
   await new Promise((resolve) => setTimeout(resolve, 125));
 
@@ -125,7 +125,7 @@ test('server source watch stays attached to db sources and ignores store writes'
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true });
   const published = [];
   const fsWatcher = new EventEmitter();
   fsWatcher.close = () => {};
@@ -171,7 +171,7 @@ test('request handler supports scoped Vite routes without root REST routes', asy
     },
   ]));
 
-  const db = await openJsonFixtureDb({
+  const db = await openDb({
     cwd,
     allowSourceErrors: true,
     rest: {
@@ -186,11 +186,11 @@ test('request handler supports scoped Vite routes without root REST routes', asy
       },
     },
   });
-  const handler = createJsonDbRequestHandler(db, {
-    apiBase: '/__jsondb',
+  const handler = createDbRequestHandler(db, {
+    apiBase: '/__db',
     rootRoutes: false,
-    graphqlPath: '/__jsondb/graphql',
-    restBasePath: '/__jsondb/rest',
+    graphqlPath: '/__db/graphql',
+    restBasePath: '/__db/rest',
   });
 
   const users = makeResponse();
@@ -200,18 +200,20 @@ test('request handler supports scoped Vite routes without root REST routes', asy
   const manifestYaml = makeResponse();
   const batch = makeResponse();
   const graphql = makeResponse();
+  const dataUsers = makeResponse();
   const rootUsers = makeResponse();
   let passedThrough = false;
 
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/rest/users'), users), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/schema'), schema), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/manifest'), manifest), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/manifest.md'), manifestMarkdown), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/manifest.yaml'), manifestYaml), true);
-  assert.equal(await handler(makeRequest('POST', '/__jsondb/batch', [
+  assert.equal(await handler(makeRequest('GET', '/__db/rest/users'), users), true);
+  assert.equal(await handler(makeRequest('GET', '/db/users.json'), dataUsers), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/schema'), schema), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/manifest'), manifest), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/manifest.md'), manifestMarkdown), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/manifest.yaml'), manifestYaml), true);
+  assert.equal(await handler(makeRequest('POST', '/__db/batch', [
     { method: 'GET', path: '/users' },
   ]), batch), true);
-  assert.equal(await handler(makeRequest('POST', '/__jsondb/graphql', {
+  assert.equal(await handler(makeRequest('POST', '/__db/graphql', {
     query: '{ users { id } }',
   }), graphql), true);
   assert.equal(await handler(makeRequest('GET', '/users'), rootUsers, () => {
@@ -220,19 +222,21 @@ test('request handler supports scoped Vite routes without root REST routes', asy
 
   assert.equal(users.status, 200);
   assert.deepEqual(users.json(), [{ id: 'u_1', name: 'Ada' }]);
+  assert.equal(dataUsers.status, 200);
+  assert.deepEqual(dataUsers.json(), [{ id: 'u_1', name: 'Ada' }]);
   assert.equal(schema.status, 200);
   assert.equal(schema.json().resources.users.routePath, '/users');
   assert.equal(manifest.status, 200);
-  assert.equal(manifest.json().api.manifest, '/__jsondb/manifest');
-  assert.equal(manifest.json().api.manifestJson, '/__jsondb/manifest.json');
-  assert.equal(manifest.json().api.manifestMarkdown, '/__jsondb/manifest.md');
-  assert.equal(manifest.json().api.resources.users.list, '/__jsondb/rest/users');
+  assert.equal(manifest.json().api.manifest, '/__db/manifest');
+  assert.equal(manifest.json().api.manifestJson, '/__db/manifest.json');
+  assert.equal(manifest.json().api.manifestMarkdown, '/__db/manifest.md');
+  assert.equal(manifest.json().api.resources.users.list, '/__db/rest/users');
   assert.equal(manifestMarkdown.status, 200);
   assert.match(manifestMarkdown.headers['content-type'], /text\/markdown/);
-  assert.match(manifestMarkdown.body, /^# jsondb viewer manifest/m);
+  assert.match(manifestMarkdown.body, /^# db viewer manifest/m);
   assert.equal(manifestYaml.status, 200);
   assert.match(manifestYaml.headers['content-type'], /application\/yaml/);
-  assert.match(manifestYaml.body, /jsondb\.viewerManifest/);
+  assert.match(manifestYaml.body, /db\.viewerManifest/);
   assert.equal(batch.status, 200);
   assert.equal(batch.json()[0].body[0].id, 'u_1');
   assert.equal(graphql.status, 200);
@@ -250,20 +254,68 @@ test('request handler preserves standalone root REST and GraphQL routes', async 
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const users = makeResponse();
+  const dataUsers = makeResponse();
+  const dataUser = makeResponse();
+  const dataUserJson = makeResponse();
+  const scopedUsers = makeResponse();
+  const scopedUser = makeResponse();
   const graphql = makeResponse();
 
   assert.equal(await handler(makeRequest('GET', '/users'), users), true);
+  assert.equal(await handler(makeRequest('GET', '/db/users.json'), dataUsers), true);
+  assert.equal(await handler(makeRequest('GET', '/db/users/u_1'), dataUser), true);
+  assert.equal(await handler(makeRequest('GET', '/db/users/u_1.json'), dataUserJson), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/rest/users.json'), scopedUsers), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/rest/users/u_1'), scopedUser), true);
   assert.equal(await handler(makeRequest('POST', '/graphql', {
     query: '{ users { id } }',
   }), graphql), true);
 
   assert.equal(users.status, 200);
   assert.deepEqual(users.json(), [{ id: 'u_1', name: 'Ada' }]);
+  assert.equal(dataUsers.status, 200);
+  assert.deepEqual(dataUsers.json(), [{ id: 'u_1', name: 'Ada' }]);
+  assert.equal(dataUser.status, 200);
+  assert.deepEqual(dataUser.json(), { id: 'u_1', name: 'Ada' });
+  assert.equal(dataUserJson.status, 200);
+  assert.deepEqual(dataUserJson.json(), { id: 'u_1', name: 'Ada' });
+  assert.equal(scopedUsers.status, 200);
+  assert.deepEqual(scopedUsers.json(), [{ id: 'u_1', name: 'Ada' }]);
+  assert.equal(scopedUser.status, 200);
+  assert.deepEqual(scopedUser.json(), { id: 'u_1', name: 'Ada' });
   assert.equal(graphql.status, 200);
   assert.deepEqual(graphql.json().data.users, [{ id: 'u_1' }]);
+});
+
+test('request handler can disable the dataPath alias while keeping scoped REST', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada',
+    },
+  ]));
+  await writeConfig(cwd, `export default {
+    server: {
+      dataPath: false,
+    },
+  };`);
+
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
+  const dataUsers = makeResponse();
+  const scopedUsers = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/db/users.json'), dataUsers), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/rest/users.json'), scopedUsers), true);
+
+  assert.equal(dataUsers.status, 404);
+  assert.equal(dataUsers.json().error.code, 'REST_UNKNOWN_RESOURCE');
+  assert.equal(scopedUsers.status, 200);
+  assert.deepEqual(scopedUsers.json(), [{ id: 'u_1', name: 'Ada' }]);
 });
 
 test('request handler disables GraphQL when graphql.enabled is false', async () => {
@@ -288,8 +340,8 @@ test('request handler disables GraphQL when graphql.enabled is false', async () 
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const users = makeResponse();
   const graphql = makeResponse();
 
@@ -319,8 +371,8 @@ test('request handler disables generated REST routes when rest.enabled is false'
     },
   };`);
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const root = makeResponse();
   const users = makeResponse();
   const batch = makeResponse();
@@ -330,11 +382,11 @@ test('request handler disables generated REST routes when rest.enabled is false'
 
   assert.equal(await handler(makeRequest('GET', '/'), root), true);
   assert.equal(await handler(makeRequest('GET', '/users'), users), true);
-  assert.equal(await handler(makeRequest('POST', '/__jsondb/batch', [
+  assert.equal(await handler(makeRequest('POST', '/__db/batch', [
     { method: 'GET', path: '/users' },
   ]), batch), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/schema'), schema), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/manifest'), manifest), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/schema'), schema), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/manifest'), manifest), true);
   assert.equal(await handler(makeRequest('POST', '/graphql', {
     query: '{ users { id } }',
   }), graphql), true);
@@ -379,8 +431,8 @@ test('request handler reports disabled REST before mock errors', async () => {
     }
   };`);
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const users = makeResponse();
 
   assert.equal(await handler(makeRequest('GET', '/users'), users), true);
@@ -407,7 +459,7 @@ test('request handler derives standalone dev-tool routes from configured server 
   ])}\n`, 'utf8');
   await writeConfig(cwd, `export default {
     server: {
-      apiBase: '/_jsondb',
+      apiBase: '/_db',
     },
     rest: {
       formats: {
@@ -423,8 +475,8 @@ test('request handler derives standalone dev-tool routes from configured server 
     forks: ['legacy-demo'],
   };`);
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const viewer = makeResponse();
   const schema = makeResponse();
   const manifest = makeResponse();
@@ -441,25 +493,25 @@ test('request handler derives standalone dev-tool routes from configured server 
   const rootUsers = makeResponse();
   const rootGraphql = makeResponse();
 
-  assert.equal(await handler(makeRequest('GET', '/_jsondb'), viewer), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/schema'), schema), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/manifest'), manifest), true);
-  assert.equal(await handler(makeRequest('POST', '/_jsondb/batch', [
+  assert.equal(await handler(makeRequest('GET', '/_db'), viewer), true);
+  assert.equal(await handler(makeRequest('GET', '/_db/schema'), schema), true);
+  assert.equal(await handler(makeRequest('GET', '/_db/manifest'), manifest), true);
+  assert.equal(await handler(makeRequest('POST', '/_db/batch', [
     { method: 'GET', path: '/users' },
   ]), batch), true);
-  assert.equal(await handler(makeRawRequest('POST', '/_jsondb/import', 'id,name\nu_2,Grace\n', {
-    'x-jsondb-file-name': 'Imported Users.csv',
+  assert.equal(await handler(makeRawRequest('POST', '/_db/import', 'id,name\nu_2,Grace\n', {
+    'x-db-file-name': 'Imported Users.csv',
   }), imported), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/events'), events), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/log'), log), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/forks/legacy-demo/rest/users'), forkUsers), true);
-  assert.equal(await handler(makeRequest('POST', '/_jsondb/forks/legacy-demo/batch', [
+  assert.equal(await handler(makeRequest('GET', '/_db/events'), events), true);
+  assert.equal(await handler(makeRequest('GET', '/_db/log'), log), true);
+  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/rest/users'), forkUsers), true);
+  assert.equal(await handler(makeRequest('POST', '/_db/forks/legacy-demo/batch', [
     { method: 'GET', path: '/users' },
   ]), forkBatch), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/forks/legacy-demo/schema'), forkSchema), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/forks/legacy-demo/manifest'), forkManifest), true);
-  assert.equal(await handler(makeRequest('GET', '/_jsondb/forks/legacy-demo/manifest.yaml'), forkManifestYaml), true);
-  assert.equal(await handler(makeRequest('POST', '/_jsondb/forks/legacy-demo/graphql', {
+  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/schema'), forkSchema), true);
+  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/manifest'), forkManifest), true);
+  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/manifest.yaml'), forkManifestYaml), true);
+  assert.equal(await handler(makeRequest('POST', '/_db/forks/legacy-demo/graphql', {
     query: '{ users { id fullName } }',
   }), forkGraphql), true);
   assert.equal(await handler(makeRequest('GET', '/users'), rootUsers), true);
@@ -468,32 +520,32 @@ test('request handler derives standalone dev-tool routes from configured server 
   }), rootGraphql), true);
 
   assert.equal(viewer.status, 200);
-  assert.match(viewer.body, /jsondb viewer/);
+  assert.match(viewer.body, /db viewer/);
   assert.equal(schema.status, 200);
   assert.equal(schema.json().resources.users.routePath, '/users');
   assert.equal(manifest.status, 200);
-  assert.equal(manifest.json().api.manifest, '/_jsondb/manifest');
-  assert.equal(manifest.json().api.manifestJson, '/_jsondb/manifest.json');
-  assert.equal(manifest.json().api.manifestMarkdown, '/_jsondb/manifest.md');
-  assert.equal(manifest.json().api.resources.users.list, '/users');
+  assert.equal(manifest.json().api.manifest, '/_db/manifest');
+  assert.equal(manifest.json().api.manifestJson, '/_db/manifest.json');
+  assert.equal(manifest.json().api.manifestMarkdown, '/_db/manifest.md');
+  assert.equal(manifest.json().api.resources.users.list, '/_db/rest/users');
   assert.equal(batch.status, 200);
   assert.equal(batch.json()[0].body[0].id, 'u_main');
   assert.equal(imported.status, 201);
-  assert.equal(imported.json().viewerPath, '/_jsondb?resource=importedUsers');
+  assert.equal(imported.json().viewerPath, '/_db?resource=importedUsers');
   assert.equal(events.status, 200);
-  assert.match(events.body, /event: jsondb/);
+  assert.match(events.body, /event: db/);
   assert.equal(log.status, 200);
   assert.match(log.headers['content-type'], /text\/event-stream/);
   assert.deepEqual(forkUsers.json(), [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
   assert.equal(forkBatch.json()[0].body[0].id, 'u_legacy');
   assert.equal(forkSchema.json().resources.users.fields.fullName.type, 'string');
-  assert.equal(forkManifest.json().api.manifest, '/_jsondb/forks/legacy-demo/manifest');
-  assert.equal(forkManifest.json().api.manifestJson, '/_jsondb/forks/legacy-demo/manifest.json');
-  assert.equal(forkManifest.json().api.manifestMarkdown, '/_jsondb/forks/legacy-demo/manifest.md');
-  assert.equal(forkManifest.json().api.resources.users.list, '/_jsondb/forks/legacy-demo/rest/users');
+  assert.equal(forkManifest.json().api.manifest, '/_db/forks/legacy-demo/manifest');
+  assert.equal(forkManifest.json().api.manifestJson, '/_db/forks/legacy-demo/manifest.json');
+  assert.equal(forkManifest.json().api.manifestMarkdown, '/_db/forks/legacy-demo/manifest.md');
+  assert.equal(forkManifest.json().api.resources.users.list, '/_db/forks/legacy-demo/rest/users');
   assert.equal(forkManifestYaml.status, 200);
   assert.match(forkManifestYaml.headers['content-type'], /application\/yaml/);
-  assert.match(forkManifestYaml.body, /jsondb\.viewerManifest/);
+  assert.match(forkManifestYaml.body, /db\.viewerManifest/);
   assert.deepEqual(forkGraphql.json().data.users, [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
   assert.deepEqual(rootUsers.json(), [{ id: 'u_main', name: 'Main Ada' }]);
   assert.deepEqual(rootGraphql.json().data.users, [{ id: 'u_main' }]);
@@ -518,8 +570,8 @@ test('request handler routes configured fork REST, batch, schema, and GraphQL re
     forks: ['legacy-demo'],
   };`);
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const mainUsers = makeResponse();
   const forkUsers = makeResponse();
   const forkBatch = makeResponse();
@@ -528,13 +580,13 @@ test('request handler routes configured fork REST, batch, schema, and GraphQL re
   const forkGraphql = makeResponse();
 
   assert.equal(await handler(makeRequest('GET', '/users'), mainUsers), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/forks/legacy-demo/rest/users'), forkUsers), true);
-  assert.equal(await handler(makeRequest('POST', '/__jsondb/forks/legacy-demo/batch', [
+  assert.equal(await handler(makeRequest('GET', '/__db/forks/legacy-demo/rest/users'), forkUsers), true);
+  assert.equal(await handler(makeRequest('POST', '/__db/forks/legacy-demo/batch', [
     { method: 'GET', path: '/users' },
   ]), forkBatch), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/forks/legacy-demo/schema'), forkSchema), true);
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/forks/legacy-demo/manifest'), forkManifest), true);
-  assert.equal(await handler(makeRequest('POST', '/__jsondb/forks/legacy-demo/graphql', {
+  assert.equal(await handler(makeRequest('GET', '/__db/forks/legacy-demo/schema'), forkSchema), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/forks/legacy-demo/manifest'), forkManifest), true);
+  assert.equal(await handler(makeRequest('POST', '/__db/forks/legacy-demo/graphql', {
     query: '{ users { id fullName } }',
   }), forkGraphql), true);
 
@@ -542,10 +594,10 @@ test('request handler routes configured fork REST, batch, schema, and GraphQL re
   assert.deepEqual(forkUsers.json(), [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
   assert.equal(forkBatch.json()[0].body[0].id, 'u_legacy');
   assert.equal(forkSchema.json().resources.users.fields.fullName.type, 'string');
-  assert.equal(forkManifest.json().api.manifest, '/__jsondb/forks/legacy-demo/manifest');
-  assert.equal(forkManifest.json().api.manifestJson, '/__jsondb/forks/legacy-demo/manifest.json');
-  assert.equal(forkManifest.json().api.manifestMarkdown, '/__jsondb/forks/legacy-demo/manifest.md');
-  assert.equal(forkManifest.json().api.resources.users.list, '/__jsondb/forks/legacy-demo/rest/users');
+  assert.equal(forkManifest.json().api.manifest, '/__db/forks/legacy-demo/manifest');
+  assert.equal(forkManifest.json().api.manifestJson, '/__db/forks/legacy-demo/manifest.json');
+  assert.equal(forkManifest.json().api.manifestMarkdown, '/__db/forks/legacy-demo/manifest.md');
+  assert.equal(forkManifest.json().api.resources.users.list, '/__db/forks/legacy-demo/rest/users');
   assert.deepEqual(forkGraphql.json().data.users, [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
 });
 
@@ -553,11 +605,11 @@ test('request handler returns a structured 404 for unknown forks', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const response = makeResponse();
 
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/forks/missing/rest/users'), response), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/forks/missing/rest/users'), response), true);
   assert.equal(response.status, 404);
   assert.equal(response.json().error.code, 'FORK_NOT_FOUND');
 });
@@ -571,16 +623,16 @@ test('request handler streams live runtime log events', async () => {
     },
   ]));
 
-  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
-  const handler = createJsonDbRequestHandler(db);
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
   const response = makeResponse();
 
-  assert.equal(await handler(makeRequest('GET', '/__jsondb/log'), response), true);
+  assert.equal(await handler(makeRequest('GET', '/__db/log'), response), true);
   await db.collection('users').create({ id: 'u_2', name: 'Grace' });
 
   assert.equal(response.status, 200);
   assert.match(response.headers['content-type'], /text\/event-stream/);
-  assert.match(response.body, /event: jsondb-log/);
+  assert.match(response.body, /event: db-log/);
   assert.match(response.body, /"resource":"users"/);
   assert.match(response.body, /"op":"create"/);
 });

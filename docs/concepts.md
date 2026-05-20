@@ -1,10 +1,10 @@
 # Concepts
 
-jsondb turns local fixture sources into generated contracts, runtime state, local APIs, and type metadata. The default path is intentionally small: write fixture files first, then add schema only when the app contract needs it.
+@async/db turns local fixture sources into generated contracts, runtime state, local APIs, and type metadata. The default path is intentionally small: write fixture files first, then add schema only when the app contract needs it.
 
 ## Product Boundary
 
-jsondb is:
+@async/db is:
 
 - local development and test infrastructure
 - data-first by default
@@ -12,7 +12,7 @@ jsondb is:
 - dependency-light in the core package
 - useful before the real database or backend contract is settled
 
-jsondb is not:
+@async/db is not:
 
 - a production database
 - an auth or permission system
@@ -33,9 +33,9 @@ Start with `db/*.json`, `db/*.jsonc`, or `db/*.csv` when you already have sample
 ]
 ```
 
-jsondb infers useful local contracts from the fixture shape. It uses those contracts for generated types, REST metadata, GraphQL metadata, viewer metadata, and write validation.
+@async/db infers useful local contracts from the fixture shape. It uses those contracts for generated types, REST metadata, GraphQL metadata, viewer metadata, and write validation.
 
-When inference is ambiguous, jsondb should emit diagnostics and `doctor` suggestions instead of guessing too hard.
+When inference is ambiguous, @async/db should emit diagnostics and `doctor` suggestions instead of guessing too hard.
 
 ## Schema-First
 
@@ -68,7 +68,7 @@ db/users.schema.json
 db/users.json
 ```
 
-The schema file is authoritative. The data file provides seed records. If a schema file still contains embedded `seed` while a data fixture exists, jsondb ignores the embedded seed and warns.
+The schema file is authoritative. The data file provides seed records. If a schema file still contains embedded `seed` while a data fixture exists, @async/db ignores the embedded seed and warns.
 
 Useful commands:
 
@@ -85,7 +85,7 @@ The default `json` store keeps source fixtures clean and writes app changes to g
 
 ```txt
 db/users.json              source fixture
-.jsondb/state/users.json   writable runtime JSON store
+.db/state/users.json   writable runtime JSON store
 ```
 
 This is the safest default for local development because tests, demos, and UI prototyping do not rewrite committed fixtures.
@@ -106,9 +106,9 @@ export default {
 
 ## Source File Store
 
-Use the `sourceFile` store only when you intentionally want jsondb to write supported changes back to source files.
+Use the `sourceFile` store only when you intentionally want @async/db to write supported changes back to source files.
 
-The main source writeback case is generated ids for plain `.json` collection fixtures that omit `id`. JSONC and CSV sources remain parsed source inputs; generated runtime state still lives under `.jsondb/`.
+The main source writeback case is generated ids for plain `.json` collection fixtures that omit `id`. JSONC and CSV sources remain parsed source inputs; generated runtime state still lives under `.db/`.
 
 ## Diagnostics
 

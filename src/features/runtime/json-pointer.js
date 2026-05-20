@@ -1,4 +1,4 @@
-import { jsonDbError } from '../../errors.js';
+import { dbError } from '../../errors.js';
 
 export function getPointer(document, pointer) {
   const parts = parsePointer(pointer);
@@ -15,7 +15,7 @@ export function getPointer(document, pointer) {
 export function setPointer(document, pointer, value) {
   const parts = parsePointer(pointer);
   if (parts.length === 0) {
-    throw jsonDbError(
+    throw dbError(
       'DB_DOCUMENT_SET_ROOT',
       'Cannot set the root document with set().',
       {
@@ -41,7 +41,7 @@ export function parsePointer(pointer) {
   }
 
   if (!pointer.startsWith('/')) {
-    throw jsonDbError(
+    throw dbError(
       'DB_INVALID_JSON_POINTER',
       `Invalid JSON pointer "${pointer}".`,
       {

@@ -15,7 +15,7 @@ db/
   posts.schema.jsonc
   settings.schema.jsonc
 
-.jsondb/
+.db/
   state/
   wal/
   migrations/
@@ -28,7 +28,7 @@ Projects can also opt into committed generated types:
 
 ```txt
 src/generated/
-  jsondb.types.ts            committed generated types
+  db.types.ts            committed generated types
 ```
 
 ## Developer Workflows
@@ -158,13 +158,13 @@ users.json controls the seed records
 If the schema file also contains `seed`, that embedded seed is ignored in favor of
 the data fixture. The CLI should warn and suggest unbundling the seed from the
 schema source so mixed mode keeps contracts and seed records in separate files.
-`jsondb schema unbundle users` removes embedded seed from the schema source and
+`async-db schema unbundle users` removes embedded seed from the schema source and
 writes non-empty seed data to `db/users.json`. Empty schema-only seed is removed
 without creating an empty fixture unless `--empty-seed` is passed. In-place JSONC
 rewrites may lose comments, so the CLI should warn when it rewrites `.schema.jsonc`
 without `--schema-out`.
 
-`jsondb schema bundle users` creates a portable schema-plus-seed artifact. Bundled
+`async-db schema bundle users` creates a portable schema-plus-seed artifact. Bundled
 outputs should live outside the active fixture directory by default, such as
 `artifacts/users.bundle.schema.json`, so they are not rediscovered as live schema
 sources. Writing a bundle inside `db/` requires `--force`. Overwriting an existing
@@ -198,7 +198,7 @@ export default {
 By default, generated TypeScript types are written to:
 
 ```txt
-.jsondb/types/index.ts
+.db/types/index.ts
 ```
 
 Projects can customize the output location:
@@ -206,8 +206,8 @@ Projects can customize the output location:
 ```js
 export default {
   dbDir: './db',
-  stateDir: './.jsondb',
-  schemaOutFile: './src/generated/jsondb.schema.json',
+  stateDir: './.db',
+  schemaOutFile: './src/generated/db.schema.json',
 
   schemaManifest: {
     customizeField({ fieldName, defaultManifest }) {
@@ -229,11 +229,11 @@ export default {
     enabled: true,
 
     // Default gitignored output.
-    outFile: './.jsondb/types/index.ts',
+    outFile: './.db/types/index.ts',
 
     // Optional committed output.
     // If set, generate the same types here too.
-    commitOutFile: './src/generated/jsondb.types.ts',
+    commitOutFile: './src/generated/db.types.ts',
 
     // Optional.
     useReadonly: false,
@@ -249,7 +249,7 @@ This supports two common workflows.
 Good for quick local development:
 
 ```ts
-import type { JsonDbTypes } from '../.jsondb/types/index';
+import type { DbTypes } from '../.db/types/index';
 ```
 
 ### Committed Generated Types
@@ -257,10 +257,10 @@ import type { JsonDbTypes } from '../.jsondb/types/index';
 Better for apps and CI:
 
 ```ts
-import type { JsonDbTypes } from './generated/jsondb.types';
+import type { DbTypes } from './generated/db.types';
 ```
 
-If the app relies on generated types, committing them is usually better because CI and other developers do not need to run `jsondb sync` before TypeScript can resolve imports.
+If the app relies on generated types, committing them is usually better because CI and other developers do not need to run `async-db sync` before TypeScript can resolve imports.
 
 ## Example Generated TypeScript
 
@@ -291,29 +291,29 @@ export type Settings = {
   };
 };
 
-export type JsonDbCollections = {
+export type DbCollections = {
   users: User;
 };
 
-export type JsonDbDocuments = {
+export type DbDocuments = {
   settings: Settings;
 };
 
-export type JsonDbTypes = {
-  collections: JsonDbCollections;
-  documents: JsonDbDocuments;
+export type DbTypes = {
+  collections: DbCollections;
+  documents: DbDocuments;
 };
 ```
 
 Package usage:
 
 ```ts
-import { openJsonFixtureDb } from 'jsondb';
-import type { JsonDbTypes } from './generated/jsondb.types';
+import { openDb } from '@async/db';
+import type { DbTypes } from './generated/db.types';
 
-const db = await openJsonFixtureDb<JsonDbTypes>({
+const db = await openDb<DbTypes>({
   dbDir: './db',
-  stateDir: './.jsondb',
+  stateDir: './.db',
   stores: {
     default: 'json',
   },
@@ -354,7 +354,7 @@ db/users.schema.mjs
 ```
 
 ```js
-import { collection, field } from 'jsondb/schema';
+import { collection, field } from '@async/db/schema';
 
 export default collection({
   description: 'Users who can sign into the local test app.',
@@ -421,25 +421,25 @@ All built-in source loading should use the same reader pipeline:
 .schema.mjs
 ```
 
-Projects may add `sources.readers` in `jsondb.config.mjs` to parse custom files into raw jsondb inputs:
+Projects may add `sources.readers` in `db.config.mjs` to parse custom files into raw db inputs:
 
 ```ts
-type JsonDbSourceReader = {
+type DbSourceReader = {
   name: string;
   match(context): boolean | Promise<boolean>;
-  read(context): JsonDbSourceReaderResult | Promise<JsonDbSourceReaderResult>;
+  read(context): DbSourceReaderResult | Promise<DbSourceReaderResult>;
 };
 
-type JsonDbSourceReaderResult =
+type DbSourceReaderResult =
   | { kind: 'data'; data: unknown; format?: string; resourceName?: string }
   | { kind: 'schema'; schema: unknown; format?: string; resourceName?: string }
-  | Array<JsonDbSourceReaderResult>
+  | Array<DbSourceReaderResult>
   | null;
 ```
 
 Custom readers run before built-in readers. Returning `null` lets later readers try; the first non-null result owns the file. Reader context includes repo-relative file path, absolute source path, parsed fixture path metadata, config, source hash, `readText()`, and `readBuffer()`.
 
-Readers must return raw data or raw schema only. Resource normalization, diagnostics, type generation, schema manifest output, REST/GraphQL metadata, generated ids, and runtime sync stay centralized in jsondb. A reader may return multiple sources from one file, but each result must include `resourceName`; otherwise jsondb reports a structured diagnostic.
+Readers must return raw data or raw schema only. Resource normalization, diagnostics, type generation, schema manifest output, REST/GraphQL metadata, generated ids, and runtime sync stay centralized in db. A reader may return multiple sources from one file, but each result must include `resourceName`; otherwise db reports a structured diagnostic.
 
 ## Type-Only Fixtures
 
@@ -478,7 +478,7 @@ A schema file can define a resource without seed data.
 Generated runtime state:
 
 ```txt
-.jsondb/state/auditEvents.json
+.db/state/auditEvents.json
 ```
 
 ```json
@@ -558,7 +558,7 @@ Example schema:
 Creating a user:
 
 ```bash
-jsondb create users '{"id":"u_3","name":"Linus"}'
+async-db create users '{"id":"u_3","name":"Linus"}'
 ```
 
 Stored result:
@@ -612,12 +612,12 @@ type User {
 
 ## Config
 
-Add this to `jsondb.config.mjs`:
+Add this to `db.config.mjs`:
 
 ```js
 export default {
   dbDir: './db',
-  stateDir: './.jsondb',
+  stateDir: './.db',
 
   sources: {
     writePolicy: 'preserve',
@@ -629,8 +629,8 @@ export default {
 
   types: {
     enabled: true,
-    outFile: './.jsondb/types/index.ts',
-    commitOutFile: './src/generated/jsondb.types.ts',
+    outFile: './.db/types/index.ts',
+    commitOutFile: './src/generated/db.types.ts',
     useReadonly: false,
     emitComments: true,
   },
@@ -656,7 +656,8 @@ export default {
   },
 
   server: {
-    apiBase: '/__jsondb',
+    apiBase: '/__db',
+    dataPath: '/db',
     host: '127.0.0.1',
     port: 7331,
     maxBodyBytes: 1048576,
@@ -673,38 +674,38 @@ export default {
 };
 ```
 
-Set `dbDir: './jsondb'` to use `jsondb/` instead of the default `db/` fixture folder. Existing `sourceDir` configs remain supported; if both are provided, `sourceDir` wins for backwards compatibility.
+Set `dbDir: './db'` to use `db/` instead of the default `db/` fixture folder. Existing `sourceDir` configs remain supported; if both are provided, `sourceDir` wins for backwards compatibility.
 
 ## CLI
 
 Add type-specific commands:
 
 ```bash
-jsondb types
-jsondb types --watch
-jsondb types --out ./src/generated/jsondb.types.ts
+async-db types
+async-db types --watch
+async-db types --out ./src/generated/db.types.ts
 ```
 
 Add schema commands:
 
 ```bash
-jsondb schema
-jsondb schema users
-jsondb schema manifest --out ./src/generated/jsondb.schema.json
-jsondb schema validate
+async-db schema
+async-db schema users
+async-db schema manifest --out ./src/generated/db.schema.json
+async-db schema validate
 ```
 
-`jsondb sync` should also regenerate types and should write the committed schema manifest when `schemaOutFile` is configured.
+`async-db sync` should also regenerate types and should write the committed schema manifest when `schemaOutFile` is configured.
 
 Expected output:
 
 ```txt
 Loaded db/users.schema.jsonc
 Loaded db/posts.json
-Generated .jsondb/schema.generated.json
-Generated .jsondb/types/index.ts
-Generated src/generated/jsondb.types.ts
-Generated src/generated/jsondb.schema.json
+Generated .db/schema.generated.json
+Generated .db/types/index.ts
+Generated src/generated/db.types.ts
+Generated src/generated/db.schema.json
 Synced runtime store
 ```
 
@@ -759,7 +760,7 @@ GET /posts/p1?expand=author&select=id,title,author.name
 REST should support sequential batch requests:
 
 ```txt
-POST /__jsondb/batch
+POST /__db/batch
 ```
 
 ```json
@@ -780,23 +781,31 @@ POST /__jsondb/batch
 
 REST batches are non-transactional by design. Items execute in order, and earlier successful writes remain committed if a later item fails.
 
-Schema-backed writes should validate declared field types before mutating runtime state. Required fields, primitive types, enum values, arrays, nullable fields, datetime strings, flexible objects with intentional additional properties, nested objects, and field constraints (`unique`, `min`, `max`, `minLength`, `maxLength`, `pattern`) should be checked for package API writes, REST writes, GraphQL mutations, `jsondb sync`, and `jsondb schema validate`.
+Schema-backed writes should validate declared field types before mutating runtime state. Required fields, primitive types, enum values, arrays, nullable fields, datetime strings, flexible objects with intentional additional properties, nested objects, and field constraints (`unique`, `min`, `max`, `minLength`, `maxLength`, `pattern`) should be checked for package API writes, REST writes, GraphQL mutations, `async-db sync`, and `async-db schema validate`.
 
 The root route should work as a discovery endpoint. API-style requests to `GET /` should return JSON with resource names plus links for the data viewer, schema endpoint, GraphQL endpoint, resource routes, and registered response formats. Browser-style requests that prefer `text/html` should return a small HTML index with those same links.
 
 The local server should also expose a built-in dependency-free viewer:
 
 ```txt
-GET /__jsondb
-GET /__jsondb/manifest
-GET /__jsondb/manifest.json
-GET /__jsondb/manifest.html
-GET /__jsondb/manifest.md
+GET /__db
+GET /__db/manifest
+GET /__db/manifest.json
+GET /__db/manifest.html
+GET /__db/manifest.md
 ```
 
-`server.apiBase` should default to `/__jsondb` and should configure the
+`server.apiBase` should default to `/__db` and should configure the
 standalone viewer, viewer manifest, schema, batch, import, events, log, and fork route base
 without changing root REST resource routes or the standalone GraphQL path.
+
+`server.dataPath` should default to `/db` and should mount an app-facing REST
+resource alias. For a fixture at `db/users.json`, `GET /db/users.json` should
+return the same synced runtime JSON resource as the REST resource route, not raw
+static file contents. `GET /db/users.json?id=u_1` should return the same single
+record shape as `GET /db/users/u_1.json`. Setting `server.dataPath: false`
+should disable the alias while keeping scoped REST under `/__db/rest` and
+standalone root REST routes.
 
 The viewer manifest should be the shared JSON contract used by the built-in viewer and custom data viewers. `/manifest.json` should return JSON by default. `/manifest.html` should render a formatted JSON viewer with dark mode as the default, dark/light/system controls, copy, and pretty/raw formatting controls. `/manifest.md` should render Markdown with the manifest JSON in a fenced code block for AI clients. `/manifest` should choose among registered media types from `Accept`, and explicit `/manifest.<extension>` routes should use the matching registered response format. The manifest should include API links, capabilities, diagnostics, configured viewer links, response format metadata, collections, documents, field metadata, UI hints, and relation hints. It must not include seed records, source paths, source hashes, runtime state paths, or GraphQL SDL. Custom viewers should use the manifest for UI metadata and fetch actual records from REST or GraphQL.
 
@@ -820,15 +829,15 @@ diagnostics summary
 The CLI should include a fixture health check:
 
 ```txt
-jsondb doctor
-jsondb doctor --json
-jsondb doctor --strict
-jsondb check --strict
+async-db doctor
+async-db doctor --json
+async-db doctor --strict
+async-db check --strict
 ```
 
 `doctor` should include existing source/schema diagnostics and advisory fixture findings. It should detect duplicate collection ids, mixed id value types, inconsistent field value types, likely relation fields such as `todos.userId -> users.id`, and likely relation values missing from a target collection. Relation inference must be suggestive only; it must not mutate fixtures, write schema files, or silently change REST/GraphQL shape behavior. `doctor` should exit nonzero for error diagnostics, while `--strict` should also exit nonzero for warnings. Informational relation suggestions should not fail strict mode.
 
-CSV data-first fixtures should be treated as collections. The first row is the header row, headers become JSON field names, values are parsed into records, and the default JSON store is written as `.jsondb/state/<resource>.json`. When a CSV data file is paired with a schema file, schema-declared array fields should coerce semicolon-delimited cells and JSON array string cells into arrays before validation and store hydration.
+CSV data-first fixtures should be treated as collections. The first row is the header row, headers become JSON field names, values are parsed into records, and the default JSON store is written as `.db/state/<resource>.json`. When a CSV data file is paired with a schema file, schema-declared array fields should coerce semicolon-delimited cells and JSON array string cells into arrays before validation and store hydration.
 
 Collection fixtures should always have an id field. If a JSON/JSONC/CSV collection source omits `id`, generate counter ids in the selected runtime store, starting at `"1"` and avoiding existing ids. Source files stay unchanged by default. For resources bound to the `sourceFile` store, write generated ids back to plain `.json` fixtures.
 
@@ -837,34 +846,35 @@ Runtime stores should track source hashes for JSON, JSONC, and CSV files. If a s
 The viewer should support uploading a CSV through:
 
 ```txt
-POST /__jsondb/import
+POST /__db/import
 ```
 
 The upload should copy the CSV into the configured fixture folder, run sync, reload the in-memory resources, update the URL query parameter to the imported resource, and reload the dashboard view.
 
-While serving, jsondb should watch the configured fixture folder for fixture and schema changes, ignoring `.jsondb/`. On change, reload resources and notify the single-file viewer through the configured events route, defaulting to `/__jsondb/events`, so the dashboard refreshes automatically. If one source file fails to parse or load, report a file-specific diagnostic in the viewer and keep the remaining valid resources available. If the runtime cannot create a file watcher because of environment resource limits such as `EMFILE` or `ENOSPC`, keep the HTTP server running, publish a warning diagnostic, and serve without live reload.
+While serving, db should watch the configured fixture folder for fixture and schema changes, ignoring `.db/`. On change, reload resources and notify the single-file viewer through the configured events route, defaulting to `/__db/events`, so the dashboard refreshes automatically. If one source file fails to parse or load, report a file-specific diagnostic in the viewer and keep the remaining valid resources available. If the runtime cannot create a file watcher because of environment resource limits such as `EMFILE` or `ENOSPC`, keep the HTTP server running, publish a warning diagnostic, and serve without live reload.
 
 Vite development should be supported through a dependency-light plugin export:
 
 ```js
-import { jsondbPlugin } from 'jsondb/vite';
+import { dbPlugin } from '@async/db/vite';
 
 export default {
-  plugins: [jsondbPlugin()],
+  plugins: [dbPlugin()],
 };
 ```
 
-The plugin should return a plain Vite-compatible plugin object with `apply: 'serve'`, mount jsondb into the existing Vite dev middleware stack, and avoid bundling Node-only fixture runtime code into production builds. By default, Vite dev routes should be scoped under `/__jsondb` and should not answer root app routes. A plugin-level `apiBase` should win over `server.apiBase`:
+The plugin should return a plain Vite-compatible plugin object with `apply: 'serve'`, mount @async/db into the existing Vite dev middleware stack, and avoid bundling Node-only fixture runtime code into production builds. By default, Vite dev routes should be scoped under `/__db` and should not answer root app routes. A plugin-level `apiBase` should win over `server.apiBase`:
 
 ```txt
-GET  /__jsondb
-GET  /__jsondb/schema
-POST /__jsondb/batch
-POST /__jsondb/graphql
-GET  /__jsondb/rest/users
+GET  /db/users.json
+GET  /__db
+GET  /__db/schema
+POST /__db/batch
+POST /__db/graphql
+GET  /__db/rest/users
 ```
 
-Standalone `jsondb serve` should keep root REST routes such as `/users` and `/graphql`. The Vite plugin may opt into root REST routes with `rootRoutes: true`.
+Standalone `async-db serve` should keep root REST routes such as `/users` and `/graphql`. The Vite plugin may opt into root REST routes with `rootRoutes: true`.
 
 GraphQL should support a dependency-free subset suitable for local app development:
 
@@ -921,8 +931,8 @@ npm run examples
 The index page should list each example and link to:
 
 ```txt
-/__jsondb
-/__jsondb/schema
+/__db
+/__db/schema
 /graphql
 ```
 
@@ -937,12 +947,12 @@ examples/advanced
 
 ## Client API
 
-Provide a small HTTP client for consuming jsondb from apps and tests:
+Provide a small HTTP client for consuming db from apps and tests:
 
 ```ts
-import { createJsonDbClient } from 'jsondb/client';
+import { createDbClient } from '@async/db/client';
 
-const client = createJsonDbClient({
+const client = createDbClient({
   baseUrl: 'http://127.0.0.1:7331',
   restBasePath: '',
   batching: {
@@ -1000,7 +1010,7 @@ REST and server errors should use this shape:
   "error": {
     "code": "REST_BATCH_INVALID_PATH",
     "message": "REST batch path must start with \"/\": users",
-    "hint": "Use absolute local paths such as \"/users\", \"/settings\", or \"/__jsondb/schema\".",
+    "hint": "Use absolute local paths such as \"/users\", \"/settings\", or \"/__db/schema\".",
     "details": {
       "path": "users"
     }
@@ -1041,7 +1051,7 @@ Add automatic TypeScript type generation.
 By default, generated types should be written to:
 
 ```txt
-.jsondb/types/index.ts
+.db/types/index.ts
 ```
 
 Also support a configurable committed output file:
@@ -1050,8 +1060,8 @@ Also support a configurable committed output file:
 export default {
   types: {
     enabled: true,
-    outFile: './.jsondb/types/index.ts',
-    commitOutFile: './src/generated/jsondb.types.ts',
+    outFile: './.db/types/index.ts',
+    commitOutFile: './src/generated/db.types.ts',
     emitComments: true,
     useReadonly: false
   }
@@ -1063,11 +1073,11 @@ If `commitOutFile` is set, generate the same TypeScript types there so users can
 The generated file should export:
 
 ```ts
-export type JsonDbCollections = {};
-export type JsonDbDocuments = {};
-export type JsonDbTypes = {
-  collections: JsonDbCollections;
-  documents: JsonDbDocuments;
+export type DbCollections = {};
+export type DbDocuments = {};
+export type DbTypes = {
+  collections: DbCollections;
+  documents: DbDocuments;
 };
 ```
 
@@ -1086,39 +1096,39 @@ Use schema field descriptions to emit JSDoc comments.
 
 ## Schema manifest output and model-driven admin UIs
 
-Add optional JSON schema manifest generation for local-first admin/CMS UIs that render forms from JSONDB models instead of duplicating per-resource form configuration.
+Add optional JSON schema manifest generation for local-first admin/CMS UIs that render forms from db models instead of duplicating per-resource form configuration.
 
-This is separate from `.jsondb/schema.generated.json`. The existing generated schema file remains runtime/server metadata and may include diagnostics, source paths, seeds, REST route lists, and GraphQL SDL. The committed manifest is a small importable artifact for applications.
+This is separate from `.db/schema.generated.json`. The existing generated schema file remains runtime/server metadata and may include diagnostics, source paths, seeds, REST route lists, and GraphQL SDL. The committed manifest is a small importable artifact for applications.
 
 Configure it with:
 
 ```js
 export default {
-  schemaOutFile: './src/generated/jsondb.schema.json',
+  schemaOutFile: './src/generated/db.schema.json',
 };
 ```
 
-When `schemaOutFile` is set, `jsondb sync` writes the manifest. The CLI can also write one directly:
+When `schemaOutFile` is set, `async-db sync` writes the manifest. The CLI can also write one directly:
 
 ```bash
-jsondb schema manifest --out ./src/generated/jsondb.schema.json
+async-db schema manifest --out ./src/generated/db.schema.json
 ```
 
-Custom viewer UIs can use the live `GET /__jsondb/manifest.json` route or a committed viewer manifest. Browser users can open `GET /__jsondb/manifest.html`, AI clients can open `GET /__jsondb/manifest.md`, and `GET /__jsondb/manifest` negotiates from registered `Accept` media types:
+Custom viewer UIs can use the live `GET /__db/manifest.json` route or a committed viewer manifest. Browser users can open `GET /__db/manifest.html`, AI clients can open `GET /__db/manifest.md`, and `GET /__db/manifest` negotiates from registered `Accept` media types:
 
 ```js
 export default {
-  viewerManifestOutFile: './src/generated/jsondb.viewer.json',
+  viewerManifestOutFile: './src/generated/db.viewer.json',
   server: {
     viewerLinks: [
-      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/jsondb' },
+      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/db' },
     ],
   },
 };
 ```
 
 ```bash
-jsondb viewer manifest --out ./src/generated/jsondb.viewer.json
+async-db viewer manifest --out ./src/generated/db.viewer.json
 ```
 
 The manifest should have this top-level shape:
@@ -1226,7 +1236,7 @@ A `.schema.jsonc` file can define a resource without seed data:
 Support `.schema.mjs` files for richer authoring:
 
 ```js
-import { collection, field } from 'jsondb/schema';
+import { collection, field } from '@async/db/schema';
 
 export default collection({
   description: 'Users who can sign into the local test app.',
@@ -1255,31 +1265,31 @@ Rules:
 4. Additive fields are safe and automatic.
 5. Removed fields and type changes require explicit approval.
 6. Defaults should apply when creating records and when safely backfilling additive fields.
-7. Generated TypeScript types should update during `jsondb sync`, `jsondb types`, and service startup when needed.
+7. Generated TypeScript types should update during `async-db sync`, `async-db types`, and service startup when needed.
 
 Add CLI commands:
 
 ```bash
-jsondb types
-jsondb types --watch
-jsondb types --out ./src/generated/jsondb.types.ts
-jsondb schema
-jsondb schema validate
-jsondb schema unbundle users
-jsondb schema bundle users --out artifacts/users.bundle.schema.json
-jsondb generate hono
-jsondb generate hono --api rest,graphql --out ./server
-jsondb generate hono --api none --app module
+async-db types
+async-db types --watch
+async-db types --out ./src/generated/db.types.ts
+async-db schema
+async-db schema validate
+async-db schema unbundle users
+async-db schema bundle users --out artifacts/users.bundle.schema.json
+async-db generate hono
+async-db generate hono --api rest,graphql --out ./server
+async-db generate hono --api none --app module
 ```
 
 ## Hono And SQLite Starter Generation
 
-Add `jsondb generate hono` for graduating a fixture-backed app into a starter API backed by SQLite.
+Add `async-db generate hono` for graduating a fixture-backed app into a starter API backed by SQLite.
 
 Default behavior:
 
 ```txt
-outDir: ./jsondb-api
+outDir: ./db-api
 api: rest
 db: sqlite
 app: standalone
@@ -1292,17 +1302,17 @@ Generated output should be TypeScript-first and include a portable repository in
 API selection:
 
 ```bash
-jsondb generate hono --api rest
-jsondb generate hono --api graphql
-jsondb generate hono --api rest,graphql
-jsondb generate hono --api none
+async-db generate hono --api rest
+async-db generate hono --api graphql
+async-db generate hono --api rest,graphql
+async-db generate hono --api none
 ```
 
 SQLite generation rules:
 
 ```txt
 collections -> SQLite tables with id TEXT PRIMARY KEY
-documents -> _jsondb_documents(name TEXT PRIMARY KEY, value TEXT)
+documents -> _db_documents(name TEXT PRIMARY KEY, value TEXT)
 string/enum -> TEXT
 number -> REAL
 boolean -> INTEGER
@@ -1314,8 +1324,8 @@ Generation should fail on schema errors. For production SQLite output, warning d
 Keep Hono and SQLite runtime support isolated under optional exports:
 
 ```txt
-jsondb/hono
-jsondb/sqlite
+db/hono
+db/sqlite
 ```
 
 The core package must not add mandatory Hono or SQLite npm dependencies.
@@ -1326,16 +1336,16 @@ Acceptance criteria:
 * Schema-only fixtures generate TypeScript types.
 * JSONC schema comments are allowed.
 * Field descriptions become JSDoc in generated TypeScript.
-* `types.outFile` writes to `.jsondb/types/index.ts` by default.
+* `types.outFile` writes to `.db/types/index.ts` by default.
 * `types.commitOutFile` writes to a custom importable location.
-* Package API can be typed with the generated `JsonDbTypes`.
+* Package API can be typed with the generated `DbTypes`.
 ````
 
 The intended developer loop is:
 
 ```txt
 create/edit JSON or schema fixtures
-run jsondb sync
+run async-db sync
 types are generated
 REST and GraphQL are generated
 runtime store is updated

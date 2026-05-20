@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { renderRecordDetailPage } from '../../examples/schema-ui/src/cms-ssr.mjs';
 import { launchExampleHttpStack } from '../../scripts/example-launcher.js';
 import { findExamples, renderExamplesIndex } from '../../scripts/serve-examples.js';
-import { loadConfig, openJsonFixtureDb, syncJsonFixtureDb } from '../../src/index.js';
+import { loadConfig, openDb, syncDb } from '../../src/index.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -36,13 +36,13 @@ test('examples launcher can discover repo examples and render an index page', as
     ...example,
     port: 7330 + index,
     url: `http://127.0.0.1:${7330 + index}`,
-    viewerUrl: `http://127.0.0.1:${7330 + index}/__jsondb`,
+    viewerUrl: `http://127.0.0.1:${7330 + index}/__db`,
     demoUrl: undefined,
     demoLinks: [],
-    starterKind: 'jsondb',
+    starterKind: 'db',
   })));
 
-  assert.match(html, /jsondb examples/);
+  assert.match(html, /db examples/);
   assert.match(html, /serve-example\.mjs/);
   assert.match(html, /Open viewer/);
   assert.match(html, /advanced/);
@@ -80,7 +80,7 @@ test('example launcher resolves schema-ui serve-example hook', async () => {
   const templates = await fetch(`http://127.0.0.1:${port}/templates`);
   assert.equal(templates.status, 200);
 
-  const viewer = await fetch(`http://127.0.0.1:${port}/__jsondb`);
+  const viewer = await fetch(`http://127.0.0.1:${port}/__db`);
   assert.ok(viewer.ok);
 
   await new Promise((resolve, reject) => {
@@ -106,20 +106,20 @@ test('new onboarding examples sync expected resources', async () => {
 
   for (const [name, resources] of Object.entries(expected)) {
     const cwd = await copyExampleProject(name);
-    const result = await syncJsonFixtureDb(await loadConfig({ cwd }));
+    const result = await syncDb(await loadConfig({ cwd }));
 
     assert.deepEqual(Object.keys(result.schema.resources), resources, `${name} resources`);
   }
 
   const manifestCwd = await copyExampleProject('schema-manifest');
-  await syncJsonFixtureDb(await loadConfig({ cwd: manifestCwd }));
-  const manifest = JSON.parse(await readFile(path.join(manifestCwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  await syncDb(await loadConfig({ cwd: manifestCwd }));
+  const manifest = JSON.parse(await readFile(path.join(manifestCwd, 'src/generated/db.schema.json'), 'utf8'));
   assert.equal(manifest.collections.projects.fields.status.ui.component, 'segmented-control');
   assert.equal(manifest.collections.users.fields.bio.ui.component, 'markdown');
 
   const schemaUiCwd = await copyExampleProject('schema-ui');
-  await syncJsonFixtureDb(await loadConfig({ cwd: schemaUiCwd }));
-  const schemaUiManifest = JSON.parse(await readFile(path.join(schemaUiCwd, 'src/generated/jsondb.schema.json'), 'utf8'));
+  await syncDb(await loadConfig({ cwd: schemaUiCwd }));
+  const schemaUiManifest = JSON.parse(await readFile(path.join(schemaUiCwd, 'src/generated/db.schema.json'), 'utf8'));
   assert.equal(schemaUiManifest.collections.pages.editor.title, 'Pages');
   assert.equal(schemaUiManifest.collections.pages.fields.status.ui.component, 'segmented-control');
   assert.equal(schemaUiManifest.collections.pages.fields.bodyMarkdown.ui.component, 'markdown');
@@ -129,7 +129,7 @@ test('new onboarding examples sync expected resources', async () => {
   assert.match(stdout, /data-mode="view" data-component="markdown" data-field="bodyMarkdown"/);
   assert.match(stdout, /data-mode="editor" data-component="relationSelect" data-field="authorId"/);
 
-  const schemaUiDb = await openJsonFixtureDb({ cwd: schemaUiCwd, syncOnOpen: false });
+  const schemaUiDb = await openDb({ cwd: schemaUiCwd, syncOnOpen: false });
   await schemaUiDb.runtime.hydrate();
   const schemaUiPages = await schemaUiDb.collection('pages').all();
   const schemaUiUsers = await schemaUiDb.collection('users').all();
@@ -146,7 +146,7 @@ test('new onboarding examples sync expected resources', async () => {
 test('hono auth example shows lifecycle hook integration code', async () => {
   const source = await readFile(path.resolve('examples/hono-auth/src/app.mjs'), 'utf8');
 
-  assert.match(source, /registerRestRoutes/);
+  assert.match(source, /registerDbRoutes/);
   assert.match(source, /lifecycleHooks/);
   assert.match(source, /beforeRequest/);
   assert.match(source, /beforeWrite/);
@@ -155,15 +155,15 @@ test('hono auth example shows lifecycle hook integration code', async () => {
 });
 
 async function copyExampleProject(name) {
-  const tempRoot = await mkdtemp(path.join(tmpdir(), 'jsondb-example-test-'));
+  const tempRoot = await mkdtemp(path.join(tmpdir(), 'db-example-test-'));
   const cwd = path.join(tempRoot, name);
   await cp(path.resolve('examples', name), cwd, {
     recursive: true,
     filter(source) {
-      return !source.split(path.sep).includes('.jsondb');
+      return !source.split(path.sep).includes('.db');
     },
   });
-  await mkdir(path.join(cwd, 'node_modules'), { recursive: true });
-  await symlink(path.resolve('.'), path.join(cwd, 'node_modules', 'jsondb'), 'dir');
+  await mkdir(path.join(cwd, 'node_modules/@async'), { recursive: true });
+  await symlink(path.resolve('.'), path.join(cwd, 'node_modules/@async/db'), 'dir');
   return cwd;
 }

@@ -1,0 +1,10 @@
+{
+  "resources": {
+    "customers": {
+      "path": "db/customers.csv",
+      "format": "csv",
+      "hash": "236ad22f1301398ee701746c9b5f2569b0e5b25b3281247e1e8f776a4272ba84",
+      "updatedAt": "2026-05-20T01:52:11.022Z"
+    }
+  }
+}
