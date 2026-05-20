@@ -113,6 +113,11 @@ async function handleRequest(db, request, response, events, routes) {
     return false;
   }
 
+  if (restUrl && !handlesRegisteredFeature && db.config.rest?.enabled === false) {
+    await handleRestRequest(db, request, response, restUrl, routes);
+    return true;
+  }
+
   const mockResult = await runMockBehavior(db.config, url);
   if (mockResult) {
     sendJson(response, mockResult.status, mockResult.body);

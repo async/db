@@ -336,9 +336,7 @@ export class SqliteJsonDbCollection {
       return null;
     }
 
-    const nextRecord = this.config.defaults?.applyOnCreate === false
-      ? stripUnknownFields(this.resource, { ...existing, ...patch, [this.resource.idField]: existing[this.resource.idField] })
-      : applyDefaultsToRecord(stripUnknownFields(this.resource, { ...existing, ...patch, [this.resource.idField]: existing[this.resource.idField] }), this.resource);
+    const nextRecord = stripUnknownFields(this.resource, { ...existing, ...patch, [this.resource.idField]: existing[this.resource.idField] });
 
     assertRecordMatchesResource(nextRecord, this.resource, this.config, {
       source: `${this.resource.name} patch body`,
@@ -391,9 +389,7 @@ export class SqliteJsonDbDocument {
   }
 
   async put(value) {
-    const nextDocument = this.config.defaults?.applyOnCreate === false
-      ? stripUnknownFields(this.resource, value)
-      : applyDefaultsToRecord(stripUnknownFields(this.resource, value), this.resource);
+    const nextDocument = stripUnknownFields(this.resource, value);
     assertRecordMatchesResource(nextDocument, this.resource, this.config, {
       source: `${this.resource.name} document body`,
     });

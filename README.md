@@ -189,6 +189,8 @@ npm run db -- schema validate
 
 In mixed mode, schema files define the contract and data files provide seed records. Unknown fields warn by default; configure `schema.unknownFields: 'error'` when drift should fail.
 
+Schema defaults fill omitted fields on create and safe additive runtime hydration. Updates, patches, and document puts preserve omitted fields; include a field in the write body when you want to change it.
+
 See [docs/concepts.md](./docs/concepts.md) and [docs/fixtures-and-schemas.md](./docs/fixtures-and-schemas.md).
 
 ## Admin/CMS Schema Metadata
@@ -284,6 +286,8 @@ See [docs/package-api.md](./docs/package-api.md) for CLI and package export deta
 ## REST, GraphQL, And Viewer
 
 The local server exposes REST routes for collections and singleton documents, plus a focused GraphQL endpoint at `/graphql` for apps that prefer GraphQL. REST remains the default path because it pairs directly with the viewer and local fixture workflow.
+Set `rest.enabled: false` when an app wants schema, manifest, viewer, import, events, and GraphQL routes without generated REST resource routes or REST batching.
+Set `graphql.enabled: false` when an app wants REST and dev-tool routes without a GraphQL endpoint.
 
 ```txt
 GET     /users

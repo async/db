@@ -98,10 +98,72 @@ test('SQLite adapter supports collection and document CRUD when node:sqlite is a
       /expected one of/,
     );
 
-    assert.deepEqual(await db.document('settings').put({}), {
-      theme: 'light',
+    assert.deepEqual(await db.document('settings').put({}), {});
+    assert.deepEqual(await db.document('settings').all(), {});
+  } finally {
+    db.close();
+  }
+});
+
+test('SQLite adapter updates do not backfill omitted schema defaults', async (t) => {
+  try {
+    await import('node:sqlite');
+  } catch {
+    t.skip('node:sqlite is not available in this Node.js runtime');
+    return;
+  }
+
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true },
+      "role": {
+        "type": "enum",
+        "values": ["admin", "user"],
+        "default": "user"
+      },
+      "active": {
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "seed": []
+  }`);
+
+  const db = await openSqliteJsonDb({
+    cwd,
+    file: ':memory:',
+  });
+
+  try {
+    db.database.prepare('INSERT INTO "users" ("id", "name") VALUES (?, ?)').run('u_1', 'Ada Lovelace');
+
+    const users = db.collection('users');
+    const updated = await users.patch('u_1', {
+      name: 'Ada Byron',
     });
-    assert.equal((await db.document('settings').all()).theme, 'light');
+    const created = await users.create({
+      id: 'u_2',
+      name: 'Grace Hopper',
+    });
+
+    assert.deepEqual(updated, {
+      id: 'u_1',
+      name: 'Ada Byron',
+    });
+    assert.deepEqual(await users.get('u_1'), {
+      id: 'u_1',
+      name: 'Ada Byron',
+    });
+    assert.deepEqual(created, {
+      id: 'u_2',
+      name: 'Grace Hopper',
+      role: 'user',
+      active: true,
+    });
   } finally {
     db.close();
   }

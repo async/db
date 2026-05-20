@@ -31,6 +31,7 @@ export function renderViewerManifest(resources, config = {}, options = {}) {
   const resourceList = [...resources];
   const collections = resourceBucketManifest(schemaManifest.collections, resourceList, routes);
   const documents = resourceBucketManifest(schemaManifest.documents, resourceList, routes);
+  const restEnabled = config.rest?.enabled !== false;
 
   return {
     version: 1,
@@ -55,8 +56,9 @@ export function renderViewerManifest(resources, config = {}, options = {}) {
     capabilities: {
       collections: resourceList.some((resource) => resource.kind === 'collection'),
       documents: resourceList.some((resource) => resource.kind === 'document'),
-      writes: config.rest?.enabled !== false,
-      restBatch: true,
+      rest: restEnabled,
+      writes: restEnabled,
+      restBatch: restEnabled,
       graphql: config.graphql?.enabled !== false,
       csvImport: true,
       liveEvents: true,

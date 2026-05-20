@@ -144,6 +144,7 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
   });
   assert.equal(manifest.capabilities.collections, true);
   assert.equal(manifest.capabilities.documents, false);
+  assert.equal(manifest.capabilities.rest, true);
   assert.equal(manifest.capabilities.writes, true);
   assert.equal(manifest.capabilities.restBatch, true);
   assert.equal(manifest.capabilities.graphql, true);
@@ -173,6 +174,52 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
   assert.equal('source' in manifest.collections.projects, false);
   assert.equal('graphql' in manifest, false);
   assert.equal('rest' in manifest, false);
+});
+
+test('viewer manifest marks REST resources and batching unavailable when REST is disabled', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    rest: {
+      enabled: false,
+    },
+  };`);
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  const config = await loadConfig({ cwd });
+  const project = await loadProjectSchema(config);
+  const manifest = renderViewerManifest(project.resources, config, {
+    generatedAt: '2026-05-20T00:00:00.000Z',
+  });
+
+  assert.equal(manifest.capabilities.rest, false);
+  assert.equal(manifest.capabilities.writes, false);
+  assert.equal(manifest.capabilities.restBatch, false);
+  assert.equal(manifest.capabilities.graphql, true);
+  assert.equal(manifest.capabilities.csvImport, true);
+  assert.equal(manifest.api.batch, '/__jsondb/batch');
+  assert.equal(manifest.api.resources.users.list, '/users');
+});
+
+test('viewer manifest marks GraphQL unavailable when GraphQL is disabled', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    graphql: {
+      enabled: false,
+      path: '/_jsondb/graphql'
+    },
+  };`);
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  const config = await loadConfig({ cwd });
+  const project = await loadProjectSchema(config);
+  const manifest = renderViewerManifest(project.resources, config, {
+    generatedAt: '2026-05-20T00:00:00.000Z',
+  });
+
+  assert.equal(manifest.capabilities.graphql, false);
+  assert.equal(manifest.api.graphql, '/_jsondb/graphql');
+  assert.equal(manifest.capabilities.rest, true);
+  assert.equal(manifest.capabilities.writes, true);
 });
 
 test('viewerManifestOutFile writes a committed manifest during sync', async () => {

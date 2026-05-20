@@ -36,6 +36,11 @@ async function handleRestRequestUnsafe(db, request, response, url, options) {
   }
 
   if (request.method === 'POST' && url.pathname === routeOptions.batchPath) {
+    if (!routeOptions.resourceRoutesEnabled) {
+      sendRestDisabled(response, 'REST batch routes are disabled.');
+      return;
+    }
+
     const result = await tryRest(async () => executeRestBatch(db, await readJsonBody(request, {
       maxBytes: maxBodyBytes(db),
     }), routeOptions));
@@ -113,6 +118,14 @@ async function handleRestRequestUnsafe(db, request, response, url, options) {
           availableRoutes: [...db.resources.values()].map((resource) => resource.routePath),
         },
       },
+    });
+    return;
+  }
+
+  if (!routeOptions.resourceRoutesEnabled) {
+    sendRestDisabled(response, `REST resource routes are disabled. Cannot serve "${routeName}".`, {
+      resource: resource.name,
+      routeName,
     });
     return;
   }
@@ -267,6 +280,7 @@ function normalizeRestRouteOptions(db, options = {}) {
     eventsPath: options.eventsPath ?? `${apiBase}/events`,
     graphqlPath: options.graphqlPath ?? db.config.graphql?.path ?? '/graphql',
     restBasePath: options.restBasePath ?? '',
+    resourceRoutesEnabled: options.resourceRoutesEnabled ?? db.config.rest?.enabled !== false,
   };
 }
 
@@ -304,6 +318,8 @@ function rootDiscovery(db, options = {}) {
   const manifestMarkdownPath = options.manifestMarkdownPath ?? `${apiBase}/manifest.md`;
   const viewerPath = options.viewerPath ?? apiBase;
   const graphqlPath = options.graphqlPath ?? db.config.graphql?.path ?? '/graphql';
+  const graphqlEnabled = db.config.graphql?.enabled !== false;
+  const resourceRoutesEnabled = options.resourceRoutesEnabled ?? db.config.rest?.enabled !== false;
   const viewers = viewerLinks(db.config, viewerPath);
   const formats = restFormatMetadata(db.config, {
     manifestPath,
@@ -322,7 +338,7 @@ function rootDiscovery(db, options = {}) {
     manifestHtml: manifestHtmlPath,
     manifestMarkdown: manifestMarkdownPath,
     schema: schemaPath,
-    graphql: graphqlPath,
+    graphql: graphqlEnabled ? graphqlPath : null,
     links: {
       viewer: viewerPath,
       viewers,
@@ -332,8 +348,10 @@ function rootDiscovery(db, options = {}) {
       manifestHtml: manifestHtmlPath,
       manifestMarkdown: manifestMarkdownPath,
       schema: schemaPath,
-      graphql: graphqlPath,
-      resources: Object.fromEntries([...db.resources.values()].map((resource) => [resource.name, joinPaths(options.restBasePath ?? '', resource.routePath)])),
+      graphql: graphqlEnabled ? graphqlPath : null,
+      resources: resourceRoutesEnabled
+        ? Object.fromEntries([...db.resources.values()].map((resource) => [resource.name, joinPaths(options.restBasePath ?? '', resource.routePath)]))
+        : {},
     },
   };
 }
@@ -390,6 +408,9 @@ function renderRootDiscovery(discovery) {
   const resourceLinks = Object.entries(discovery.links.resources).map(([name, routePath]) => (
     `<li><a href="${escapeHtml(routePath)}">${escapeHtml(name)}</a> <code>${escapeHtml(routePath)}</code></li>`
   )).join('');
+  const graphqlLink = discovery.graphql
+    ? `<li><a href="${escapeHtml(discovery.graphql)}">GraphQL</a> <code>${escapeHtml(discovery.graphql)}</code></li>`
+    : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -421,7 +442,7 @@ function renderRootDiscovery(discovery) {
         ${viewerLinksHtml}
         <li><a href="${escapeHtml(discovery.manifest)}">Viewer Manifest</a> <code>${escapeHtml(discovery.manifest)}</code></li>
         <li><a href="${escapeHtml(discovery.schema)}">Schema</a> <code>${escapeHtml(discovery.schema)}</code></li>
-        <li><a href="${escapeHtml(discovery.graphql)}">GraphQL</a> <code>${escapeHtml(discovery.graphql)}</code></li>
+        ${graphqlLink}
       </ul>
     </section>
 
@@ -777,6 +798,20 @@ function sendUnknownFormat(response, format, config, target) {
       details: {
         format,
         availableFormats,
+      },
+    },
+  });
+}
+
+function sendRestDisabled(response, message, details = {}) {
+  sendJson(response, 404, {
+    error: {
+      code: 'REST_DISABLED',
+      message,
+      hint: 'Set rest.enabled to true in jsondb.config.mjs to enable generated REST resource routes and REST batching.',
+      details: {
+        restEnabled: false,
+        ...details,
       },
     },
   });

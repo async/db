@@ -1,8 +1,10 @@
 import { handleGraphqlRequest } from '../../graphql/http.js';
+import { sendJson } from '../../rest/handler.js';
 
 export function defaultHttpFeatureRegistry() {
   return createHttpFeatureRegistry([
     runtimeLogHttpFeature(),
+    graphqlDisabledHttpFeature(),
     graphqlHttpFeature(),
   ]);
 }
@@ -46,6 +48,29 @@ function graphqlHttpFeature() {
     },
     async handle({ db, request, response }) {
       await handleGraphqlRequest(db, request, response);
+    },
+  };
+}
+
+function graphqlDisabledHttpFeature() {
+  return {
+    name: 'graphql-disabled',
+    phase: 'preMock',
+    match({ db, url, routes }) {
+      return db.config.graphql?.enabled === false && url.pathname === routes.graphqlPath;
+    },
+    async handle({ response, routes }) {
+      sendJson(response, 404, {
+        error: {
+          code: 'GRAPHQL_DISABLED',
+          message: 'GraphQL endpoint is disabled.',
+          hint: 'Set graphql.enabled to true in jsondb.config.mjs to enable the GraphQL endpoint.',
+          details: {
+            graphqlEnabled: false,
+            path: routes.graphqlPath,
+          },
+        },
+      });
     },
   };
 }

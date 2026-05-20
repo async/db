@@ -80,9 +80,7 @@ export class JsonDbCollection {
         [this.resource.idField]: existingId,
       };
       const nextRecords = [...records];
-      nextRecords[index] = this.config.defaults?.applyOnCreate === false
-        ? nextRecord
-        : applyDefaultsToRecord(nextRecord, this.resource);
+      nextRecords[index] = nextRecord;
       assertRecordMatchesResource(nextRecords[index], this.resource, this.config, {
         source: `${this.resource.name} patch body`,
       });

@@ -185,17 +185,7 @@ async function executeQueryField(db, selection, variables) {
     };
   }
 
-  const id = readArgument(selection, 'id', variables);
-  if (id === undefined || id === null || id === '') {
-    throw jsonDbError(
-      'GRAPHQL_MISSING_ID_ARGUMENT',
-      `GraphQL field "${selection.name}" requires argument "id".`,
-      {
-        hint: `Use ${selection.name}(id: "example-id") { id } or pass a variable such as ${selection.name}(id: $id).`,
-        details: { field: selection.name, argument: 'id' },
-      },
-    );
-  }
+  const id = readRequiredIdArgument(selection, variables);
 
   return {
     value: await db.collection(resource.name).get(id),
@@ -244,7 +234,7 @@ async function executeCollectionMutation(db, mutation, selection, variables) {
   }
 
   if (mutation.action === 'update') {
-    const id = readArgument(selection, 'id', variables);
+    const id = readRequiredIdArgument(selection, variables);
     const patch = readArgument(selection, 'patch', variables);
     if (!isObject(patch)) {
       throw argumentTypeError(selection.name, 'patch', 'object', patch);
@@ -253,7 +243,7 @@ async function executeCollectionMutation(db, mutation, selection, variables) {
   }
 
   if (mutation.action === 'delete') {
-    const id = readArgument(selection, 'id', variables);
+    const id = readRequiredIdArgument(selection, variables);
     return collection.delete(id);
   }
 
@@ -460,6 +450,21 @@ function readArgument(selection, name, variables) {
   }
 
   return evaluateValue(selection.arguments[name], variables);
+}
+
+function readRequiredIdArgument(selection, variables) {
+  const id = readArgument(selection, 'id', variables);
+  if (id === undefined || id === null || id === '') {
+    throw jsonDbError(
+      'GRAPHQL_MISSING_ID_ARGUMENT',
+      `GraphQL field "${selection.name}" requires argument "id".`,
+      {
+        hint: `Use ${selection.name}(id: "example-id") { id } or pass a variable such as ${selection.name}(id: $id).`,
+        details: { field: selection.name, argument: 'id' },
+      },
+    );
+  }
+  return id;
 }
 
 function evaluateValue(valueNode, variables) {

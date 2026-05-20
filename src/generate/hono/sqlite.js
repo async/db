@@ -90,7 +90,7 @@ function collectionRepository(db: DatabaseSync, resourceName: string): Collectio
       if (!existing) {
         return null;
       }
-      const next = applyDefaults(resourceName, stripUnknownFields(resourceName, { ...existing, ...patch, [idField]: existing[idField] }));
+      const next = stripUnknownFields(resourceName, { ...existing, ...patch, [idField]: existing[idField] });
       validateRecord(resourceName, next);
       const serialized = serializeRow(resourceName, next);
       const updateFields = fields.filter((field) => field !== idField);
@@ -113,7 +113,7 @@ function documentRepository(db: DatabaseSync, resourceName: string): DocumentRep
       return row ? JSON.parse(row.value) : {};
     },
     async put(value) {
-      const next = applyDefaults(resourceName, stripUnknownFields(resourceName, value));
+      const next = stripUnknownFields(resourceName, value);
       validateRecord(resourceName, next);
       db.prepare('INSERT INTO _jsondb_documents (name, value) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value').run(resource.name, JSON.stringify(next));
       return next;

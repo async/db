@@ -39,6 +39,88 @@ test('defaults apply when creating records through the package API', async () =>
   });
 });
 
+test('defaults can be disabled on package API create', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    defaults: {
+      applyOnCreate: false
+    }
+  };`);
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true },
+      "role": {
+        "type": "enum",
+        "values": ["admin", "user"],
+        "default": "user"
+      },
+      "active": {
+        "type": "boolean",
+        "default": true
+      }
+    }
+  }`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const user = await db.collection('users').create({
+    id: 'u_3',
+    name: 'Linus',
+  });
+
+  assert.deepEqual(user, {
+    id: 'u_3',
+    name: 'Linus',
+  });
+});
+
+test('defaults do not backfill omitted fields during package API updates', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    defaults: {
+      applyOnSafeMigration: false
+    }
+  };`);
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true },
+      "role": {
+        "type": "enum",
+        "values": ["admin", "user"],
+        "default": "user"
+      }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada Lovelace" }
+    ]
+  }`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const users = db.collection('users');
+  const updated = await users.patch('u_1', {
+    name: 'Ada Byron',
+  });
+  const created = await users.create({
+    id: 'u_2',
+    name: 'Grace Hopper',
+  });
+
+  assert.deepEqual(updated, {
+    id: 'u_1',
+    name: 'Ada Byron',
+  });
+  assert.deepEqual(created, {
+    id: 'u_2',
+    name: 'Grace Hopper',
+    role: 'user',
+  });
+});
+
 test('package API duplicate ids produce actionable errors', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([

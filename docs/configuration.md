@@ -34,9 +34,11 @@ See [jsondb.config.example.mjs](../jsondb.config.example.mjs) for a commented co
 | Importable viewer manifest | Off | `viewerManifestOutFile` |
 | REST response formats | `.json`, `.html`, `.md` | `rest.formats` |
 | Unknown fields | Warn | `schema.unknownFields` |
+| Schema defaults | Create and safe hydration | `defaults` |
 | Schema-only mock records | Off | `seed.generateFromSchema` |
 | Local latency | `30-100ms` | `mock.delay` |
 | Random local failures | Off | `mock.errors` |
+| GraphQL endpoint | `/graphql`, enabled | `graphql` |
 | Legacy database shapes | Off | `forks` |
 | Host, port, dev-tool route base, body limit | `127.0.0.1:7331`, `/__jsondb`, 1 MB bodies | `server` |
 
@@ -74,6 +76,11 @@ export default defineConfig({
     unknownFields: 'warn',
   },
 
+  defaults: {
+    applyOnCreate: true,
+    applyOnSafeMigration: true,
+  },
+
   seed: {
     generateFromSchema: false,
     generatedCount: 5,
@@ -90,6 +97,7 @@ export default defineConfig({
   },
 
   rest: {
+    enabled: true,
     formats: {
       default: 'json',
       md({ resourceName, data }) {
@@ -106,6 +114,11 @@ export default defineConfig({
       //   },
       // },
     },
+  },
+
+  graphql: {
+    enabled: true,
+    path: '/graphql',
   },
 
   mock: {
@@ -176,6 +189,23 @@ export default defineConfig({
 ```
 
 Keep the default `warn` while fixture shape is still changing.
+
+## Schema Defaults
+
+Schema defaults apply when creating collection records through the package API, REST, GraphQL, SQLite adapter, and generated Hono SQLite starter. Updates, patches, and document puts preserve omitted fields instead of backfilling defaults; include a field in the write body when you want to change it.
+
+Safe runtime hydration also applies defaults to additive store migrations by default. Disable that separately when existing runtime records should remain untouched:
+
+```js
+import { defineConfig } from 'jsondb/config';
+
+export default defineConfig({
+  defaults: {
+    applyOnCreate: true,
+    applyOnSafeMigration: false,
+  },
+});
+```
 
 ## Generated Schema Seed Data
 

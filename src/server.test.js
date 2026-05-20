@@ -266,6 +266,130 @@ test('request handler preserves standalone root REST and GraphQL routes', async 
   assert.deepEqual(graphql.json().data.users, [{ id: 'u_1' }]);
 });
 
+test('request handler disables GraphQL when graphql.enabled is false', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada',
+    },
+  ]));
+  await writeConfig(cwd, `export default {
+    graphql: {
+      enabled: false
+    },
+    mock: {
+      delay: [0, 0],
+      errors: {
+        rate: 1,
+        status: 599,
+        message: 'forced chaos'
+      }
+    }
+  };`);
+
+  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const handler = createJsonDbRequestHandler(db);
+  const users = makeResponse();
+  const graphql = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/users'), users), true);
+  assert.equal(await handler(makeRequest('POST', '/graphql', {
+    query: '{ users { id } }',
+  }), graphql), true);
+
+  assert.equal(users.status, 599);
+  assert.equal(users.json().mock, true);
+  assert.equal(graphql.status, 404);
+  assert.equal(graphql.json().error.code, 'GRAPHQL_DISABLED');
+  assert.equal(graphql.json().error.details.path, '/graphql');
+});
+
+test('request handler disables generated REST routes when rest.enabled is false', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada',
+    },
+  ]));
+  await writeConfig(cwd, `export default {
+    rest: {
+      enabled: false,
+    },
+  };`);
+
+  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const handler = createJsonDbRequestHandler(db);
+  const root = makeResponse();
+  const users = makeResponse();
+  const batch = makeResponse();
+  const schema = makeResponse();
+  const manifest = makeResponse();
+  const graphql = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/'), root), true);
+  assert.equal(await handler(makeRequest('GET', '/users'), users), true);
+  assert.equal(await handler(makeRequest('POST', '/__jsondb/batch', [
+    { method: 'GET', path: '/users' },
+  ]), batch), true);
+  assert.equal(await handler(makeRequest('GET', '/__jsondb/schema'), schema), true);
+  assert.equal(await handler(makeRequest('GET', '/__jsondb/manifest'), manifest), true);
+  assert.equal(await handler(makeRequest('POST', '/graphql', {
+    query: '{ users { id } }',
+  }), graphql), true);
+
+  assert.equal(root.status, 200);
+  assert.deepEqual(root.json().links.resources, {});
+  assert.equal(users.status, 404);
+  assert.equal(users.json().error.code, 'REST_DISABLED');
+  assert.equal(users.json().error.details.resource, 'users');
+  assert.equal(batch.status, 404);
+  assert.equal(batch.json().error.code, 'REST_DISABLED');
+  assert.equal(schema.status, 200);
+  assert.equal(schema.json().resources.users.routePath, '/users');
+  assert.equal(manifest.status, 200);
+  assert.equal(manifest.json().capabilities.rest, false);
+  assert.equal(manifest.json().capabilities.writes, false);
+  assert.equal(manifest.json().capabilities.restBatch, false);
+  assert.equal(manifest.json().capabilities.graphql, true);
+  assert.equal(graphql.status, 200);
+  assert.deepEqual(graphql.json().data.users, [{ id: 'u_1' }]);
+});
+
+test('request handler reports disabled REST before mock errors', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada',
+    },
+  ]));
+  await writeConfig(cwd, `export default {
+    rest: {
+      enabled: false,
+    },
+    mock: {
+      delay: [0, 0],
+      errors: {
+        rate: 1,
+        status: 599,
+        message: 'forced chaos'
+      }
+    }
+  };`);
+
+  const db = await openJsonFixtureDb({ cwd, allowSourceErrors: true });
+  const handler = createJsonDbRequestHandler(db);
+  const users = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/users'), users), true);
+
+  assert.equal(users.status, 404);
+  assert.equal(users.json().error.code, 'REST_DISABLED');
+  assert.equal(users.json().error.details.resource, 'users');
+});
+
 test('request handler derives standalone dev-tool routes from configured server apiBase', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
@@ -24,4 +24,12 @@ if (typeof sqliteStore !== 'function') throw new Error('missing sqlite store API
 `);
 
   await execFileAsync(process.execPath, ['check-alias.mjs'], { cwd });
+});
+
+test('public GraphQL declarations expose operation names and structured errors', async () => {
+  const declarations = await readFile(path.resolve('src/index.d.ts'), 'utf8');
+
+  assert.match(declarations, /export type GraphqlRequest = \{\s+query: string;\s+variables\?: Record<string, unknown>;\s+operationName\?: string \| null;\s+\};/);
+  assert.match(declarations, /export type GraphqlError = \{\s+message: string;\s+extensions\?: \{\s+code\?: string;\s+hint\?: string;\s+details\?: unknown;\s+\};\s+\};/);
+  assert.match(declarations, /export type GraphqlResult = \{\s+data: unknown;\s+errors\?: GraphqlError\[\];\s+\};/);
 });

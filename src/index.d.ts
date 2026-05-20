@@ -410,11 +410,21 @@ export type JsonFixtureDb<Types extends JsonDbTypeMap = JsonDbTypeMap> = {
 export type GraphqlRequest = {
   query: string;
   variables?: Record<string, unknown>;
+  operationName?: string | null;
+};
+
+export type GraphqlError = {
+  message: string;
+  extensions?: {
+    code?: string;
+    hint?: string;
+    details?: unknown;
+  };
 };
 
 export type GraphqlResult = {
   data: unknown;
-  errors?: Array<{ message: string }>;
+  errors?: GraphqlError[];
 };
 
 export type RestBatchRequest = {

@@ -95,6 +95,10 @@ jsondb viewer manifest --out ./src/generated/jsondb.viewer.json
 
 ## REST Routes
 
+REST routes are enabled by default. Set `rest.enabled: false` to turn off
+generated resource routes and REST batching while keeping dev-tool routes such
+as the viewer, schema, manifest, import, events, and GraphQL available.
+
 Collections:
 
 ```txt
@@ -258,6 +262,8 @@ Errors are shaped for humans and automation:
 ## GraphQL Boundary
 
 GraphQL is available at `/graphql` for apps that prefer it. It supports aliases, variables, `operationName`, `__typename`, named and inline fragments, `@include`/`@skip`, HTTP batching, and minimal `__schema`/`__type` introspection for local tooling.
+
+Set `graphql.enabled: false` when an app wants REST, schema, manifest, viewer, import, and events without a GraphQL endpoint. Root discovery reports the GraphQL link as unavailable, and direct GraphQL requests return a structured `GRAPHQL_DISABLED` error.
 
 GraphQL HTTP batches execute sequentially and are intentionally non-transactional. If an earlier mutation succeeds and a later batch item fails, the earlier mutation stays committed.
 

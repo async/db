@@ -56,7 +56,24 @@ test('generate hono creates a REST standalone SQLite starter from schema fixture
   assert.match(await readFile(path.join(cwd, 'server/package.json'), 'utf8'), /"hono"/);
   assert.match(await readFile(path.join(cwd, 'server/package.json'), 'utf8'), /">=22\.13"/);
   assert.match(await readFile(path.join(cwd, 'server/src/rest.ts'), 'utf8'), /registerRestRoutes/);
-  assert.match(await readFile(path.join(cwd, 'server/src/sqlite.ts'), 'utf8'), /node:sqlite/);
+  const sqliteSource = await readFile(path.join(cwd, 'server/src/sqlite.ts'), 'utf8');
+  assert.match(sqliteSource, /node:sqlite/);
+  assert.match(sqliteSource.slice(
+    sqliteSource.indexOf('async create(record)'),
+    sqliteSource.indexOf('async patch(id, patch)'),
+  ), /const next = applyDefaults\(resourceName, stripUnknownFields/);
+  assert.match(sqliteSource.slice(
+    sqliteSource.indexOf('async patch(id, patch)'),
+    sqliteSource.indexOf('async delete(id)'),
+  ), /const next = stripUnknownFields\(resourceName,/);
+  assert.doesNotMatch(sqliteSource.slice(
+    sqliteSource.indexOf('async patch(id, patch)'),
+    sqliteSource.indexOf('async delete(id)'),
+  ), /applyDefaults/);
+  assert.doesNotMatch(sqliteSource.slice(
+    sqliteSource.indexOf('async put(value)'),
+    sqliteSource.indexOf('async patch(value)'),
+  ), /applyDefaults/);
   assert.match(await readFile(path.join(cwd, 'server/migrations/0001_initial.sql'), 'utf8'), /CREATE TABLE IF NOT EXISTS "users"/);
   assert.match(await readFile(path.join(cwd, 'server/migrations/0001_initial.sql'), 'utf8'), /"id" TEXT PRIMARY KEY/);
   assert.match(await readFile(path.join(cwd, 'server/migrations/0001_initial.sql'), 'utf8'), /"profile" TEXT/);

@@ -370,6 +370,51 @@ test('dependency-free GraphQL collection mutations create update and delete reco
   });
 });
 
+test('GraphQL collection updates do not backfill omitted schema defaults', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    defaults: {
+      applyOnSafeMigration: false
+    }
+  };`);
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true },
+      "role": {
+        "type": "enum",
+        "values": ["admin", "user"],
+        "default": "user"
+      }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada Lovelace" }
+    ]
+  }`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const updated = await executeGraphql(db, {
+    query: `mutation {
+      updateUser(id: "u_1", patch: { name: "Ada Byron" }) {
+        id
+        name
+      }
+    }`,
+  });
+
+  assert.deepEqual(updated, {
+    data: {
+      updateUser: {
+        id: 'u_1',
+        name: 'Ada Byron',
+      },
+    },
+  });
+  assert.equal('role' in await db.collection('users').get('u_1'), false);
+});
+
 test('GraphQL collection mutations write through the selected non-JSON store', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
@@ -625,6 +670,61 @@ test('GraphQL missing variable errors explain the fix', async () => {
   assert.equal(result.errors[0].extensions.code, 'GRAPHQL_MISSING_VARIABLE');
   assert.match(result.errors[0].message, /\$id/);
   assert.match(result.errors[0].extensions.hint, /variables object/);
+});
+
+test('GraphQL collection mutations reject missing id arguments', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ]));
+
+  const db = await openJsonFixtureDb({ cwd });
+  const updated = await executeGraphql(db, {
+    query: `mutation {
+      updateUser(patch: { name: "Ada Byron" }) {
+        id
+      }
+    }`,
+  });
+  const deleted = await executeGraphql(db, {
+    query: `mutation {
+      deleteUser
+    }`,
+  });
+  const emptyIdUpdate = await executeGraphql(db, {
+    query: `mutation {
+      updateUser(id: "", patch: { name: "Ada Byron" }) {
+        id
+      }
+    }`,
+  });
+  const nullIdDelete = await executeGraphql(db, {
+    query: 'mutation DeleteUser($id: ID) { deleteUser(id: $id) }',
+    variables: {
+      id: null,
+    },
+  });
+
+  assert.equal(updated.data, null);
+  assert.equal(updated.errors[0].extensions.code, 'GRAPHQL_MISSING_ID_ARGUMENT');
+  assert.equal(updated.errors[0].extensions.details.field, 'updateUser');
+  assert.equal(updated.errors[0].extensions.details.argument, 'id');
+
+  assert.equal(deleted.data, null);
+  assert.equal(deleted.errors[0].extensions.code, 'GRAPHQL_MISSING_ID_ARGUMENT');
+  assert.equal(deleted.errors[0].extensions.details.field, 'deleteUser');
+  assert.equal(deleted.errors[0].extensions.details.argument, 'id');
+
+  assert.equal(emptyIdUpdate.data, null);
+  assert.equal(emptyIdUpdate.errors[0].extensions.code, 'GRAPHQL_MISSING_ID_ARGUMENT');
+  assert.equal(emptyIdUpdate.errors[0].extensions.details.field, 'updateUser');
+
+  assert.equal(nullIdDelete.data, null);
+  assert.equal(nullIdDelete.errors[0].extensions.code, 'GRAPHQL_MISSING_ID_ARGUMENT');
+  assert.equal(nullIdDelete.errors[0].extensions.details.field, 'deleteUser');
 });
 
 test('GraphQL HTTP handler returns 413 for oversized JSON bodies', async () => {

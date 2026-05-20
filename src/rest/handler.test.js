@@ -250,6 +250,45 @@ test('REST root returns HTML discovery links for browser requests', async () => 
   assert.match(response.body, /href="\/chart-mappings"/);
 });
 
+test('REST root discovery marks GraphQL unavailable when disabled', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    graphql: {
+      enabled: false
+    }
+  };`);
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ]));
+
+  const db = await openJsonFixtureDb({ cwd });
+  const json = makeResponse();
+  const html = makeResponse();
+
+  await handleRestRequest(db, makeRequest('GET'), json, new URL('http://jsondb.local/'));
+  await handleRestRequest(
+    db,
+    makeRequest('GET', undefined, {
+      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    }),
+    html,
+    new URL('http://jsondb.local/'),
+  );
+
+  assert.equal(json.status, 200);
+  assert.equal(json.json().graphql, null);
+  assert.equal(json.json().links.graphql, null);
+  assert.deepEqual(json.json().links.resources, {
+    users: '/users',
+  });
+  assert.equal(html.status, 200);
+  assert.doesNotMatch(html.body, /GraphQL/);
+  assert.doesNotMatch(html.body, /href="\/graphql"/);
+});
+
 test('REST discovery and viewer manifest include configured custom viewer links', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
@@ -1178,6 +1217,49 @@ test('REST handler creates collection records and applies defaults', async () =>
     id: 'u_1',
     name: 'Ada Lovelace',
     role: 'user',
+  });
+});
+
+test('REST handler updates do not backfill omitted schema defaults', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    defaults: {
+      applyOnSafeMigration: false
+    }
+  };`);
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true },
+      "role": {
+        "type": "enum",
+        "values": ["admin", "user"],
+        "default": "user"
+      }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada Lovelace" }
+    ]
+  }`);
+
+  const db = await openJsonFixtureDb({ cwd });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('PATCH', {
+      name: 'Ada Byron',
+    }),
+    response,
+    new URL('http://jsondb.local/users/u_1'),
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.json(), {
+    id: 'u_1',
+    name: 'Ada Byron',
   });
 });
 
