@@ -1,8 +1,24 @@
 # jsondb
 
-A local JSON fixture database for app development and tests. Put JSON, JSONC, or CSV files in `db/`, browse them in a built-in viewer, call local REST routes, generate TypeScript types, and emit schema metadata for admin/CMS screens while the real backend contract is still taking shape.
+jsondb is a local fixture database for app development and tests.
 
-jsondb is data-first by default: start with useful seed data, then add schema files when you need required fields, defaults, enums, descriptions, constraints, relations, or stricter validation.
+Use it to:
+
+- Put editable JSON, JSONC, or CSV fixtures in `db/`.
+- Browse records in a lightweight built-in viewer.
+- Call local REST routes while the backend contract is still forming.
+- Generate TypeScript types from fixtures and schemas.
+- Emit schema metadata for admin, CMS, or form-building screens.
+- Start data-first, then add schemas only when stricter contracts pay for themselves.
+
+## File Map
+
+| Files | Purpose |
+| --- | --- |
+| `db/*.json`, `db/*.jsonc`, `db/*.csv` | Fixture data |
+| `db/*.schema.json`, `db/*.schema.jsonc`, `db/*.schema.mjs` | Optional stricter schema contracts |
+| `.jsondb/state/*` | Generated writable runtime mirror |
+| `.jsondb/schema.generated.json`, `.jsondb/types/index.ts` | Generated metadata and types |
 
 ## Quick Summary
 
@@ -16,6 +32,19 @@ Most projects can start with the defaults:
 6. Add schema only when the fixture shape needs a clearer contract.
 
 The default server is REST-first. GraphQL is available at `/graphql`, but you do not need it for the core workflow.
+
+## Examples
+
+Start with [`examples/basic`](./examples/basic) for the shortest schema-backed workflow.
+
+Other useful paths:
+
+- [`examples/data-first`](./examples/data-first): plain fixtures before schemas exist.
+- [`examples/rest-client`](./examples/rest-client): calling jsondb from app or test code.
+- [`examples/schema-manifest`](./examples/schema-manifest): schema metadata for admin/CMS UI.
+- [`examples/hono-auth`](./examples/hono-auth): optional Hono auth and write hooks.
+
+See [Which Example Should I Start With?](#which-example-should-i-start-with) for the full examples map.
 
 ## Install
 
@@ -266,6 +295,8 @@ curl 'http://127.0.0.1:7331/users?select=id,name&offset=0&limit=20'
 ```
 
 The viewer at `/__jsondb` lets you inspect resources, import CSV files into the configured fixture folder, view generated schema metadata, read GraphQL SDL/operation references, and try REST requests without writing client code first.
+
+The built-in viewer is intentionally small; apps can use the REST API, GraphQL endpoint, generated schema metadata, or integrations to build their own viewer UI.
 
 See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
 
