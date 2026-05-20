@@ -27,6 +27,7 @@ are omitted. Commit links point at the canonical GitHub repository:
 - 2026-05-14 - Added `JsonDbCollection.exists()` to the package API and SQLite adapter. Commit [9586d5f](https://github.com/PatrickJS/jsondb/commit/9586d5f2e1fc6211fe9cb2b2ba9b8f5e7bcfaabe).
 - 2026-05-19 - Replaced runtime mode config with store-based resource binding, named stores, custom store wrappers, per-store write queues, `sqliteStore()`, `JsonFixtureDb.close()`, legacy config migration diagnostics, store doctor checks, and source writeback through the `sourceFile` store. Commit [4f77e1e](https://github.com/PatrickJS/jsondb/commit/4f77e1e93e4336938fc3d005923d9967f9dfac03).
 - 2026-05-19 - Added `server.apiBase` for scoping built-in dev-tool routes while preserving root REST resources and `/graphql`, including client, Vite, mock, batch path, and fork route support. Commit [caa9f99](https://github.com/PatrickJS/jsondb/commit/caa9f9970e48515fcd22f2ca80a98a557c8e1291).
+- 2026-05-20 - Added `rest.enabled` and `graphql.enabled` toggles so apps can disable generated REST resource routes, REST batching, or the GraphQL endpoint while keeping viewer, schema, manifest, import, events, and other dev-tool routes available, with structured disabled-feature errors and discovery/manifest capability reporting. Commit [4698795](https://github.com/PatrickJS/jsondb/commit/469879538d79635b79052a231043b2f8c12d123f).
 
 ### Client, Viewer, Examples, and Mocking
 
@@ -51,6 +52,7 @@ are omitted. Commit links point at the canonical GitHub repository:
 - 2026-05-14 - Added the custom source readers pipeline for user-defined formats, built-in reader normalization, source hashes, and structured reader diagnostics. Commit [53604b9](https://github.com/PatrickJS/jsondb/commit/53604b93e162b4063655cdd49834ed6295cb5991).
 - 2026-05-14 - Added `jsondb schema infer`, doctor guidance for adding or removing schemas, and discriminated object variants in inference, validation, manifests, and generated TypeScript types. Commits [9586d5f](https://github.com/PatrickJS/jsondb/commit/9586d5f2e1fc6211fe9cb2b2ba9b8f5e7bcfaabe) and [0d9bf62](https://github.com/PatrickJS/jsondb/commit/0d9bf62efc1259ea51fe043725d9a0b134b5ad38).
 - 2026-05-14 - Added `jsondb schema bundle` / `unbundle` for moving inline seeds between schema and data fixtures, with mixed-mode warnings, safe output handling, overwrite controls, empty-seed support, and `--cwd`-relative output paths. Commits [f57a9cc](https://github.com/PatrickJS/jsondb/commit/f57a9ccb0d28d285ce208367b4291efa3aed2806), [c0cb2fa](https://github.com/PatrickJS/jsondb/commit/c0cb2fa2cf099dd51bf0f98358cb6fd288a28ae0), [e9618ec](https://github.com/PatrickJS/jsondb/commit/e9618ecb5e7e45e0c75f960edec96441043801f1), and [353c861](https://github.com/PatrickJS/jsondb/commit/353c861d085b7a58edf33ef379103a866aeb9f39).
+- 2026-05-20 - Limited schema defaults to creates and safe additive runtime hydration; runtime updates, patches, document puts, SQLite writes, and generated Hono SQLite writes now preserve omitted fields instead of backfilling defaults. Commit [4698795](https://github.com/PatrickJS/jsondb/commit/469879538d79635b79052a231043b2f8c12d123f).
 
 ### Configuration
 
@@ -67,6 +69,7 @@ are omitted. Commit links point at the canonical GitHub repository:
 ### GraphQL
 
 - 2026-05-11 - Added GraphQL `operationName` selection, named fragments, inline fragments, `@include`, `@skip`, `__typename`, and minimal `__schema` / `__type` introspection. Commit [f196625](https://github.com/PatrickJS/jsondb/commit/f196625f2eb6c57d03565b35b0bdb7cafcb26efb).
+- 2026-05-20 - Added shared required-`id` argument validation for single-record queries and update/delete mutations, plus expanded public GraphQL result and error typings. Commit [4698795](https://github.com/PatrickJS/jsondb/commit/469879538d79635b79052a231043b2f8c12d123f).
 
 ### Doctor and Fixture Diagnostics
 
