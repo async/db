@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 test('consumer projects can import package APIs through the @async/db package', async () => {
   const cwd = await makeProject();
-  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbRequestHandler, createIndexedDbCacheStorage, openDb } from '@async/db';
+  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, openDb } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
 import { sqliteStore } from '@async/db/sqlite';
@@ -19,6 +19,7 @@ import { kvStore } from '@async/db/kv';
 import { redisStore } from '@async/db/redis';
 
 if (typeof openDb !== 'function') throw new Error('missing package API');
+if (typeof createDbOperationHandler !== 'function') throw new Error('missing operation handler API');
 if (typeof createDbRequestHandler !== 'function') throw new Error('missing request handler API');
 if (typeof createDbClient !== 'function') throw new Error('missing client API');
 if (typeof createIndexedDbCacheStorage !== 'function') throw new Error('missing indexeddb cache API');
@@ -75,4 +76,26 @@ test('public declarations expose browser cache options', async () => {
   assert.match(declarations, /cache\?: DbClientCacheOptions;/);
   assert.match(declarations, /export function createIndexedDbCacheStorage/);
   assert.match(viteDeclarations, /clientCache\?: DbViteClientCacheOptions;/);
+});
+
+test('public declarations expose stable operation handler API', async () => {
+  const declarations = await readFile(path.resolve('src/index.d.ts'), 'utf8');
+
+  assert.match(declarations, /export type DbOperationRegistryValue = DbOperationTemplate \| DbRegisteredOperation;/);
+  assert.match(declarations, /export type DbOperationRequestBody = \{\s+variables\?: Record<string, unknown>;\s+\};/);
+  assert.match(declarations, /registry\?: Record<string, DbOperationRegistryValue>;/);
+  assert.match(declarations, /execute\(ref: string, variables\?: Record<string, unknown>\): Promise<DbOperationResult>;/);
+  assert.match(declarations, /executeRequest\(ref: string, body\?: DbOperationRequestBody \| null\): Promise<DbOperationResult>;/);
+  assert.doesNotMatch(declarations, /execute\(ref: string, variables\?: Record<string, unknown>, options\?: unknown\)/);
+  assert.doesNotMatch(declarations, /executeRequest\(ref: string, body\?: .*options\?: unknown\)/);
+});
+
+test('public Hono declarations keep resource and operation hook contexts distinct', async () => {
+  const declarations = await readFile(path.resolve('src/hono.d.ts'), 'utf8');
+
+  assert.match(declarations, /export type DbHonoRestHookContext = \{\s+c: unknown;\s+db: unknown;\s+resource: Record<string, unknown>;\s+resourceName: string;\s+method: DbHonoRestMethod;/);
+  assert.match(declarations, /export type DbHonoOperationHookContext = \{\s+c: unknown;\s+db: unknown;\s+resource: null;\s+resourceName: null;\s+method: 'operation';\s+ref: string;/);
+  assert.match(declarations, /export type DbHonoBeforeRequestHookContext = DbHonoRestHookContext \| DbHonoOperationHookContext;/);
+  assert.match(declarations, /beforeRequest\?: DbHonoBeforeRequestHook;/);
+  assert.match(declarations, /beforeWrite\?: DbHonoRestHook;/);
 });

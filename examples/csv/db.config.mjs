@@ -3,9 +3,11 @@ import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   dbDir: './db',
-  stateDir: './.db',
+  outputs: {
+    stateDir: './.db',
+    types: './.db/types/index.ts',
+  },
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
   },
 });

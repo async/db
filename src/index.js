@@ -11,4 +11,4 @@ export { generateViewerManifest, renderViewerManifest } from './viewer-manifest.
 export { createDbRequestHandler, startDbServer } from './server.js';
 export { syncDb } from './sync.js';
 export { generateTypes, renderTypes } from './types.js';
-export { buildOperationManifest, hashOperation } from './operations.js';
+export { buildOperationManifest, createDbOperationHandler, hashOperation } from './operations.js';

@@ -66,18 +66,20 @@ test('operation manifest build emits full server registry and client-safe refs',
     generatedAt: '2026-05-20T00:00:00.000Z',
   });
 
-  const [hash] = Object.keys(result.manifest.operations);
-  assert.match(hash, /^sha256:[a-f0-9]{64}$/);
+  const [ref] = Object.keys(result.manifest.operations);
+  assert.match(ref, /^sha256:[a-f0-9]{64}$/);
   assert.deepEqual(result.refs.operations.GetUser, {
     name: 'GetUser',
-    hash,
+    ref,
   });
   assert.equal(result.refs.operations.GetUser.path, undefined);
   assert.equal(result.refs.operations.GetUser.query, undefined);
-  assert.equal(result.manifest.operations[hash].path, '/users/{id}.json');
-  assert.equal(result.manifest.operations[hash].query.select, 'id,name');
-  assert.equal(JSON.parse(await readFile(path.join(cwd, 'src/generated/db.operations.json'), 'utf8')).operations[hash].name, 'GetUser');
-  assert.equal(JSON.parse(await readFile(path.join(cwd, 'src/generated/db.operation-refs.json'), 'utf8')).operations.GetUser.hash, hash);
+  assert.equal(result.manifest.operations[ref].path, '/users/{id}.json');
+  assert.equal(result.manifest.operations[ref].query.select, 'id,name');
+  assert.equal(result.manifest.operations[ref].hash, undefined);
+  assert.equal(JSON.parse(await readFile(path.join(cwd, 'src/generated/db.operations.json'), 'utf8')).operations[ref].name, 'GetUser');
+  assert.equal(JSON.parse(await readFile(path.join(cwd, 'src/generated/db.operation-refs.json'), 'utf8')).operations.GetUser.ref, ref);
+  assert.equal(JSON.parse(await readFile(path.join(cwd, 'src/generated/db.operation-refs.json'), 'utf8')).operations.GetUser.hash, undefined);
 });
 
 test('operation manifest build supports GraphQL templates', async () => {
@@ -101,15 +103,178 @@ test('operation manifest build supports GraphQL templates', async () => {
   const result = await buildOperationManifest(config, {
     generatedAt: '2026-05-20T00:00:00.000Z',
   });
-  const [hash] = Object.keys(result.manifest.operations);
+  const [ref] = Object.keys(result.manifest.operations);
 
-  assert.match(hash, /^sha256:[a-f0-9]{64}$/);
-  assert.equal(result.manifest.operations[hash].kind, 'graphql');
-  assert.equal(result.manifest.operations[hash].operationName, 'GetUser');
+  assert.match(ref, /^sha256:[a-f0-9]{64}$/);
+  assert.equal(result.manifest.operations[ref].kind, 'graphql');
+  assert.equal(result.manifest.operations[ref].operationName, 'GetUser');
   assert.deepEqual(result.refs.operations.GetUser, {
     name: 'GetUser',
-    hash,
+    ref,
   });
+});
+
+test('operation manifest build honors explicit operation refs', async () => {
+  const cwd = await makeProject();
+  const operation = {
+    name: 'GetUser',
+    ref: 'users.get',
+    method: 'GET',
+    path: '/users/{id}.json',
+    query: {
+      select: 'id,name',
+    },
+  };
+
+  const nameConfig = await loadConfig({
+    cwd,
+    operations: {
+      sourceDir: './db/operations',
+    },
+  });
+  const named = await buildOperationManifest(nameConfig, {
+    generatedAt: '2026-05-20T00:00:00.000Z',
+    operations: [operation],
+  });
+
+  assert.deepEqual(Object.keys(named.manifest.operations), ['users.get']);
+  assert.deepEqual(named.refs.operations.GetUser, {
+    name: 'GetUser',
+    ref: 'users.get',
+  });
+  assert.equal(named.manifest.operations['users.get'].ref, 'users.get');
+});
+
+test('operation manifest build rejects duplicate operation refs', async () => {
+  const cwd = await makeProject();
+  const config = await loadConfig({
+    cwd,
+    operations: {
+      sourceDir: './db/operations',
+    },
+  });
+  await assert.rejects(
+    () => buildOperationManifest(config, {
+      generatedAt: '2026-05-20T00:00:00.000Z',
+      operations: [
+        {
+          name: 'GetUser',
+          ref: 'users.get',
+          method: 'GET',
+          path: '/users/{id}.json',
+        },
+        {
+          name: 'FetchUser',
+          ref: 'users.get',
+          method: 'GET',
+          path: '/profiles/{id}.json',
+        },
+      ],
+    }),
+    (error) => error.code === 'OPERATION_DUPLICATE_REF'
+      && error.details.ref === 'users.get',
+  );
+});
+
+test('operation manifest build rejects duplicate operation names', async () => {
+  const cwd = await makeProject();
+  const config = await loadConfig({
+    cwd,
+    operations: {
+      sourceDir: './db/operations',
+    },
+  });
+
+  await assert.rejects(
+    () => buildOperationManifest(config, {
+      generatedAt: '2026-05-20T00:00:00.000Z',
+      operations: [
+        {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+        },
+        {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/profiles/{id}.json',
+        },
+      ],
+    }),
+    (error) => error.code === 'OPERATION_DUPLICATE_NAME'
+      && error.details.name === 'GetUser',
+  );
+});
+
+test('operation manifest build allows duplicate templates when refs are unique', async () => {
+  const cwd = await makeProject();
+  const config = await loadConfig({
+    cwd,
+    operations: {
+      sourceDir: './db/operations',
+    },
+  });
+
+  const result = await buildOperationManifest(config, {
+    generatedAt: '2026-05-20T00:00:00.000Z',
+    operations: [
+      {
+        name: 'GetUser',
+        ref: 'users.get',
+        method: 'GET',
+        path: '/users/{id}.json',
+      },
+      {
+        name: 'FetchUser',
+        ref: 'users.fetch',
+        method: 'GET',
+        path: '/users/{id}.json',
+      },
+    ],
+  });
+
+  assert.deepEqual(Object.keys(result.manifest.operations), ['users.get', 'users.fetch']);
+});
+
+test('operation manifest maps keep prototype names as data keys', async () => {
+  const cwd = await makeProject();
+  const config = await loadConfig({
+    cwd,
+    operations: {
+      sourceDir: './db/operations',
+    },
+  });
+
+  const result = await buildOperationManifest(config, {
+    generatedAt: '2026-05-20T00:00:00.000Z',
+    operations: [
+      {
+        name: '__proto__',
+        ref: 'users.proto',
+        method: 'GET',
+        path: '/users/{id}.json',
+      },
+      {
+        name: 'ConstructorUser',
+        ref: 'constructor',
+        method: 'GET',
+        path: '/profiles/{id}.json',
+      },
+      {
+        name: 'GetUser',
+        ref: '__proto__',
+        method: 'GET',
+        path: '/accounts/{id}.json',
+      },
+    ],
+  });
+
+  assert.equal(Object.getPrototypeOf(result.manifest.operations), null);
+  assert.equal(Object.getPrototypeOf(result.refs.operations), null);
+  assert.equal(result.manifest.operations.__proto__.path, '/accounts/{id}.json');
+  assert.equal(result.manifest.operations.constructor.path, '/profiles/{id}.json');
+  assert.equal(result.refs.operations.__proto__.ref, 'users.proto');
+  assert.equal(result.refs.operations.constructor, undefined);
 });
 
 test('operation requests validate variables and encode path and query values', () => {

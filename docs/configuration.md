@@ -29,10 +29,11 @@ See [db.config.example.mjs](../db.config.example.mjs) for a commented config wit
 | Nested resource names | Fixture basename | `resources.naming` or `resources.customizeResource` |
 | Runtime store behavior | JSON files under `.db/state` | `stores.default` or `resources.<name>.store` |
 | Index intent metadata | Off | `resources.<name>.indexes` |
-| Importable generated types | `.db/types/index.ts` | `types.commitOutFile` |
-| Importable schema manifest | Off | `schemaOutFile` |
-| Importable viewer manifest | Off | `viewerManifestOutFile` |
-| Registered query operation hashes | Off | `operations` |
+| Generated output paths | `.db`, `.db/types/index.ts` | `outputs` |
+| Importable generated types | Off | `outputs.committedTypes` |
+| Importable schema manifest | Off | `outputs.schemaManifest` |
+| Importable viewer manifest | Off | `outputs.viewerManifest` |
+| Registered query operation refs | Off | `operations` |
 | REST response formats | `.json`, `.html`, `.md` | `rest.formats` |
 | App-facing data route base | `/db` | `server.dataPath` |
 | Route exposure policy | Open | `server.expose` |
@@ -53,7 +54,16 @@ import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   dbDir: './db',
-  stateDir: './.db',
+
+  outputs: {
+    stateDir: './.db',
+    types: './.db/types/index.ts',
+    committedTypes: './src/generated/db.types.ts',
+    schemaManifest: './src/generated/db.schema.json',
+    viewerManifest: './src/generated/db.viewer.json',
+    operationRegistry: './src/generated/db.operations.json',
+    operationRefs: './src/generated/db.operation-refs.json',
+  },
 
   sources: {
     writePolicy: 'preserve',
@@ -66,14 +76,9 @@ export default defineConfig({
 
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
-    commitOutFile: './src/generated/db.types.ts',
     useReadonly: false,
     emitComments: true,
   },
-
-  schemaOutFile: './src/generated/db.schema.json',
-  viewerManifestOutFile: './src/generated/db.viewer.json',
 
   schema: {
     unknownFields: 'warn',
@@ -110,8 +115,7 @@ export default defineConfig({
   operations: {
     enabled: false,
     sourceDir: './db/operations',
-    outFile: './src/generated/db.operations.json',
-    refsOutFile: './src/generated/db.operation-refs.json',
+    acceptRefs: 'both',
   },
 
   rest: {
@@ -367,9 +371,11 @@ Use `server.expose` when a project wants production-like route hardening:
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
+  outputs: {
+    operationRegistry: './src/generated/db.operations.json',
+  },
   operations: {
     enabled: true,
-    outFile: './src/generated/db.operations.json',
   },
   server: {
     expose: {
@@ -386,13 +392,16 @@ export default defineConfig({
 Exposure values are `open`, `registered-only`, `dev`, `disabled`, and `false`.
 `dev` routes are available unless `NODE_ENV=production`. `registered-only` is
 primarily for REST and GraphQL: raw REST resource and batch routes are blocked, while
-`POST /__db/operations/:hash` can still execute registered operation templates.
+`POST /__db/operations/:ref` can still execute registered operation templates.
 
 ## Registered Queries
 
 Registered queries are optional allowlisted REST or GraphQL request templates.
-The config and CLI still use the `operations` name. Put operation sources under
-`operations.sourceDir` and build server and client artifacts:
+The config and CLI still use the `operations` name. Operation sources live under
+`operations.sourceDir`, which defaults to `./db/operations`. When that folder
+is inside the fixture folder, @async/db reserves it for operation templates and
+does not load it as fixture data. Move it elsewhere by changing
+`operations.sourceDir`.
 
 ```txt
 db/operations/get-user.jsonc
@@ -426,9 +435,35 @@ GraphQL templates use the same registry:
 async-db operations build
 ```
 
-`operations.outFile` receives the full server registry with templates.
-`operations.refsOutFile` receives client-safe refs with names and hashes only.
-Hashes are allowlist identifiers, not secrets.
+`outputs.operationRegistry` receives the full server registry with templates.
+`outputs.operationRefs` receives client-safe refs with names and callable refs
+only. The client-exposed surface is just `operations.<name>.name` and
+`operations.<name>.ref`; paths, query templates, variables, request bodies, and
+server registry contents stay out of that client file. Generated refs default
+to `hashOperation(template)` unless the operation source provides an explicit
+`ref`. `operations.acceptRefs` controls which
+identifiers the server accepts by default: `'ref'`, `'name'`, or `'both'`. Use
+`operations.validateRef` or `operations.resolveRef` only when an app-owned
+runtime needs custom server-side policy or a custom registry lookup.
+Manual inline registries can use operation objects or string REST templates,
+for example `{ GetUser: '/users/{id}.json?select=id,name' }`.
+Operation names and refs must be unique; the build fails
+instead of generating client refs that could point at the wrong operation.
+If `outputs.operationRegistry` is missing or invalid at runtime, registered operation
+execution returns `OPERATION_REGISTRY_LOAD_FAILED`; rebuild the registry or fix
+the configured path before treating operation misses as missing refs.
+
+For CI review, `async-db operations contract` prints a deterministic
+client-exposed contract with `generatedAt` removed. Commit the approved refs or
+contract file, then run:
+
+```bash
+async-db operations contract --check
+```
+
+`--check` compares against `outputs.operationRefs` by default, or against
+`--out <file>` when provided, and fails when the exposed operation names or refs
+change.
 
 ## Database Forks
 

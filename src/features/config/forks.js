@@ -17,10 +17,16 @@ export function normalizeForks(config, rawForks = {}) {
   return Object.fromEntries(entries.map(([name, rawEntry]) => {
     const entry = normalizeForkEntry(rawEntry);
     const sourceDirValue = entry.sourceDir ?? entry.dbDir ?? `./db.forks/${name}`;
-    const stateDirValue = entry.stateDir ?? path.join(config.stateDir, 'forks', name);
+    const stateDirValue = forkOutputValue(entry, 'stateDir', ['stateDir'], path.join(config.stateDir, 'forks', name));
     const sourceDir = resolveFrom(config.cwd, sourceDirValue);
     const stateDir = resolveFrom(config.cwd, stateDirValue);
     const typeOptions = normalizeForkTypes(config, entry, stateDir);
+    const outputs = {
+      ...entry.outputs,
+      stateDir,
+      types: typeOptions.outFile,
+      committedTypes: typeOptions.commitOutFile,
+    };
 
     return [name, {
       ...config,
@@ -29,6 +35,7 @@ export function normalizeForks(config, rawForks = {}) {
       dbDir: sourceDir,
       sourceDir,
       stateDir,
+      outputs,
       types: typeOptions,
       forks: {},
     }];
@@ -117,12 +124,10 @@ function normalizeForkEntry(rawEntry) {
 
 function normalizeForkTypes(config, entry, stateDir) {
   const entryTypes = entry.types ?? {};
-  const outFile = Object.prototype.hasOwnProperty.call(entryTypes, 'outFile')
-    ? resolveFrom(config.cwd, entryTypes.outFile)
-    : path.join(stateDir, 'types/index.ts');
-  const commitOutFile = Object.prototype.hasOwnProperty.call(entryTypes, 'commitOutFile')
-    ? entryTypes.commitOutFile && resolveFrom(config.cwd, entryTypes.commitOutFile)
-    : null;
+  const outFileValue = forkOutputValue(entry, 'types', ['types', 'outFile'], path.join(stateDir, 'types/index.ts'));
+  const commitOutFileValue = forkOutputValue(entry, 'committedTypes', ['types', 'commitOutFile'], null);
+  const outFile = outFileValue && resolveFrom(config.cwd, outFileValue);
+  const commitOutFile = commitOutFileValue && resolveFrom(config.cwd, commitOutFileValue);
 
   return {
     ...config.types,
@@ -130,4 +135,45 @@ function normalizeForkTypes(config, entry, stateDir) {
     outFile,
     commitOutFile,
   };
+}
+
+function forkOutputValue(entry, outputKey, legacyPath, fallback) {
+  const outputPath = ['outputs', outputKey];
+  if (hasOwnPath(entry, outputPath)) {
+    return getPath(entry, outputPath);
+  }
+
+  if (hasOwnPath(entry, legacyPath)) {
+    return getPath(entry, legacyPath);
+  }
+
+  return fallback;
+}
+
+function hasOwnPath(config, pathParts) {
+  let current = config;
+  for (const pathPart of pathParts) {
+    if (!isPlainObject(current) || !Object.prototype.hasOwnProperty.call(current, pathPart)) {
+      return false;
+    }
+    current = current[pathPart];
+  }
+
+  return current !== undefined;
+}
+
+function getPath(config, pathParts) {
+  let current = config;
+  for (const pathPart of pathParts) {
+    if (!isPlainObject(current)) {
+      return undefined;
+    }
+    current = current[pathPart];
+  }
+
+  return current;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

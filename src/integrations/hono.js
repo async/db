@@ -1,7 +1,8 @@
 import { openDb } from '../db.js';
-import { serializeError } from '../errors.js';
+import { dbError, serializeError } from '../errors.js';
 import { executeGraphql } from '../graphql/index.js';
 import { resolveResource } from '../names.js';
+import { createDbOperationHandler } from '../operations.js';
 import { shapeCollectionRead } from '../rest/shape.js';
 import { makeGeneratedSchema } from '../schema.js';
 import { openSqliteDb } from '../sqlite.js';
@@ -59,6 +60,8 @@ async function openHonoDb(options) {
 }
 
 export function registerDbRoutes(app, db, options = {}) {
+  registerOperationRoutes(app, db, options);
+
   for (const resource of restResources(db, options)) {
     if (resource.kind === 'collection') {
       const collectionPath = joinPaths(options.prefix, resource.routePath);
@@ -211,6 +214,166 @@ export function registerDbRoutes(app, db, options = {}) {
       });
     }
   }
+}
+
+function registerOperationRoutes(app, db, options) {
+  const operationOptions = honoOperationOptions(db, options);
+  if (!operationOptions) {
+    return;
+  }
+
+  const operationHandler = createDbOperationHandler(db, operationOptions);
+  const operationPath = joinPaths(options.prefix, '/operations/:ref');
+  app.post(operationPath, async (c) => {
+    const ref = c.req.param('ref');
+    const trace = createRequestTrace(db, {
+      method: 'POST',
+      url: c.req?.url ?? operationPath,
+    }, {
+      trace: options.trace,
+    });
+    trace?.markHandled();
+    trace?.attachHonoHeader(c);
+    trace?.setRoute({
+      route: 'hono-operation',
+      operation: 'execute',
+      id: ref,
+    });
+
+    try {
+      const shortCircuit = await runHonoOperationHooks(options, db, ref, c, {}, trace);
+      if (shortCircuit !== undefined) {
+        trace?.finish(db, shortCircuit);
+        return shortCircuit;
+      }
+
+      const body = await tracePhase(trace, 'registered-operation-body', () => readHonoJsonBody(c, db));
+      const result = await tracePhase(trace, 'registered-operation-execution', () => operationHandler.executeRequest(ref, body, {
+        trace,
+      }), {
+        ref,
+      });
+      const response = sendHonoOperationResult(c, result);
+      trace?.finish(db, response);
+      return response;
+    } catch (error) {
+      trace?.setError(error);
+      const response = c.json(serializeError(error, 'HONO_DB_OPERATION_ERROR'), error.status ?? 500);
+      trace?.finish(db, response);
+      return response;
+    }
+  });
+}
+
+function honoOperationOptions(db, options) {
+  if (options.operations === false) {
+    return null;
+  }
+
+  if (options.operations === undefined || options.operations === 'auto') {
+    return db.config.operations?.enabled === true ? true : null;
+  }
+
+  return options.operations;
+}
+
+function sendHonoOperationResult(c, result) {
+  const headers = result.headers ?? {};
+  for (const [name, value] of Object.entries(headers)) {
+    c.header(name, value);
+  }
+
+  const contentType = headers['content-type'] ?? '';
+  if (result.status === 204) {
+    return c.body(null, 204);
+  }
+  if (contentType.includes('application/json')) {
+    return c.json(result.body, result.status);
+  }
+  return c.body(result.rawBody ?? String(result.body ?? ''), result.status);
+}
+
+async function runHonoOperationHooks(options, db, ref, c, extras = {}, trace = null) {
+  const beforeRequest = options.lifecycleHooks?.beforeRequest;
+  if (typeof beforeRequest !== 'function') {
+    return undefined;
+  }
+
+  const context = {
+    c,
+    db,
+    resource: null,
+    resourceName: null,
+    method: 'operation',
+    ref,
+    ...extras,
+  };
+  const result = await tracePhase(trace, 'hono-hook', () => beforeRequest(context), {
+    hook: 'beforeRequest',
+    operation: 'operation',
+    ref,
+  });
+  if (result !== undefined) {
+    trace?.setRoute({
+      hook: 'beforeRequest',
+      shortCircuit: true,
+    });
+  }
+  return result;
+}
+
+async function readHonoJsonBody(c, db) {
+  const text = await readHonoBodyText(c);
+  if (text === null) {
+    return c.req.json();
+  }
+
+  const maxBytes = Number(db.config.server?.maxBodyBytes ?? 1048576);
+  const byteLength = Buffer.byteLength(text, 'utf8');
+  if (byteLength > maxBytes) {
+    throw dbError(
+      'JSON_BODY_TOO_LARGE',
+      `Request body is too large. Received more than ${maxBytes} bytes.`,
+      {
+        status: 413,
+        hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in db.config.mjs for local development.',
+        details: {
+          maxBodyBytes: maxBytes,
+        },
+      },
+    );
+  }
+
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    throw dbError(
+      'REST_INVALID_JSON_BODY',
+      'Request body is not valid JSON.',
+      {
+        status: 400,
+        hint: 'Check for trailing commas, unquoted property names, or an incomplete JSON object.',
+        details: {
+          parserMessage: error.message,
+        },
+      },
+    );
+  }
+}
+
+async function readHonoBodyText(c) {
+  if (typeof c.req?.text === 'function') {
+    return c.req.text();
+  }
+  if (typeof c.req?.raw?.text === 'function') {
+    return c.req.raw.text();
+  }
+  return null;
 }
 
 function restResources(db, options) {

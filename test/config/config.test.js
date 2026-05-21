@@ -15,6 +15,117 @@ test('default config adds a small local mock delay range', async () => {
   assert.equal(config.server.dataPath, '/db');
   assert.equal(config.stateDir, path.join(cwd, '.db'));
   assert.equal(config.types.outFile, path.join(cwd, '.db/types/index.ts'));
+  assert.equal(config.outputs.stateDir, path.join(cwd, '.db'));
+  assert.equal(config.outputs.types, path.join(cwd, '.db/types/index.ts'));
+});
+
+test('loadConfig normalizes public outputs config and mirrors legacy fields', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    outputs: {
+      stateDir: './var/db',
+      types: './generated/runtime.types.ts',
+      committedTypes: './src/generated/db.types.ts',
+      schemaManifest: './src/generated/db.schema.json',
+      viewerManifest: './src/generated/db.viewer.json',
+      operationRegistry: './src/generated/db.operations.json',
+      operationRefs: './src/generated/db.operation-refs.json',
+      honoStarterDir: './generated/hono',
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+
+  assert.equal(config.outputs.stateDir, path.join(cwd, 'var/db'));
+  assert.equal(config.outputs.types, path.join(cwd, 'generated/runtime.types.ts'));
+  assert.equal(config.outputs.committedTypes, path.join(cwd, 'src/generated/db.types.ts'));
+  assert.equal(config.outputs.schemaManifest, path.join(cwd, 'src/generated/db.schema.json'));
+  assert.equal(config.outputs.viewerManifest, path.join(cwd, 'src/generated/db.viewer.json'));
+  assert.equal(config.outputs.operationRegistry, path.join(cwd, 'src/generated/db.operations.json'));
+  assert.equal(config.outputs.operationRefs, path.join(cwd, 'src/generated/db.operation-refs.json'));
+  assert.equal(config.outputs.honoStarterDir, path.join(cwd, 'generated/hono'));
+
+  assert.equal(config.stateDir, path.join(cwd, 'var/db'));
+  assert.equal(config.types.outFile, path.join(cwd, 'generated/runtime.types.ts'));
+  assert.equal(config.types.commitOutFile, path.join(cwd, 'src/generated/db.types.ts'));
+  assert.equal(config.schemaOutFile, path.join(cwd, 'src/generated/db.schema.json'));
+  assert.equal(config.viewerManifestOutFile, path.join(cwd, 'src/generated/db.viewer.json'));
+  assert.equal(config.operations.outFile, path.join(cwd, 'src/generated/db.operations.json'));
+  assert.equal(config.operations.refsOutFile, path.join(cwd, 'src/generated/db.operation-refs.json'));
+  assert.equal(config.generate.hono.outDir, path.join(cwd, 'generated/hono'));
+});
+
+test('public outputs config wins over legacy output keys', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    stateDir: './legacy-db',
+    schemaOutFile: './legacy/schema.json',
+    viewerManifestOutFile: './legacy/viewer.json',
+    outputs: {
+      stateDir: './var/db',
+      types: './generated/runtime.types.ts',
+      committedTypes: './src/generated/db.types.ts',
+      schemaManifest: './src/generated/db.schema.json',
+      viewerManifest: './src/generated/db.viewer.json',
+      operationRegistry: './src/generated/db.operations.json',
+      operationRefs: './src/generated/db.operation-refs.json',
+      honoStarterDir: './generated/hono',
+    },
+    types: {
+      outFile: './legacy/types.ts',
+      commitOutFile: './legacy/commit-types.ts',
+    },
+    operations: {
+      outFile: './legacy/operations.json',
+      refsOutFile: './legacy/operation-refs.json',
+    },
+    generate: {
+      hono: {
+        outDir: './legacy/hono',
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+
+  assert.equal(config.stateDir, path.join(cwd, 'var/db'));
+  assert.equal(config.types.outFile, path.join(cwd, 'generated/runtime.types.ts'));
+  assert.equal(config.types.commitOutFile, path.join(cwd, 'src/generated/db.types.ts'));
+  assert.equal(config.schemaOutFile, path.join(cwd, 'src/generated/db.schema.json'));
+  assert.equal(config.viewerManifestOutFile, path.join(cwd, 'src/generated/db.viewer.json'));
+  assert.equal(config.operations.outFile, path.join(cwd, 'src/generated/db.operations.json'));
+  assert.equal(config.operations.refsOutFile, path.join(cwd, 'src/generated/db.operation-refs.json'));
+  assert.equal(config.generate.hono.outDir, path.join(cwd, 'generated/hono'));
+});
+
+test('fork configs accept public outputs aliases for state and type files', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    forks: {
+      legacy: {
+        stateDir: './legacy-state',
+        outputs: {
+          stateDir: './fork-state',
+          types: './fork-generated/runtime.types.ts',
+          committedTypes: './fork-generated/db.types.ts',
+        },
+        types: {
+          outFile: './legacy/types.ts',
+          commitOutFile: './legacy/commit-types.ts',
+        },
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const fork = config.forks.legacy;
+
+  assert.equal(fork.outputs.stateDir, path.join(cwd, 'fork-state'));
+  assert.equal(fork.outputs.types, path.join(cwd, 'fork-generated/runtime.types.ts'));
+  assert.equal(fork.outputs.committedTypes, path.join(cwd, 'fork-generated/db.types.ts'));
+  assert.equal(fork.stateDir, path.join(cwd, 'fork-state'));
+  assert.equal(fork.types.outFile, path.join(cwd, 'fork-generated/runtime.types.ts'));
+  assert.equal(fork.types.commitOutFile, path.join(cwd, 'fork-generated/db.types.ts'));
 });
 
 test('server dataPath can be disabled', async () => {

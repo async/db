@@ -25,6 +25,30 @@ test('data-first fixtures generate schema, types, and runtime state', async () =
   assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8'))[0].id, 'u_1');
 });
 
+test('outputs config writes committed sync artifacts', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    outputs: {
+      committedTypes: './src/generated/db.types.ts',
+      schemaManifest: './src/generated/db.schema.json',
+      viewerManifest: './src/generated/db.viewer.json',
+    },
+  };`);
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ]));
+
+  const config = await loadConfig({ cwd });
+  await syncDb(config);
+
+  assert.match(await readFile(path.join(cwd, 'src/generated/db.types.ts'), 'utf8'), /export type User =/);
+  assert.equal(JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema.json'), 'utf8')).collections.users.kind, 'collection');
+  assert.equal(JSON.parse(await readFile(path.join(cwd, 'src/generated/db.viewer.json'), 'utf8')).kind, 'db.viewerManifest');
+});
+
 test('openDb leaves generated files untouched when fixtures are unchanged', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
@@ -92,6 +116,41 @@ test('nested fixture folders are discovered and keep relative source paths', asy
     {
       id: 'home',
       title: 'Home',
+    },
+  ]);
+});
+
+test('operation source folder is ignored by fixture discovery', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/users.json'), `${JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ])}\n`, 'utf8');
+  await writeFile(path.join(cwd, 'db/operations/get-user.jsonc'), `{
+    "name": "GetUser",
+    "method": "GET",
+    "path": "/users/{id}.json",
+    "query": {
+      "select": "id,name"
+    }
+  }\n`, 'utf8');
+
+  const config = await loadConfig({
+    cwd,
+    operations: {
+      sourceDir: './db/operations',
+    },
+  });
+  const result = await syncDb(config);
+
+  assert.deepEqual(Object.keys(result.schema.resources), ['users']);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
     },
   ]);
 });

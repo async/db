@@ -873,7 +873,7 @@ test('client HTTP errors explain the failing URL and response body', async () =>
   );
 });
 
-test('client operation executes literal REST templates and hash references', async () => {
+test('client operation executes literal REST templates and registered refs', async () => {
   const calls = withMockFetch([
     {
       id: 'u_1',
@@ -902,21 +902,21 @@ test('client operation executes literal REST templates and hash references', asy
       select: 'id,name',
     },
   }, { id: 'u_1' });
-  await client.operation('sha256:abc123', { id: 'u_1' });
-  await client.operation({ name: 'GetUser', hash: 'sha256:def456' }, { id: 'u_2' });
+  await client.operation('users.get', { id: 'u_1' });
+  await client.operation({ name: 'GetUser', ref: 'users.fetch' }, { id: 'u_2' });
 
   assert.equal(calls[0].url, 'http://db.local/users/u%201.json?select=id,name');
   assert.equal(calls[0].init.method, 'GET');
   assert.equal(calls[1].url, 'http://db.local/users/u_1.json?select=id,name');
   assert.equal(calls[1].init.method, 'GET');
-  assert.equal(calls[2].url, 'http://db.local/__db/operations/sha256%3Aabc123');
+  assert.equal(calls[2].url, 'http://db.local/__db/operations/users.get');
   assert.equal(calls[2].init.method, 'POST');
   assert.deepEqual(JSON.parse(calls[2].init.body), {
     variables: {
       id: 'u_1',
     },
   });
-  assert.equal(calls[3].url, 'http://db.local/__db/operations/sha256%3Adef456');
+  assert.equal(calls[3].url, 'http://db.local/__db/operations/users.fetch');
   assert.equal(calls[3].init.method, 'POST');
   assert.deepEqual(JSON.parse(calls[3].init.body), {
     variables: {
@@ -961,7 +961,7 @@ test('client query aliases registered operations and supports GraphQL templates'
       id: '{id}',
     },
   }, { id: 'u_1' });
-  await client.query('sha256:abc123', { id: 'u_2' });
+  await client.query('users.fetch', { id: 'u_2' });
 
   assert.equal(calls[0].url, 'http://db.local/__db/operations/GetUser');
   assert.equal(calls[0].init.method, 'POST');
@@ -981,7 +981,7 @@ test('client query aliases registered operations and supports GraphQL templates'
     },
     operationName: 'GetUser',
   });
-  assert.equal(calls[3].url, 'http://db.local/__db/operations/sha256%3Aabc123');
+  assert.equal(calls[3].url, 'http://db.local/__db/operations/users.fetch');
   assert.equal(calls[3].init.method, 'POST');
   assert.deepEqual(JSON.parse(calls[3].init.body), {
     variables: {

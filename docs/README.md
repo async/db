@@ -18,6 +18,7 @@ This folder is the durable markdown manual for @async/db. The root [README](../R
 ## Serve And Integrate
 
 - [Server And Viewer](./server-and-viewer.md): REST routes, registered operations, GraphQL boundary, viewer, CSV import, watch behavior, batching, response formats, and local trust boundaries.
+- [Prototype To Production REST Guide](./prototype-to-production.md): move `/db/*` prototypes to `/api/db/*` or `/api/*`, registered operation refs, and route lockdown.
 - [Package API](./package-api.md): CLI commands, runtime API, HTTP client operations, schema/config helpers, and package export map.
 - [Integrations](./integrations.md): Vite plugin, Hono route registration, SQLite starter generation, and optional dependency boundaries.
 

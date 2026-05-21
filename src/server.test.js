@@ -121,6 +121,44 @@ test('server source watch ignores dot folders inside db', async () => {
   watcher.close();
 });
 
+test('server source watch ignores configured operations folder', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeFile(path.join(cwd, 'db/operations/get-user.jsonc'), JSON.stringify({
+    name: 'GetUser',
+    path: '/users/{id}.json',
+  }), 'utf8');
+
+  const db = await openDb({
+    cwd,
+    allowSourceErrors: true,
+    operations: {
+      sourceDir: './db/operations',
+    },
+  });
+  const published = [];
+  const fsWatcher = new EventEmitter();
+  fsWatcher.close = () => {};
+
+  const watcher = await watchSourceDir(db, {
+    publish(payload) {
+      published.push(payload);
+    },
+  }, {
+    watch(_directory, _options, listener) {
+      fsWatcher.listener = listener;
+      return fsWatcher;
+    },
+  });
+
+  fsWatcher.listener('change', 'operations/get-user.jsonc');
+  await new Promise((resolve) => setTimeout(resolve, 125));
+
+  assert.deepEqual(published, []);
+  watcher.close();
+});
+
 test('server source watch stays attached to db sources and ignores store writes', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
@@ -766,7 +804,7 @@ test('request handler executes registered operations while blocking raw REST whe
     operations: {
       enabled: true,
       registry: {
-        'sha256:abc123': {
+        'users.get': {
           name: 'GetUser',
           method: 'GET',
           path: '/users/{id}.json',
@@ -791,7 +829,7 @@ test('request handler executes registered operations while blocking raw REST whe
   assert.equal(await handler(makeRequest('POST', '/__db/batch', [
     { method: 'GET', path: '/users' },
   ]), batch), true);
-  assert.equal(await handler(makeRequest('POST', '/__db/operations/sha256%3Aabc123', {
+  assert.equal(await handler(makeRequest('POST', '/__db/operations/users.get', {
     variables: {
       id: 'u_1',
     },
@@ -822,7 +860,7 @@ test('request handler can execute registered operations from a generated registr
     version: 1,
     kind: 'db.operations',
     operations: {
-      'sha256:abc123': {
+      'users.get': {
         name: 'GetUser',
         method: 'GET',
         path: '/users/{id}.json',
@@ -843,7 +881,7 @@ test('request handler can execute registered operations from a generated registr
   const handler = createDbRequestHandler(db);
   const operation = makeResponse();
 
-  assert.equal(await handler(makeRequest('POST', '/__db/operations/sha256%3Aabc123', {
+  assert.equal(await handler(makeRequest('POST', '/__db/operations/users.get', {
     variables: {
       id: 'u_1',
     },
@@ -876,7 +914,7 @@ test('request handler executes registered GraphQL operations', async () => {
     operations: {
       enabled: true,
       registry: {
-        'sha256:abc123': {
+        'users.get': {
           name: 'GetUser',
           query: 'query GetUser($id: ID!) { user(id: $id) { id name } }',
           operationName: 'GetUser',
@@ -899,7 +937,7 @@ test('request handler executes registered GraphQL operations', async () => {
   assert.equal(await handler(makeRequest('POST', '/graphql', {
     query: '{ users { id } }',
   }), rawGraphql), true);
-  assert.equal(await handler(makeRequest('POST', '/__db/operations/sha256%3Aabc123', {
+  assert.equal(await handler(makeRequest('POST', '/__db/operations/users.get', {
     variables: {
       id: 'u_1',
     },
@@ -929,7 +967,7 @@ test('request handler can execute registered operations by name', async () => {
     operations: {
       enabled: true,
       registry: {
-        'sha256:abc123': {
+        'users.get': {
           name: 'GetUser',
           method: 'GET',
           path: '/users/{id}.json',
@@ -956,6 +994,47 @@ test('request handler can execute registered operations by name', async () => {
   });
 });
 
+test('request handler can execute registered operations by custom validated ref', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada', email: 'ada@example.com' },
+  ]));
+
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        'users.get': {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+          query: {
+            select: 'id,email',
+          },
+        },
+      },
+      validateRef({ decodedRef, registry }) {
+        return decodedRef === 'op:GetUser' ? registry['users.get'] : true;
+      },
+    },
+  });
+  const handler = createDbRequestHandler(db);
+  const operation = makeResponse();
+
+  assert.equal(await handler(makeRequest('POST', '/__db/operations/op%3AGetUser', {
+    variables: {
+      id: 'u_1',
+    },
+  }), operation), true);
+
+  assert.equal(operation.status, 200);
+  assert.deepEqual(operation.json(), {
+    id: 'u_1',
+    email: 'ada@example.com',
+  });
+});
+
 test('registered GraphQL operations report disabled GraphQL', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
@@ -968,7 +1047,7 @@ test('registered GraphQL operations report disabled GraphQL', async () => {
     operations: {
       enabled: true,
       registry: {
-        'sha256:abc123': {
+        'users.get': {
           query: '{ users { id } }',
         },
       },
@@ -977,7 +1056,7 @@ test('registered GraphQL operations report disabled GraphQL', async () => {
   const handler = createDbRequestHandler(db);
   const operation = makeResponse();
 
-  assert.equal(await handler(makeRequest('POST', '/__db/operations/sha256%3Aabc123', {}), operation), true);
+  assert.equal(await handler(makeRequest('POST', '/__db/operations/users.get', {}), operation), true);
 
   assert.equal(operation.status, 404);
   assert.equal(operation.json().error.code, 'GRAPHQL_DISABLED');

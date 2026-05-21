@@ -70,7 +70,7 @@ Default generated runtime output:
 .db/state/*.json
 ```
 
-Normally `.db/` is uncommitted. Committed generated outputs are allowed only when configured, such as `types.commitOutFile` or `schemaOutFile`.
+Normally `.db/` is uncommitted. Committed generated outputs are allowed only when configured, such as `outputs.committedTypes` or `outputs.schemaManifest`.
 
 Examples that intentionally commit generated outputs:
 

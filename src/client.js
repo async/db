@@ -1,6 +1,6 @@
 import { dbError } from './errors.js';
 import { createClientCache, createIndexedDbCacheStorage } from './client-cache.js';
-import { isOperationHash, operationRequest } from './shared/operations.js';
+import { operationRequest } from './shared/operations.js';
 
 export { createIndexedDbCacheStorage };
 
@@ -109,8 +109,8 @@ export function createDbClient(options = {}) {
   }
 
   async function operation(template, variables = {}, requestOptions = {}) {
-    const request = typeof template === 'string' && isOperationHash(template)
-      ? { hash: template }
+    const request = typeof template === 'string' && !isRestOperationString(template)
+      ? { ref: template }
       : operationRequest(template, variables);
 
     return executeOperationRequest(request, variables, requestOptions);
@@ -118,15 +118,15 @@ export function createDbClient(options = {}) {
 
   async function query(template, variables = {}, requestOptions = {}) {
     const request = typeof template === 'string' && !isRestOperationString(template)
-      ? { hash: template }
+      ? { ref: template }
       : operationRequest(template, variables);
 
     return executeOperationRequest(request, variables, requestOptions);
   }
 
   async function executeOperationRequest(request, variables, requestOptions) {
-    if (request.hash) {
-      return postJson(resolveUrl(baseUrl, `${apiBase}/operations/${encodeURIComponent(request.hash)}`), {
+    if (request.ref) {
+      return postJson(resolveUrl(baseUrl, `${apiBase}/operations/${encodeURIComponent(request.ref)}`), {
         variables,
       });
     }

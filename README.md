@@ -197,16 +197,18 @@ See [docs/concepts.md](./docs/concepts.md) and [docs/fixtures-and-schemas.md](./
 
 ## Admin/CMS Schema Metadata
 
-Schemas can also drive local admin, CMS, custom data viewers, and form-building screens. Use `GET /__db/manifest.json` at runtime when a UI runs beside `async-db serve`, or configure `viewerManifestOutFile` when app code needs a committed JSON artifact with the same viewer metadata. Browser requests can open `GET /__db/manifest.html`; AI clients can use `GET /__db/manifest.md`; `GET /__db/manifest` lets the `Accept` header choose among registered response formats.
+Schemas can also drive local admin, CMS, custom data viewers, and form-building screens. Use `GET /__db/manifest.json` at runtime when a UI runs beside `async-db serve`, or configure `outputs.viewerManifest` when app code needs a committed JSON artifact with the same viewer metadata. Browser requests can open `GET /__db/manifest.html`; AI clients can use `GET /__db/manifest.md`; `GET /__db/manifest` lets the `Accept` header choose among registered response formats.
 
-Use `schemaOutFile` when an app only needs the smaller model metadata file without server route links, diagnostics, or viewer capabilities.
+Use `outputs.schemaManifest` when an app only needs the smaller model metadata file without server route links, diagnostics, or viewer capabilities.
 
 ```js
 import { defineConfig, mergeManifest } from '@async/db/config';
 
 export default defineConfig({
-  schemaOutFile: './src/generated/db.schema.json',
-  viewerManifestOutFile: './src/generated/db.viewer.json',
+  outputs: {
+    schemaManifest: './src/generated/db.schema.json',
+    viewerManifest: './src/generated/db.viewer.json',
+  },
 
   server: {
     viewerLinks: [
@@ -321,7 +323,10 @@ The viewer at `/__db` lets you inspect resources, import CSV files into the conf
 
 The built-in viewer and custom viewer UIs use the same JSON manifest at `/__db/manifest.json`. `/__db/manifest.html` opens a formatted JSON viewer, `/__db/manifest.md` returns an AI-friendly Markdown wrapper, and `/__db/manifest` chooses from registered media types in `Accept`. Apps can use `api.formats` from the manifest to discover supported extensions and build their own viewer UI against REST or GraphQL records.
 
-See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
+See [docs/server-and-viewer.md](./docs/server-and-viewer.md). When local
+`/db/*` routes are ready to become `/api/db/*` or `/api/*` production API
+routes, see the
+[Prototype To Production REST Guide](./docs/prototype-to-production.md).
 
 ## Generated Files
 
@@ -330,9 +335,9 @@ See [docs/server-and-viewer.md](./docs/server-and-viewer.md).
 | `.db/` | Normally no | Runtime stores, source metadata, generated schema, and generated types. |
 | `.db/state/*.json` | Normally no | Writable local JSON store state. |
 | `.db/types/index.ts` | Normally no | Default generated TypeScript output. |
-| `types.commitOutFile` output | Yes, when configured | Use for stable imports before sync runs. |
-| `schemaOutFile` output | Yes, when configured | Use for model-driven admin/CMS metadata. |
-| `viewerManifestOutFile` output | Yes, when configured | Use for custom data viewers that need metadata plus route links. |
+| `outputs.committedTypes` output | Yes, when configured | Use for stable imports before sync runs. |
+| `outputs.schemaManifest` output | Yes, when configured | Use for model-driven admin/CMS metadata. |
+| `outputs.viewerManifest` output | Yes, when configured | Use for custom data viewers that need metadata plus route links. |
 | `examples/*/src/generated/db.types.ts` | Yes, in selected examples | Intentionally committed example type output. |
 | `examples/*/src/generated/db.schema.json` | Yes, in selected examples | Intentionally committed example manifest. |
 
@@ -352,7 +357,7 @@ The examples are a learning path. Run any example with `node ./src/cli.js sync -
 | Calling @async/db from app or test code | [`examples/rest-client`](./examples/rest-client) | `createDbClient`, direct REST calls, REST batching |
 | Related local records | [`examples/relations`](./examples/relations) | Relation metadata, `expand`, and nested `select` |
 | CSV as the source of truth | [`examples/csv`](./examples/csv) | CSV inference, source hashes, mirror refreshes |
-| Admin/CMS-style field metadata | [`examples/schema-manifest`](./examples/schema-manifest) | `schemaOutFile` and manifest customization |
+| Admin/CMS-style field metadata | [`examples/schema-manifest`](./examples/schema-manifest) | `outputs.schemaManifest` and manifest customization |
 | Schema JSON to simple CMS UI templates | [`examples/schema-ui`](./examples/schema-ui) | `serve.mjs` SSR view/editor HTML from manifest + mirror (`node ./examples/schema-ui/serve.mjs`); `/templates` route keeps static placeholders |
 | Diagnostics for schema/data drift | [`examples/diagnostics`](./examples/diagnostics) | Warnings surfaced without breaking unrelated resources |
 | Several advanced features together | [`examples/advanced`](./examples/advanced) | `.schema.mjs`, mixed mode, defaults, nested objects |
@@ -370,6 +375,7 @@ Each example README is the runnable authority for that example.
 | Manage generated output | [docs/generated-files.md](./docs/generated-files.md) |
 | Configure @async/db | [docs/configuration.md](./docs/configuration.md) |
 | Serve local data and use REST/GraphQL/viewer | [docs/server-and-viewer.md](./docs/server-and-viewer.md) |
+| Graduate REST prototypes to production API routes | [docs/prototype-to-production.md](./docs/prototype-to-production.md) |
 | Use the package API, CLI, or exports | [docs/package-api.md](./docs/package-api.md) |
 | Integrate with Vite, Hono, or SQLite | [docs/integrations.md](./docs/integrations.md) |
 | Validate CI and package contents | [docs/ci-and-release.md](./docs/ci-and-release.md) |

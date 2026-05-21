@@ -39,14 +39,14 @@ Default generated TypeScript output:
 .db/types/index.ts
 ```
 
-Use `types.commitOutFile` when TypeScript imports should work before anyone runs sync:
+Use `outputs.committedTypes` when TypeScript imports should work before anyone runs sync:
 
 ```js
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  types: {
-    commitOutFile: './src/generated/db.types.ts',
+  outputs: {
+    committedTypes: './src/generated/db.types.ts',
   },
 });
 ```
@@ -75,17 +75,19 @@ examples/schema-ui/src/generated/db.types.ts
 
 ## Schema Manifest Output
 
-Use `schemaOutFile` when a local admin, CMS, or form-building UI needs runtime schema metadata:
+Use `outputs.schemaManifest` when a local admin, CMS, or form-building UI needs runtime schema metadata:
 
 ```js
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  schemaOutFile: './src/generated/db.schema.json',
+  outputs: {
+    schemaManifest: './src/generated/db.schema.json',
+  },
 });
 ```
 
-`async-db sync` writes the manifest when `schemaOutFile` is set. You can also generate it directly:
+`async-db sync` writes the manifest when `outputs.schemaManifest` is set. You can also generate it directly:
 
 ```bash
 npm run db -- schema manifest --out ./src/generated/db.schema.json
@@ -97,17 +99,19 @@ The manifests at [examples/schema-manifest/src/generated/db.schema.json](../exam
 
 ## Viewer Manifest Output
 
-Use `viewerManifestOutFile` when a custom data viewer needs the same JSON metadata used by the built-in viewer:
+Use `outputs.viewerManifest` when a custom data viewer needs the same JSON metadata used by the built-in viewer:
 
 ```js
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  viewerManifestOutFile: './src/generated/db.viewer.json',
+  outputs: {
+    viewerManifest: './src/generated/db.viewer.json',
+  },
 });
 ```
 
-`async-db sync` writes the viewer manifest when `viewerManifestOutFile` is set. You can also generate it directly:
+`async-db sync` writes the viewer manifest when `outputs.viewerManifest` is set. You can also generate it directly:
 
 ```bash
 npm run db -- viewer manifest --out ./src/generated/db.viewer.json
@@ -115,12 +119,50 @@ npm run db -- viewer manifest --out ./src/generated/db.viewer.json
 
 The viewer manifest includes field metadata, UI hints, relation hints, diagnostics, capabilities, configured viewer links, and API links such as `/__db/manifest`, `/__db/manifest.json`, `/__db/manifest.html`, `/__db/manifest.md`, `/__db/batch`, `/graphql`, and scoped REST resource routes under `/__db/rest`. It does not include seed records, source paths, source hashes, runtime state paths, or GraphQL SDL. Fetch actual records from REST or GraphQL.
 
+## Operation Registry And Client Contract
+
+Use `outputs.operationRegistry` for the full server-side operation registry and
+`outputs.operationRefs` for the client-safe refs file:
+
+```js
+import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  outputs: {
+    operationRegistry: './src/generated/db.operations.json',
+    operationRefs: './src/generated/db.operation-refs.json',
+  },
+});
+```
+
+Build both files with:
+
+```bash
+npm run db -- operations build
+```
+
+`db.operations.json` contains full templates and should stay server-side.
+`db.operation-refs.json` is the browser-facing surface: it exposes operation
+names and callable refs only, not paths, query templates, variables, request
+bodies, or server registry internals.
+
+For CI, use the deterministic contract view:
+
+```bash
+npm run db -- operations contract --check
+```
+
+The check compares the current generated client contract with
+`outputs.operationRefs` by default. It ignores volatile `generatedAt` values and
+fails only when exposed operation names or refs change.
+
 ## Cleanup Rules
 
 - Do not commit `.db/` unless a task explicitly asks for generated runtime state.
-- Do commit configured `types.commitOutFile` output when an app needs stable imports in a fresh checkout.
-- Do commit configured `schemaOutFile` output when an app needs stable schema metadata at runtime.
-- Do commit configured `viewerManifestOutFile` output when a custom viewer needs stable metadata and route links at runtime.
+- Do commit configured `outputs.committedTypes` output when an app needs stable imports in a fresh checkout.
+- Do commit configured `outputs.schemaManifest` output when an app needs stable schema metadata at runtime.
+- Do commit configured `outputs.viewerManifest` output when a custom viewer needs stable metadata and route links at runtime.
+- Do commit configured `outputs.operationRefs` output when app or CI code imports approved registered operation refs.
 - Smoke commands against examples may create `examples/*/.db/`; remove that generated runtime output before finalizing.
 
 ## Related Examples

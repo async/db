@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when an app wants committed schema metadata for admin, CMS, or form-building screens. It demonstrates `schemaOutFile` and `schemaManifest.customizeField()`.
+Use this when an app wants committed schema metadata for admin, CMS, or form-building screens. It demonstrates `outputs.schemaManifest` and `schemaManifest.customizeField()`.
 
 ## Files To Inspect
 

@@ -43,7 +43,7 @@ const legacyDb = fork('legacy-demo');
 const legacyUsers = await legacyDb.rest.get('/users');
 ```
 
-Plugin options include `cwd`, `dbDir`, `stateDir`, `forks`, `apiBase`, `dataPath`, `restBasePath`, `graphqlPath`, `rootRoutes`, `clientVirtualModule`, `clientImport`, and `clientCache`.
+Plugin options include `cwd`, `dbDir`, `outputs`, legacy `stateDir`, `forks`, `apiBase`, `dataPath`, `restBasePath`, `graphqlPath`, `rootRoutes`, `clientVirtualModule`, `clientImport`, and `clientCache`.
 The plugin uses `apiBase` first, then `server.apiBase`, then `/__db` for scoped dev routes.
 Use `server.dataPath: false` to disable the `/db` app-facing data route alias.
 
@@ -108,6 +108,7 @@ import { registerDbRoutes } from '@async/db/hono';
 
 registerDbRoutes(app, db, {
   prefix: '/api',
+  operations: true,
   trace: true,
   resources: ['pages', 'charts'],
   lifecycleHooks: {
@@ -131,7 +132,7 @@ registerDbRoutes(app, db, {
 });
 ```
 
-Hook order is deterministic:
+Resource hook order is deterministic:
 
 1. `beforeRequest`
 2. `beforeWrite` for `create`, `patch`, `put`, or `delete`
@@ -140,10 +141,33 @@ Hook order is deterministic:
 5. @async/db operation
 
 Any hook can return a Hono response to short-circuit the request. Write hooks can mutate `body` before @async/db validates and writes it.
+Registered operation routes run `lifecycleHooks.beforeRequest` before operation
+execution with `method: 'operation'` and the operation `ref`. They do not run
+resource write or resource method hooks.
 When tracing is enabled, hook phases and short-circuit responses are included in
 the request trace event without recording request or response bodies.
 
+Registered operations mount at `POST {prefix}/operations/:ref` when
+`db.config.operations.enabled` is true. Set `operations: false` for a REST-only
+mount, `operations: true` to explicitly use global config, or pass a local
+registry/resolver when a Hono app owns a custom build step:
+
+```ts
+registerDbRoutes(app, db, {
+  prefix: '/api/db',
+  operations: {
+    registry: generatedOperations.operations,
+    acceptRefs: 'ref',
+  },
+});
+```
+
 See [examples/hono-auth](../examples/hono-auth/README.md) for a runnable Hono app with bearer-token auth.
+
+For guidance on moving local `/db/*` prototype routes to `/api/db/*` or
+`/api/*` production namespaces, registered operation refs, and locked-down
+route exposure, see the
+[Prototype To Production REST Guide](./prototype-to-production.md).
 
 ## Hono And SQLite Starter Generation
 

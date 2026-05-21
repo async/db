@@ -31,6 +31,7 @@ Usage:
   async-db schema manifest [--out <file>]
   async-db schema validate
   async-db operations build [--out <file>] [--refs-out <file>]
+  async-db operations contract [--out <file>] [--check]
   async-db viewer manifest [--out <file>]
   async-db doctor [--strict] [--json]
   async-db check [--strict] [--json]
@@ -49,10 +50,12 @@ export function printOperationsHelp() {
 
 Usage:
   async-db operations build [--out <file>] [--refs-out <file>]
+  async-db operations contract [--out <file>] [--check]
 
 Options:
-  --out <file>      Write the full server operation registry
-  --refs-out <file> Write client-safe operation refs
+  --out <file>      Build: write the full server registry. Contract: write or check the client contract
+  --refs-out <file> Build only: write client-safe operation refs
+  --check           Contract only: fail if the generated client contract differs from --out or outputs.operationRefs
   --cwd <dir>       Project directory
   --config <file>   Config file path
 `);

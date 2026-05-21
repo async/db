@@ -362,6 +362,355 @@ test('registerDbRoutes traces hook short-circuit responses', async () => {
   assert.equal(traces[0].phases.some((phase) => phase.name === 'hono-hook' && phase.hook === 'beforeRequest'), true);
 });
 
+test('registerDbRoutes auto-mounts registered operations from global config', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada', email: 'ada@example.com' }]));
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        'users.get': {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+          query: {
+            select: 'id,name',
+          },
+        },
+      },
+      acceptRefs: 'ref',
+    },
+  });
+  const app = fakeHonoApp();
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+  });
+
+  const route = app.route('POST', '/api/db/operations/:ref');
+  assert.equal(Boolean(route), true);
+  const response = await route.handler(fakeHonoContext({
+    params: {
+      ref: 'users.get',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+    url: 'http://db.local/api/db/operations/users.get',
+  }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, {
+    id: 'u_1',
+    name: 'Ada',
+  });
+});
+
+test('registerDbRoutes runs lifecycle beforeRequest for registered operations', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        'users.get': {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+        },
+      },
+    },
+  });
+  const app = fakeHonoApp();
+  const calls = [];
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+    lifecycleHooks: {
+      beforeRequest(ctx) {
+        calls.push(`${ctx.method}:${ctx.ref}`);
+        assert.equal(ctx.resource, null);
+        assert.equal(ctx.resourceName, null);
+        return ctx.c.json({ error: 'Unauthorized' }, 401);
+      },
+    },
+  });
+
+  const response = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'users.get',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+  }));
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(response.body, { error: 'Unauthorized' });
+  assert.deepEqual(calls, ['operation:users.get']);
+});
+
+test('registerDbRoutes can disable operation routes for a local mount', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        'users.get': {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+        },
+      },
+    },
+  });
+  const app = fakeHonoApp();
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+    operations: false,
+  });
+
+  assert.equal(Boolean(app.route('GET', '/api/db/users')), true);
+  assert.equal(Boolean(app.route('POST', '/api/db/operations/:ref')), false);
+});
+
+test('registerDbRoutes supports local operation registry overrides', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada', email: 'ada@example.com' }]));
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        'sha256:global': {
+          name: 'GlobalUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+          query: {
+            select: 'id',
+          },
+        },
+      },
+    },
+  });
+  const app = fakeHonoApp();
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+    operations: {
+      registry: {
+        LocalUser: {
+          name: 'LocalUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+          query: {
+            select: 'id,email',
+          },
+        },
+      },
+      acceptRefs: 'name',
+    },
+  });
+
+  const response = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'LocalUser',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+  }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, {
+    id: 'u_1',
+    email: 'ada@example.com',
+  });
+});
+
+test('registerDbRoutes supports custom operation resolveRef and validateRef', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  const db = await openDb({ cwd });
+  const app = fakeHonoApp();
+  const registry = {
+    'internal:get-user': {
+      method: 'GET',
+      path: '/users/{id}.json',
+    },
+  };
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+    operations: {
+      resolveRef(ref) {
+        return ref.endsWith('get-user') ? registry['internal:get-user'] : null;
+      },
+      validateRef({ decodedRef }) {
+        return decodedRef.startsWith('public:');
+      },
+    },
+  });
+
+  const rejected = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'internal:get-user',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+  }));
+  const accepted = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'public:get-user',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+  }));
+
+  assert.equal(rejected.status, 404);
+  assert.equal(rejected.body.error.code, 'OPERATION_NOT_FOUND');
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(accepted.body, {
+    id: 'u_1',
+    name: 'Ada',
+  });
+});
+
+test('registerDbRoutes operation bodies accept empty JSON bodies', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({ theme: 'dark' }));
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        GetSettings: {
+          name: 'GetSettings',
+          method: 'GET',
+          path: '/settings.json',
+        },
+      },
+      acceptRefs: 'name',
+    },
+  });
+  const app = fakeHonoApp();
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+  });
+
+  const response = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'GetSettings',
+    },
+    rawBody: '',
+  }));
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { theme: 'dark' });
+});
+
+test('registerDbRoutes operation bodies return structured JSON errors', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({ theme: 'dark' }));
+  const db = await openDb({
+    cwd,
+    server: {
+      maxBodyBytes: 8,
+    },
+    operations: {
+      enabled: true,
+      registry: {
+        GetSettings: {
+          name: 'GetSettings',
+          method: 'GET',
+          path: '/settings.json',
+        },
+      },
+      acceptRefs: 'name',
+    },
+  });
+  const app = fakeHonoApp();
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+  });
+
+  const invalid = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'GetSettings',
+    },
+    rawBody: '{',
+  }));
+  const oversized = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'GetSettings',
+    },
+    rawBody: '{"variables":{}}',
+  }));
+
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.body.error.code, 'REST_INVALID_JSON_BODY');
+  assert.equal(oversized.status, 413);
+  assert.equal(oversized.body.error.code, 'JSON_BODY_TOO_LARGE');
+});
+
+test('registerDbRoutes preserves operation response content types', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        GetUserMarkdown: {
+          name: 'GetUserMarkdown',
+          method: 'GET',
+          path: '/users/{id}.md',
+        },
+      },
+      acceptRefs: 'name',
+    },
+  });
+  const app = fakeHonoApp();
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+  });
+
+  const response = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'GetUserMarkdown',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+  }));
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers['content-type'], /text\/markdown/);
+  assert.match(response.body, /Ada/);
+});
+
 function fakeContext() {
   const values = new Map();
   return {
@@ -398,7 +747,10 @@ function fakeHonoApp() {
 
 function fakeHonoContext(options = {}) {
   const headers = {};
-  function response(body, status) {
+  function response(body, status, responseHeaders = {}) {
+    for (const [name, value] of Object.entries(responseHeaders ?? {})) {
+      headers[String(name).toLowerCase()] = value;
+    }
     const result = {
       status,
       body,
@@ -414,6 +766,12 @@ function fakeHonoContext(options = {}) {
       param(name) {
         return options.params?.[name];
       },
+      async text() {
+        if ('rawBody' in options) {
+          return options.rawBody;
+        }
+        return JSON.stringify(options.body ?? {});
+      },
       async json() {
         return options.body ?? {};
       },
@@ -425,8 +783,8 @@ function fakeHonoContext(options = {}) {
     json(body, status = 200) {
       return response(body, status);
     },
-    body(value, status = 200) {
-      return response(value, status);
+    body(value, status = 200, responseHeaders = {}) {
+      return response(value, status, responseHeaders);
     },
   };
 }

@@ -1,10 +1,17 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { buildOperationManifest } from '../../operations.js';
+import { buildOperationManifest, operationClientContract } from '../../operations.js';
+import { resolveFrom, writeText } from '../../fs-utils.js';
 import { valueAfter } from '../args.js';
 
 export async function runOperations(config, args) {
+  if (args[0] === 'contract') {
+    await runOperationContract(config, args);
+    return;
+  }
+
   if (args[0] !== 'build') {
-    throw new Error('Unknown operations command. Use async-db operations build.');
+    throw new Error('Unknown operations command. Use async-db operations build or async-db operations contract.');
   }
 
   const result = await buildOperationManifest(config, {
@@ -20,4 +27,46 @@ export async function runOperations(config, args) {
   for (const filePath of [...result.outFiles, ...result.refsOutFiles]) {
     console.log(`Generated ${path.relative(config.cwd, filePath)}`);
   }
+}
+
+async function runOperationContract(config, args) {
+  const result = await buildOperationManifest(config, {
+    write: false,
+  });
+  const contract = operationClientContract(result.refs);
+  const content = contractContent(contract);
+  const check = args.includes('--check');
+  const target = contractTarget(config, args, { check });
+
+  if (check) {
+    if (!target) {
+      throw new Error('Operation contract check needs --out <file> or outputs.operationRefs in db.config.mjs.');
+    }
+    const expected = operationClientContract(JSON.parse(await readFile(target, 'utf8')));
+    const expectedContent = contractContent(expected);
+    if (expectedContent !== content) {
+      const relative = path.relative(config.cwd, target);
+      throw new Error(`Operation client contract changed for ${relative}. Review the exposed operation names and refs, then regenerate or approve the committed contract.`);
+    }
+    console.log(`Operation client contract matches ${path.relative(config.cwd, target)}`);
+    return;
+  }
+
+  if (target) {
+    await writeText(target, content);
+    console.log(`Generated ${path.relative(config.cwd, target)}`);
+    return;
+  }
+
+  console.log(content.trimEnd());
+}
+
+function contractTarget(config, args, options = {}) {
+  const explicitTarget = valueAfter(args, '--out');
+  const target = explicitTarget ?? (options.check ? config.outputs?.operationRefs ?? config.operations?.refsOutFile : null);
+  return target ? resolveFrom(config.cwd, target) : null;
+}
+
+function contractContent(contract) {
+  return `${JSON.stringify(contract, null, 2)}\n`;
 }

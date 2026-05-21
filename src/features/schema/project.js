@@ -6,7 +6,7 @@ import { validateProjectRelations } from './relations.js';
 import { validateResourceSeed } from './validation.js';
 
 export async function loadProjectSchema(config) {
-  const files = await listSourceFiles(config.sourceDir);
+  const files = await listSourceFiles(config);
   const dataFiles = new Map();
   const schemaFiles = new Map();
   const resourceSources = new Map();

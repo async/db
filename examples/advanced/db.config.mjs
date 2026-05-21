@@ -3,11 +3,13 @@ import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   dbDir: './db',
-  stateDir: './.db',
+  outputs: {
+    stateDir: './.db',
+    types: './.db/types/index.ts',
+    committedTypes: './src/generated/db.types.ts',
+  },
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
-    commitOutFile: './src/generated/db.types.ts',
     emitComments: true,
   },
   schema: {

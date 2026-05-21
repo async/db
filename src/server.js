@@ -1,16 +1,14 @@
 import http from 'node:http';
 import { watch } from 'node:fs';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { openDb } from './db.js';
 import { serializeError } from './errors.js';
 import { loadForkDb } from './features/config/forks.js';
 import { defaultHttpFeatureRegistry } from './features/http/registry.js';
-import { executeGraphql } from './graphql/index.js';
 import { runMockBehavior } from './mock.js';
-import { handleRestRequest, readJsonBody, sendJson } from './rest/handler.js';
-import { operationRequest } from './shared/operations.js';
-import { dbError } from './errors.js';
+import { createDbOperationHandler } from './operations.js';
+import { handleRestRequest, readJsonBody, sendJson, sendText } from './rest/handler.js';
 import { syncDb } from './sync.js';
 import { createRequestTrace, tracePhase, tracePhaseSync } from './tracing.js';
 
@@ -126,13 +124,13 @@ async function handleRequest(db, request, response, events, routes, trace = null
     return true;
   }
 
-  const operationHash = tracePhaseSync(trace, 'route-match', () => operationHashForRequest(url, routes), {
+  const operationRef = tracePhaseSync(trace, 'route-match', () => operationRefForRequest(url, routes), {
     family: 'operation',
   });
-  if (operationHash) {
+  if (operationRef) {
     trace?.markHandled(response);
-    trace?.setRoute({ route: 'operation', operation: 'execute', id: operationHash });
-    await handleRegisteredOperationRequest(db, request, response, operationHash, routes, trace);
+    trace?.setRoute({ route: 'operation', operation: 'execute', id: operationRef });
+    await handleRegisteredOperationRequest(db, request, response, operationRef, routes, trace);
     return true;
   }
 
@@ -191,13 +189,14 @@ async function handleRequest(db, request, response, events, routes, trace = null
   return true;
 }
 
-async function handleRegisteredOperationRequest(db, request, response, hash, routes, trace = null) {
-  if (db.config.operations?.enabled !== true) {
+async function handleRegisteredOperationRequest(db, request, response, ref, routes, trace = null) {
+  const operationHandler = createDbOperationHandler(db);
+  if (!operationHandler.enabled) {
     sendJson(response, 404, {
       error: {
         code: 'OPERATIONS_DISABLED',
         message: 'Registered operations are not enabled.',
-        hint: 'Set operations.enabled to true and provide operations.registry or operations.outFile.',
+        hint: 'Set operations.enabled to true and provide operations.registry or outputs.operationRegistry.',
       },
     });
     return;
@@ -208,10 +207,10 @@ async function handleRegisteredOperationRequest(db, request, response, hash, rou
       error: {
         code: 'OPERATION_METHOD_NOT_ALLOWED',
         message: 'Registered operations must be executed with POST.',
-        hint: `Use POST ${joinPaths(routes.apiBase || '', `/operations/${encodeURIComponent(hash)}`)} with a JSON variables body.`,
+        hint: `Use POST ${joinPaths(routes.apiBase || '', `/operations/${encodeURIComponent(ref)}`)} with a JSON variables body.`,
         details: {
           method: request.method,
-          hash,
+          ref,
         },
       },
     });
@@ -221,93 +220,22 @@ async function handleRegisteredOperationRequest(db, request, response, hash, rou
   const body = await tracePhase(trace, 'registered-operation-body', () => readJsonBody(request, {
     maxBytes: Number(db.config.server?.maxBodyBytes ?? 1048576),
   }));
-  const operation = await tracePhase(trace, 'registered-operation-lookup', () => operationForRef(db.config, hash), {
-    hash,
+  const result = await tracePhase(trace, 'registered-operation-execution', () => operationHandler.executeRequest(ref, body, {
+    routes,
+    trace,
+  }), {
+    ref,
   });
-  if (!operation) {
-    throw dbError(
-      'OPERATION_NOT_FOUND',
-      `Unknown registered operation "${decodeURIComponent(hash)}".`,
-      {
-        status: 404,
-        hint: 'Register the operation name or hash in operations.registry, or generate an operations manifest.',
-        details: { ref: decodeURIComponent(hash) },
-      },
-    );
-  }
+  sendOperationResult(response, result);
+}
 
-  const operationResult = tracePhaseSync(trace, 'registered-operation-execution', () => operationRequest(operation, body?.variables ?? {}), {
-    hash,
-  });
-  if (operationResult.kind === 'graphql') {
-    if (db.config.graphql?.enabled === false) {
-      sendJson(response, 404, {
-        error: {
-          code: 'GRAPHQL_DISABLED',
-          message: 'GraphQL endpoint is disabled.',
-          hint: 'Set graphql.enabled to true in db.config.mjs to enable registered GraphQL operations.',
-          details: {
-            graphqlEnabled: false,
-            hash,
-          },
-        },
-      });
-      return;
-    }
-
-    const result = await tracePhase(trace, 'graphql-handler', () => executeGraphql(db, {
-      query: operationResult.query,
-      variables: operationResult.variables,
-      operationName: operationResult.operationName,
-    }), {
-      hash,
-    });
-    sendJson(response, 200, result);
+function sendOperationResult(response, result) {
+  const contentType = result.headers?.['content-type'] ?? '';
+  if (contentType.includes('application/json')) {
+    sendJson(response, result.status, result.body);
     return;
   }
-
-  const restRequest = operationResult;
-  const restUrl = new URL(restRequest.path, 'http://db.local');
-  await tracePhase(trace, 'rest-handler', () => handleRestRequest(db, internalRestRequest(restRequest), response, restUrl, { ...routes, trace }));
-}
-
-async function operationForRef(config, hash) {
-  const registry = await operationRegistry(config);
-  const decoded = decodeURIComponent(hash);
-  return registry[hash]
-    ?? registry[decoded]
-    ?? Object.values(registry).find((operation) => operation?.name === decoded);
-}
-
-async function operationRegistry(config) {
-  if (config.operations?.registry && Object.keys(config.operations.registry).length > 0) {
-    return config.operations.registry;
-  }
-
-  if (!config.operations?.outFile) {
-    return {};
-  }
-
-  try {
-    const manifest = JSON.parse(await readFile(config.operations.outFile, 'utf8'));
-    return manifest.operations ?? {};
-  } catch {
-    return {};
-  }
-}
-
-function internalRestRequest(restRequest) {
-  return {
-    method: restRequest.method,
-    headers: {
-      'content-type': 'application/json',
-    },
-    async *[Symbol.asyncIterator]() {
-      if (restRequest.body !== undefined) {
-        yield Buffer.from(JSON.stringify(restRequest.body));
-      }
-    },
-  };
+  sendText(response, result.status, result.rawBody ?? String(result.body ?? ''), contentType || 'text/plain; charset=utf-8');
 }
 
 export async function reloadDb(db) {
@@ -433,8 +361,17 @@ function shouldIgnoreSourceEvent(db, filename) {
   }
 
   const absolutePath = path.join(db.config.sourceDir, relativePath);
+  if (db.config.operations?.sourceDir && isInsideOrEqualPath(db.config.operations.sourceDir, absolutePath)) {
+    return true;
+  }
+
   const relativeStatePath = path.relative(db.config.stateDir, absolutePath);
   return relativeStatePath === '' || (!relativeStatePath.startsWith('..') && !path.isAbsolute(relativeStatePath));
+}
+
+function isInsideOrEqualPath(parent, child) {
+  const relative = path.relative(path.resolve(parent), path.resolve(child));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 export function createViewerEventHub() {
@@ -519,14 +456,14 @@ function forkApiBase(routes, forkName) {
   return joinPaths(routes.apiBase || '', `/forks/${encodeURIComponent(forkName)}`);
 }
 
-function operationHashForRequest(url, routes) {
+function operationRefForRequest(url, routes) {
   const prefix = `${joinPaths(routes.apiBase || '', '/operations')}/`;
   if (!url.pathname.startsWith(prefix)) {
     return null;
   }
 
-  const [hash] = url.pathname.slice(prefix.length).split('/');
-  return hash ? decodeURIComponent(hash) : null;
+  const [ref] = url.pathname.slice(prefix.length).split('/');
+  return ref ? decodeURIComponent(ref) : null;
 }
 
 function routeExposureViolation(config, url, routes) {
@@ -607,7 +544,7 @@ function sendRouteExposureViolation(response, violation, routes) {
       error: {
         code: 'REST_REGISTERED_ONLY',
         message: 'Raw REST routes are configured for registered operations only.',
-        hint: `Use POST ${joinPaths(routes.apiBase || '', '/operations/{hash}')} with a registered operation hash.`,
+        hint: `Use POST ${joinPaths(routes.apiBase || '', '/operations/{ref}')} with a registered operation ref.`,
         details: {
           path: violation.path,
           exposure: violation.exposure,

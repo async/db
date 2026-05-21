@@ -567,14 +567,162 @@ test('CLI operations build writes registry and client refs outputs', async () =>
   ]);
   const registry = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.operations.json'), 'utf8'));
   const refs = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.operation-refs.json'), 'utf8'));
-  const [hash] = Object.keys(registry.operations);
+  const [ref] = Object.keys(registry.operations);
 
   assert.match(stdout, /Generated src\/generated\/db\.operations\.json/);
   assert.match(stdout, /Generated src\/generated\/db\.operation-refs\.json/);
   assert.equal(stderr, '');
-  assert.equal(refs.operations.GetUser.hash, hash);
+  assert.equal(refs.operations.GetUser.ref, ref);
+  assert.equal(refs.operations.GetUser.hash, undefined);
   assert.equal(refs.operations.GetUser.path, undefined);
-  assert.equal(registry.operations[hash].path, '/users/{id}.json');
+  assert.equal(registry.operations[ref].path, '/users/{id}.json');
+});
+
+test('CLI operations contract prints and checks the client-exposed operation refs', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
+  const operationPath = path.join(cwd, 'db/operations/get-user.jsonc');
+  await writeFile(operationPath, `{
+    "name": "GetUser",
+    "path": "/users/{id}.json",
+    "query": {
+      "select": "id,name"
+    }
+  }`, 'utf8');
+  await writeConfig(cwd, `export default {
+    outputs: {
+      operationRefs: './src/generated/db.operation-refs.json',
+    },
+    operations: {
+      sourceDir: './db/operations',
+    },
+  };`);
+
+  const printed = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'operations',
+    'contract',
+    '--cwd',
+    cwd,
+  ]);
+  const contract = JSON.parse(printed.stdout);
+  assert.equal(contract.kind, 'db.operationContract');
+  assert.equal(contract.generatedAt, undefined);
+  assert.equal(contract.operations.GetUser.name, 'GetUser');
+  assert.match(contract.operations.GetUser.ref, /^sha256:[a-f0-9]{64}$/);
+  assert.equal(contract.operations.GetUser.path, undefined);
+  assert.equal(contract.operations.GetUser.query, undefined);
+
+  await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'operations',
+    'build',
+    '--cwd',
+    cwd,
+  ]);
+
+  const checked = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'operations',
+    'contract',
+    '--cwd',
+    cwd,
+    '--check',
+  ]);
+  assert.match(checked.stdout, /Operation client contract matches src\/generated\/db\.operation-refs\.json/);
+
+  await writeFile(operationPath, `{
+    "name": "GetUser",
+    "path": "/profiles/{id}.json",
+    "query": {
+      "select": "id,name"
+    }
+  }`, 'utf8');
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'operations',
+      'contract',
+      '--cwd',
+      cwd,
+      '--check',
+    ]),
+    (error) => error.stderr.includes('Operation client contract changed'),
+  );
+});
+
+test('CLI operations contract --out writes a deterministic sorted contract file', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/operations/01-zulu-user.jsonc'), `{
+    "name": "ZuluUser",
+    "ref": "users.zulu",
+    "path": "/users/{id}.json"
+  }`, 'utf8');
+  await writeFile(path.join(cwd, 'db/operations/02-alpha-user.jsonc'), `{
+    "name": "AlphaUser",
+    "ref": "users.alpha",
+    "path": "/profiles/{id}.json"
+  }`, 'utf8');
+  await writeConfig(cwd, `export default {
+    operations: {
+      sourceDir: './db/operations',
+    },
+  };`);
+
+  const args = [
+    path.resolve('src/cli.js'),
+    'operations',
+    'contract',
+    '--cwd',
+    cwd,
+    '--out',
+    './src/generated/db.operation-contract.json',
+  ];
+  const first = await execFileAsync(process.execPath, args);
+  const firstContent = await readFile(path.join(cwd, 'src/generated/db.operation-contract.json'), 'utf8');
+  const second = await execFileAsync(process.execPath, args);
+  const secondContent = await readFile(path.join(cwd, 'src/generated/db.operation-contract.json'), 'utf8');
+  const contract = JSON.parse(firstContent);
+
+  assert.match(first.stdout, /Generated src\/generated\/db\.operation-contract\.json/);
+  assert.match(second.stdout, /Generated src\/generated\/db\.operation-contract\.json/);
+  assert.equal(firstContent, secondContent);
+  assert.deepEqual(Object.keys(contract.operations), ['AlphaUser', 'ZuluUser']);
+  assert.equal(contract.generatedAt, undefined);
+  assert.deepEqual(contract.operations.AlphaUser, {
+    name: 'AlphaUser',
+    ref: 'users.alpha',
+  });
+  assert.equal(contract.operations.AlphaUser.path, undefined);
+});
+
+test('CLI operations contract --check requires an approved contract target', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/operations/get-user.jsonc'), `{
+    "name": "GetUser",
+    "ref": "users.get",
+    "path": "/users/{id}.json"
+  }`, 'utf8');
+  await writeConfig(cwd, `export default {
+    operations: {
+      sourceDir: './db/operations',
+    },
+  };`);
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'operations',
+      'contract',
+      '--cwd',
+      cwd,
+      '--check',
+    ]),
+    (error) => error.stderr.includes('Operation contract check needs --out <file> or outputs.operationRefs in db.config.mjs.'),
+  );
 });
 
 test('CLI subcommands print focused help without running the command', async () => {
@@ -583,7 +731,7 @@ test('CLI subcommands print focused help without running the command', async () 
   await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/);
   await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/);
   await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/);
-  await assertCliHelp(['operations', '--help'], /Usage:\n  async-db operations build \[--out <file>\] \[--refs-out <file>\]/);
+  await assertCliHelp(['operations', '--help'], /async-db operations contract \[--out <file>\] \[--check\]/);
   await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/);
 });
 
@@ -597,7 +745,7 @@ test('CLI subcommand help does not load project config', async () => {
   await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/, cwd);
   await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/, cwd);
   await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/, cwd);
-  await assertCliHelp(['operations', '--help'], /Usage:\n  async-db operations build \[--out <file>\] \[--refs-out <file>\]/, cwd);
+  await assertCliHelp(['operations', '--help'], /async-db operations contract \[--out <file>\] \[--check\]/, cwd);
   await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/, cwd);
 });
 

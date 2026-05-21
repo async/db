@@ -113,7 +113,9 @@ You can also write the same shape to a committed artifact:
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  viewerManifestOutFile: './src/generated/db.viewer.json',
+  outputs: {
+    viewerManifest: './src/generated/db.viewer.json',
+  },
 });
 ```
 
@@ -138,6 +140,10 @@ Scoped REST remains available under the tool route base, such as
 `GET /__db/rest/users.json`. Standalone `async-db serve` also keeps root REST
 routes such as `GET /users` for local convenience. Set `server.dataPath: false`
 to disable only the `/db` alias.
+
+When a prototype route needs to become an app-owned API route, see the
+[Prototype To Production REST Guide](./prototype-to-production.md) for
+`/api/db/*`, `/api/*`, registered operation refs, and route lockdown.
 
 ### Fixture-Like `.json` Routes
 
@@ -340,27 +346,27 @@ Errors are shaped for humans and automation:
 
 ## Registered REST Operations
 
-Registered queries are optional REST or GraphQL request templates with stable
-SHA-256 hashes. They let production-style apps allowlist specific reads and
-writes while local fixture CRUD can stay open by default. The underlying config
-and CLI still use the `operations` name.
+Registered queries are optional REST or GraphQL request templates with callable
+refs and optional names. They let production-style apps allowlist specific
+reads and writes while local fixture CRUD can stay open by default. The
+underlying config and CLI still use the `operations` name.
 
 ```txt
-GET /db/users/{id}.json?select=id,name
+GET /users/{id}.json?select=id,name
 ```
 
 ```json
 {
   "name": "GetUser",
   "method": "GET",
-  "path": "/db/users/{id}.json",
+  "path": "/users/{id}.json",
   "query": {
     "select": "id,name"
   }
 }
 ```
 
-GraphQL templates use the same registry and hash execution route:
+GraphQL templates use the same registry and ref execution route:
 
 ```json
 {
@@ -379,26 +385,36 @@ Build the registry and optional client-safe refs:
 async-db operations build --out ./src/generated/db.operations.json --refs-out ./src/generated/db.operation-refs.json
 ```
 
-At runtime, hash execution is always a POST to the dev-tool base:
+At runtime, registered operation execution is always a POST to the dev-tool base:
 
 ```bash
-curl -X POST http://127.0.0.1:7331/__db/operations/sha256:abc123 \
+curl -X POST http://127.0.0.1:7331/__db/operations/users.get \
   -H 'content-type: application/json' \
   -d '{"variables":{"id":"u_1"}}'
 ```
 
-The hash is an allowlist key, not a secret. Keep the full registry server-side.
-Client refs should contain names and hashes but not full request templates.
+Readable names work as app-facing operation refs. Refs are allowlist identifiers, not
+secrets. Generated refs default to `hashOperation(template)`, and apps can set
+their own `ref` in operation sources when they want readable or app-owned ids.
+Keep the full registry server-side. Client refs contain names and callable refs
+but not full request templates, variables, or request bodies. Use
+`async-db operations contract --check` in CI when committed refs need approval
+before the browser-facing operation contract changes. `operations.acceptRefs`
+controls whether the server accepts refs, names, or both. Use `operations.resolveRef` or
+`operations.validateRef` for custom server-side registry lookup or policy.
 
-To block raw REST while allowing registered hashes:
+To block raw REST while allowing registered operations:
 
 ```js
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
+  outputs: {
+    operationRegistry: './src/generated/db.operations.json',
+  },
   operations: {
     enabled: true,
-    outFile: './src/generated/db.operations.json',
+    acceptRefs: 'ref',
   },
   server: {
     expose: {

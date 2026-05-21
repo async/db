@@ -5,16 +5,17 @@ export default defineConfig({
   // Fixture source folder. Defaults to './db'.
   dbDir: './db',
 
-  // Runtime output folder. Defaults to './.db'.
-  stateDir: './.db',
-
-  // Optional committed JSON schema manifest for model-driven admin/CMS UIs.
-  // Generated during `async-db sync` when set.
-  schemaOutFile: null,
-
-  // Optional committed JSON viewer manifest for custom data viewers.
-  // Includes UI metadata, diagnostics, capabilities, and route links.
-  viewerManifestOutFile: null,
+  // Generated output locations. Most committed outputs are opt-in.
+  outputs: {
+    stateDir: './.db',
+    types: './.db/types/index.ts',
+    committedTypes: null,
+    schemaManifest: null,
+    viewerManifest: null,
+    operationRegistry: null,
+    operationRefs: null,
+    honoStarterDir: './db-api',
+  },
 
   // Optional visitor hook for changing or omitting generated manifest fields.
   schemaManifest: {
@@ -53,12 +54,9 @@ export default defineConfig({
     // },
   },
 
-  // Generated TypeScript types. The default outFile is gitignored; commitOutFile
-  // is useful when app code imports generated types in CI or fresh checkouts.
+  // Generated TypeScript type behavior. Paths live under `outputs`.
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
-    commitOutFile: null,
     useReadonly: false,
     emitComments: true,
   },

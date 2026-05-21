@@ -3,11 +3,15 @@ import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   dbDir: './db',
-  stateDir: './.db',
+  outputs: {
+    stateDir: './.db',
+    types: './.db/types/index.ts',
+    committedTypes: './src/generated/db.types.ts',
+    operationRegistry: './src/generated/db.operations.json',
+    operationRefs: './src/generated/db.operation-refs.json',
+  },
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
-    commitOutFile: './src/generated/db.types.ts',
     emitComments: true,
   },
   schema: {
@@ -16,8 +20,6 @@ export default defineConfig({
   operations: {
     enabled: false,
     sourceDir: './db/operations',
-    outFile: './src/generated/db.operations.json',
-    refsOutFile: './src/generated/db.operation-refs.json',
   },
   rest: {
     formats: {

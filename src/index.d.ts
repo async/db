@@ -8,9 +8,9 @@ export type DbTypeMap = {
 export type DbGeneratedTypesOptions = {
   /** Generate TypeScript types during sync. */
   enabled?: boolean;
-  /** Gitignored generated type output. Defaults to "./.db/types/index.ts". */
-  outFile?: string;
-  /** Optional committed copy for app/CI imports. */
+  /** Backwards-compatible alias for outputs.types. Defaults to "./.db/types/index.ts". */
+  outFile?: string | null;
+  /** Backwards-compatible alias for outputs.committedTypes. */
   commitOutFile?: string | null;
   /** Emit readonly object properties in generated types. */
   useReadonly?: boolean;
@@ -19,6 +19,27 @@ export type DbGeneratedTypesOptions = {
   /** Export DbCollections, DbDocuments, and DbTypes helpers. */
   exportRuntimeHelpers?: boolean;
 };
+
+export type DbOutputOptions = {
+  /** Generated runtime output folder. Defaults to "./.db". */
+  stateDir?: string;
+  /** Gitignored generated TypeScript type output. Defaults to "./.db/types/index.ts". */
+  types?: string | null;
+  /** Optional committed TypeScript type copy for app/CI imports. */
+  committedTypes?: string | null;
+  /** Optional committed generated JSON schema manifest for admin/CMS UI generation. */
+  schemaManifest?: string | null;
+  /** Optional committed generated JSON viewer manifest for custom data UIs. */
+  viewerManifest?: string | null;
+  /** Optional full registered operation registry output path. */
+  operationRegistry?: string | null;
+  /** Optional client-safe registered operation refs output path. */
+  operationRefs?: string | null;
+  /** Output folder for generated Hono starter code. Defaults to "./db-api". */
+  honoStarterDir?: string;
+};
+
+export type DbForkOutputOptions = Pick<DbOutputOptions, 'stateDir' | 'types' | 'committedTypes'>;
 
 export type DbSchemaManifestFieldContext = {
   field: Record<string, unknown>;
@@ -204,6 +225,8 @@ export type DbTraceOptions = boolean | DbTraceConfig;
 
 export type DbRestOperationTemplate = {
   name?: string;
+  /** Callable operation identifier. Defaults to hashOperation(template) when omitted. */
+  ref?: string;
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | string;
   path: string;
   query?: string | Record<string, unknown>;
@@ -213,6 +236,8 @@ export type DbRestOperationTemplate = {
 
 export type DbGraphqlOperationTemplate = {
   name?: string;
+  /** Callable operation identifier. Defaults to hashOperation(template) when omitted. */
+  ref?: string;
   query: string;
   variables?: Record<string, unknown>;
   operationName?: string | null;
@@ -222,20 +247,71 @@ export type DbOperationTemplate = string | DbRestOperationTemplate | DbGraphqlOp
 
 export type DbOperationRef = {
   name?: string;
-  hash: string;
+  /** Callable ref for client query(). */
+  ref: string;
 };
+
+export type DbRegisteredOperation = Exclude<DbOperationTemplate, string> & {
+  ref?: string;
+};
+
+export type DbOperationRegistryValue = DbOperationTemplate | DbRegisteredOperation;
+
+export type DbOperationAcceptRefs = 'ref' | 'name' | 'both';
+
+export type DbOperationRefContext = {
+  ref: string;
+  decodedRef: string;
+  acceptRefs: DbOperationAcceptRefs;
+  registry: Record<string, DbRegisteredOperation>;
+  operation: DbRegisteredOperation | null;
+};
+
+export type DbOperationResolveRef = (
+  ref: string,
+  context: Omit<DbOperationRefContext, 'operation'>,
+) => DbOperationRegistryValue | null | undefined | Promise<DbOperationRegistryValue | null | undefined>;
+
+export type DbOperationValidateRef = (
+  context: DbOperationRefContext,
+) => boolean | null | undefined | DbOperationRegistryValue | Promise<boolean | null | undefined | DbOperationRegistryValue>;
 
 export type DbOperationsOptions = {
   /** Enable registered operation execution. Defaults to false. */
   enabled?: boolean;
   /** Folder containing operation source templates. Defaults to "./db/operations". */
   sourceDir?: string;
-  /** Full server registry output path. */
+  /** Backwards-compatible alias for outputs.operationRegistry. */
   outFile?: string | null;
-  /** Client-safe refs output path. */
+  /** Backwards-compatible alias for outputs.operationRefs. */
   refsOutFile?: string | null;
-  /** Inline server registry keyed by operation hash. */
-  registry?: Record<string, Exclude<DbOperationTemplate, string> & { hash?: string }>;
+  /** Controls which default refs the server accepts. Defaults to "both". */
+  acceptRefs?: DbOperationAcceptRefs;
+  /** Custom server-side operation lookup for framework adapters or app registries. */
+  resolveRef?: DbOperationResolveRef;
+  /** Custom server-side validation or mapping for operation refs. */
+  validateRef?: DbOperationValidateRef;
+  /** Inline server registry keyed by operation ref or operation name. */
+  registry?: Record<string, DbOperationRegistryValue>;
+};
+
+export type DbOperationResult = {
+  kind: 'rest' | 'graphql';
+  status: number;
+  headers: Record<string, string>;
+  body: unknown;
+  rawBody?: string;
+};
+
+export type DbOperationRequestBody = {
+  variables?: Record<string, unknown>;
+};
+
+export type DbOperationHandler = {
+  enabled: boolean;
+  resolve(ref: string): Promise<DbRegisteredOperation | null | undefined>;
+  execute(ref: string, variables?: Record<string, unknown>): Promise<DbOperationResult>;
+  executeRequest(ref: string, body?: DbOperationRequestBody | null): Promise<DbOperationResult>;
 };
 
 export type DbSourceReaderContext = {
@@ -352,11 +428,13 @@ export type DbOptions = {
   dbDir?: string;
   /** Backwards-compatible fixture source folder alias. If set, it wins over dbDir. */
   sourceDir?: string;
-  /** Generated runtime output folder. Defaults to "./.db". */
+  /** Backwards-compatible alias for outputs.stateDir. */
   stateDir?: string;
-  /** Optional committed generated JSON schema manifest for admin/CMS UI generation. */
+  /** Preferred generated output locations for state, types, manifests, operations, and generated starter code. */
+  outputs?: DbOutputOptions;
+  /** Backwards-compatible alias for outputs.schemaManifest. */
   schemaOutFile?: string | null;
-  /** Optional committed generated JSON viewer manifest for custom data UIs. */
+  /** Backwards-compatible alias for outputs.viewerManifest. */
   viewerManifestOutFile?: string | null;
   /** Optional visitor hooks for customizing generated schema manifest output. */
   schemaManifest?: DbSchemaManifestOptions;
@@ -462,14 +540,16 @@ export type DbOptions = {
     dbDir?: string;
     /** Backwards-compatible source folder alias. If set, it wins over dbDir. */
     sourceDir?: string;
-    /** Fork generated runtime output folder. Defaults to "./.db/forks/<name>". */
+    /** Fork output aliases for state and generated type files. */
+    outputs?: DbForkOutputOptions;
+    /** Backwards-compatible alias for outputs.stateDir. Defaults to "./.db/forks/<name>". */
     stateDir?: string;
-    /** Fork-specific generated type output. Committed type output is disabled by default for forks. */
+    /** Fork-specific generated type options. Output paths are aliases for outputs.types and outputs.committedTypes. */
     types?: DbGeneratedTypesOptions;
   }>;
   generate?: {
     hono?: {
-      /** Output folder for generated starter code. */
+      /** Backwards-compatible alias for outputs.honoStarterDir. */
       outDir?: string;
       /** API modules to generate. */
       api?: Array<'rest' | 'graphql'> | 'rest' | 'graphql' | 'rest,graphql' | 'none';
@@ -720,6 +800,7 @@ export function createIndexedDbCacheStorage(options?: {
   indexedDB?: unknown;
 }): DbCacheStorage;
 export function createDbRequestHandler(db: Db, options?: DbRequestHandlerOptions): DbRequestHandler;
+export function createDbOperationHandler(db: Db, options?: DbOperationsOptions | { operations?: boolean | 'auto' | DbOperationsOptions }): DbOperationHandler;
 export function loadConfig(options?: DbOptions): Promise<DbOptions>;
 export function runDbDoctor(config: DbOptions): Promise<DbDoctorResult>;
 export function startDbServer(options?: DbOptions & { host?: string; port?: number }): Promise<DbServer>;

@@ -1,11 +1,6 @@
 import { dbError } from './errors.js';
 
 const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
-const HASH_PATTERN = /^sha256:[a-f0-9]+$/i;
-
-export function isOperationHash(value) {
-  return typeof value === 'string' && HASH_PATTERN.test(value);
-}
 
 export function normalizeOperationTemplate(input) {
   if (typeof input === 'string') {
@@ -22,10 +17,10 @@ export function normalizeOperationTemplate(input) {
     );
   }
 
-  if (input.hash && !input.path && !input.query) {
+  if (input.ref && !input.path && !input.query) {
     return {
       name: input.name,
-      hash: String(input.hash),
+      ref: String(input.ref),
     };
   }
 
@@ -43,6 +38,9 @@ export function normalizeOperationTemplate(input) {
 
   if (input.name) {
     normalized.name = String(input.name);
+  }
+  if (input.ref) {
+    normalized.ref = String(input.ref);
   }
   if (query && Object.keys(query).length > 0) {
     normalized.query = query;
@@ -88,9 +86,9 @@ export function canonicalOperation(input) {
 
 export function operationRequest(input, variables = {}) {
   const operation = normalizeOperationTemplate(input);
-  if (operation.hash && !operation.path) {
+  if (operation.ref && !operation.path && operation.kind !== 'graphql') {
     return {
-      hash: operation.hash,
+      ref: operation.ref,
     };
   }
 
@@ -186,6 +184,9 @@ function normalizeGraphqlOperation(input) {
   };
   if (input.name) {
     normalized.name = String(input.name);
+  }
+  if (input.ref) {
+    normalized.ref = String(input.ref);
   }
   if (input.operationName !== undefined && input.operationName !== null) {
     normalized.operationName = String(input.operationName);

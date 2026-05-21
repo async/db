@@ -1,4 +1,4 @@
-import type { DbOptions, DbTraceOptions } from './index.d.ts';
+import type { DbOperationsOptions, DbOptions, DbTraceOptions } from './index.d.ts';
 
 export type DbHonoOptions = DbOptions & {
   api?: Array<'rest' | 'graphql'> | 'rest' | 'graphql' | 'rest,graphql';
@@ -24,7 +24,19 @@ export type DbHonoRestHookContext = {
   body?: Record<string, unknown>;
 };
 
+export type DbHonoOperationHookContext = {
+  c: unknown;
+  db: unknown;
+  resource: null;
+  resourceName: null;
+  method: 'operation';
+  ref: string;
+};
+
+export type DbHonoBeforeRequestHookContext = DbHonoRestHookContext | DbHonoOperationHookContext;
+
 export type DbHonoRestHook = (context: DbHonoRestHookContext) => unknown | Promise<unknown>;
+export type DbHonoBeforeRequestHook = (context: DbHonoBeforeRequestHookContext) => unknown | Promise<unknown>;
 
 export type DbHonoRestHooks = {
   beforeList?: DbHonoRestHook;
@@ -36,7 +48,7 @@ export type DbHonoRestHooks = {
 };
 
 export type DbHonoRestLifecycleHooks = {
-  beforeRequest?: DbHonoRestHook;
+  beforeRequest?: DbHonoBeforeRequestHook;
   beforeWrite?: DbHonoRestHook;
 };
 
@@ -47,6 +59,8 @@ export type DbHonoRestResourceOptions = false | {
 
 export type DbHonoRestRoutesOptions = {
   prefix?: string;
+  /** Mount registered operation route. Defaults to "auto", which uses db.config.operations when enabled. */
+  operations?: 'auto' | boolean | DbOperationsOptions;
   resources?: string[];
   exclude?: string[];
   methods?: DbHonoRestMethod[];

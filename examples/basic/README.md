@@ -34,6 +34,13 @@ http://127.0.0.1:7331/__db
 `operations build` writes a full server registry and client-safe refs under
 `examples/basic/src/generated/`.
 
+To review the browser-facing operation contract without volatile timestamps:
+
+```bash
+node ./src/cli.js operations contract --cwd ./examples/basic
+node ./src/cli.js operations contract --cwd ./examples/basic --check
+```
+
 ## REST Request To Try
 
 Leave `serve` running and run this from another terminal:
@@ -62,11 +69,11 @@ node ./src/cli.js create users '{"id":"u_2","name":"Grace Hopper","email":"grace
 
 ## Registered Operation To Try
 
-Build operations, then use the generated hash from
+Build operations, then use the generated ref from
 `examples/basic/src/generated/db.operation-refs.json`:
 
 ```bash
-curl -X POST http://127.0.0.1:7331/__db/operations/sha256:HASH \
+curl -X POST http://127.0.0.1:7331/__db/operations/REF \
   -H 'content-type: application/json' \
   -d '{"variables":{"id":"u_1"}}'
 ```

@@ -58,7 +58,9 @@ import { openDb } from '@async/db';
 
 const db = await openDb({
   dbDir: './db',
-  stateDir: './.db',
+  outputs: {
+    stateDir: './.db',
+  },
   stores: {
     default: 'json',
   },
@@ -173,6 +175,8 @@ Run registered queries or literal operation templates through the same client.
 `query()` is the app-facing alias for `operation()`:
 
 ```ts
+import operationRefs from './generated/db.operation-refs.json' assert { type: 'json' };
+
 await client.query('GetUser', { id: 'u_1' });
 
 await client.query('/db/users/{id}.json?select=id,name', { id: 'u_1' });
@@ -193,17 +197,24 @@ await client.query({
   },
 }, { id: 'u_1' });
 
-await client.query({ name: 'GetUser', hash: 'sha256:abc123' }, { id: 'u_1' });
+await client.query({ name: 'GetUser', ref: 'users.get' }, { id: 'u_1' });
+
+await client.query(operationRefs.operations.GetUser.ref, { id: 'u_1' });
 ```
 
 String values passed to `query()` that start with `/`, or with an HTTP method
 followed by `/`, are literal REST templates. Other strings are registered query
-refs, such as an operation name or SHA-256 hash, and call
-`POST /__db/operations/:ref`. Object REST templates execute as normal REST
-requests. Object GraphQL templates are inferred when an object has `query` and
-no REST `path`, and execute as normal GraphQL requests. The server looks up
-registered refs, substitutes variables, and runs REST templates through normal
-REST shaping or GraphQL templates through the GraphQL executor.
+refs, such as an operation name or explicit ref, and call `POST
+/__db/operations/:ref`. Object REST templates execute as normal REST requests.
+Object GraphQL templates are inferred when an object has `query` and no REST
+`path`, and execute as normal GraphQL requests. The server looks up registered
+refs, substitutes variables, and runs REST templates through normal REST shaping
+or GraphQL templates through the GraphQL executor.
+
+Generated operation refs include `.name` and `.ref`. `.ref` is the value app
+code should call. It defaults to `hashOperation(template)` unless the operation
+source provides an explicit `ref`. Server acceptance is controlled separately
+with `operations.acceptRefs`.
 
 ## Fork Client
 
@@ -247,9 +258,41 @@ The helper is also attached to the default client as `db.fork('legacy-demo')`.
 The core package stays dependency-light. Optional integrations use dynamic
 imports, generated app dependencies, or injected database clients.
 
-The root export also includes `hashOperation()` and `buildOperationManifest()`
-for tools that want to build operation registries without shelling out to the
+The root export also includes `hashOperation()`, `buildOperationManifest()`,
+and `createDbOperationHandler()` for tools and framework adapters that want to
+build or execute registered operation registries without shelling out to the
 CLI.
+
+`createDbOperationHandler(db, options?)` returns a small operation executor:
+
+```ts
+const handler = createDbOperationHandler(db, {
+  registry: generatedOperations.operations,
+  acceptRefs: 'ref',
+});
+
+const result = await handler.execute(operationRefs.operations.GetUser.ref, {
+  id: 'u_1',
+});
+```
+
+Use `execute(ref, variables)` for direct calls or `executeRequest(ref, body)`
+when adapting an HTTP request body shaped as `{ variables }`. Framework adapters
+should pass registry, `acceptRefs`, `resolveRef`, or `validateRef` at handler
+creation time instead of relying on per-execution public options.
+
+Inline registries can use full operation objects or string REST templates. The
+registry key is used as the fallback name and ref, so custom build steps can
+keep a small manual registry:
+
+```js
+const handler = createDbOperationHandler(db, {
+  registry: {
+    GetUser: '/users/{id}.json?select=id,name',
+  },
+  acceptRefs: 'name',
+});
+```
 
 ## Repo Example Launcher
 

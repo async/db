@@ -27,6 +27,7 @@ export async function loadConfig(options = {}) {
   rejectUnsupportedRuntimeConfig(inlineOptions);
 
   const merged = mergeDeep(mergeDeep(structuredClone(DEFAULT_CONFIG), userConfig), inlineOptions);
+  normalizeOutputAliases(merged, userConfig, inlineOptions);
   merged.cwd = cwd;
   merged.configPath = configPath;
   const sourceDir = hasOwnConfigValue(userConfig, 'sourceDir') || hasOwnConfigValue(inlineOptions, 'sourceDir')
@@ -35,22 +36,27 @@ export async function loadConfig(options = {}) {
   merged.sourceDir = resolveFrom(cwd, sourceDir);
   merged.dbDir = merged.sourceDir;
   merged.stateDir = resolveFrom(cwd, merged.stateDir);
+  merged.outputs.stateDir = merged.stateDir;
 
   if (merged.types?.outFile) {
     merged.types.outFile = resolveFrom(cwd, merged.types.outFile);
   }
+  merged.outputs.types = merged.types?.outFile ?? null;
 
   if (merged.types?.commitOutFile) {
     merged.types.commitOutFile = resolveFrom(cwd, merged.types.commitOutFile);
   }
+  merged.outputs.committedTypes = merged.types?.commitOutFile ?? null;
 
   if (merged.schemaOutFile) {
     merged.schemaOutFile = resolveFrom(cwd, merged.schemaOutFile);
   }
+  merged.outputs.schemaManifest = merged.schemaOutFile ?? null;
 
   if (merged.viewerManifestOutFile) {
     merged.viewerManifestOutFile = resolveFrom(cwd, merged.viewerManifestOutFile);
   }
+  merged.outputs.viewerManifest = merged.viewerManifestOutFile ?? null;
 
   if (merged.operations?.sourceDir) {
     merged.operations.sourceDir = resolveFrom(cwd, merged.operations.sourceDir);
@@ -59,14 +65,72 @@ export async function loadConfig(options = {}) {
   if (merged.operations?.outFile) {
     merged.operations.outFile = resolveFrom(cwd, merged.operations.outFile);
   }
+  merged.outputs.operationRegistry = merged.operations?.outFile ?? null;
 
   if (merged.operations?.refsOutFile) {
     merged.operations.refsOutFile = resolveFrom(cwd, merged.operations.refsOutFile);
   }
+  merged.outputs.operationRefs = merged.operations?.refsOutFile ?? null;
+
+  if (merged.generate?.hono?.outDir) {
+    merged.generate.hono.outDir = resolveFrom(cwd, merged.generate.hono.outDir);
+  }
+  merged.outputs.honoStarterDir = merged.generate?.hono?.outDir ?? null;
 
   merged.forks = normalizeForks(merged, merged.forks);
 
   return merged;
+}
+
+function normalizeOutputAliases(config, userConfig, inlineOptions) {
+  config.outputs = config.outputs ?? {};
+  config.types = config.types ?? {};
+  config.operations = config.operations ?? {};
+  config.generate = config.generate ?? {};
+  config.generate.hono = config.generate.hono ?? {};
+
+  mirrorOutput(config, userConfig, inlineOptions, 'stateDir', ['stateDir']);
+  mirrorOutput(config, userConfig, inlineOptions, 'types', ['types', 'outFile']);
+  mirrorOutput(config, userConfig, inlineOptions, 'committedTypes', ['types', 'commitOutFile']);
+  mirrorOutput(config, userConfig, inlineOptions, 'schemaManifest', ['schemaOutFile']);
+  mirrorOutput(config, userConfig, inlineOptions, 'viewerManifest', ['viewerManifestOutFile']);
+  mirrorOutput(config, userConfig, inlineOptions, 'operationRegistry', ['operations', 'outFile']);
+  mirrorOutput(config, userConfig, inlineOptions, 'operationRefs', ['operations', 'refsOutFile']);
+  mirrorOutput(config, userConfig, inlineOptions, 'honoStarterDir', ['generate', 'hono', 'outDir']);
+}
+
+function mirrorOutput(config, userConfig, inlineOptions, outputKey, legacyPath) {
+  const outputPath = ['outputs', outputKey];
+  const value = configuredOutputValue({
+    config,
+    userConfig,
+    inlineOptions,
+    outputPath,
+    legacyPath,
+  });
+
+  setPath(config, outputPath, value);
+  setPath(config, legacyPath, value);
+}
+
+function configuredOutputValue({ config, userConfig, inlineOptions, outputPath, legacyPath }) {
+  if (hasOwnPath(inlineOptions, outputPath)) {
+    return getPath(inlineOptions, outputPath);
+  }
+
+  if (hasOwnPath(inlineOptions, legacyPath)) {
+    return getPath(inlineOptions, legacyPath);
+  }
+
+  if (hasOwnPath(userConfig, outputPath)) {
+    return getPath(userConfig, outputPath);
+  }
+
+  if (hasOwnPath(userConfig, legacyPath)) {
+    return getPath(userConfig, legacyPath);
+  }
+
+  return getPath(config, legacyPath);
 }
 
 async function findConfigPath(cwd) {
@@ -110,6 +174,42 @@ function isPlainObject(value) {
 
 function hasOwnConfigValue(config, key) {
   return Object.prototype.hasOwnProperty.call(config, key) && config[key] !== undefined;
+}
+
+function hasOwnPath(config, pathParts) {
+  let current = config;
+  for (const pathPart of pathParts) {
+    if (!isPlainObject(current) || !Object.prototype.hasOwnProperty.call(current, pathPart)) {
+      return false;
+    }
+    current = current[pathPart];
+  }
+
+  return current !== undefined;
+}
+
+function getPath(config, pathParts) {
+  let current = config;
+  for (const pathPart of pathParts) {
+    if (!isPlainObject(current)) {
+      return undefined;
+    }
+    current = current[pathPart];
+  }
+
+  return current;
+}
+
+function setPath(config, pathParts, value) {
+  let current = config;
+  for (const pathPart of pathParts.slice(0, -1)) {
+    if (!isPlainObject(current[pathPart])) {
+      current[pathPart] = {};
+    }
+    current = current[pathPart];
+  }
+
+  current[pathParts.at(-1)] = value;
 }
 
 function rejectUnsupportedRuntimeConfig(config) {

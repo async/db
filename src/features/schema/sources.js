@@ -7,9 +7,10 @@ import { parseCsvRecords } from '../../csv.js';
 import { parseJsonc } from '../../jsonc.js';
 import { routePathForResource, typeNameForResource } from '../../names.js';
 
-export async function listSourceFiles(sourceDir) {
+export async function listSourceFiles(sourceDirOrConfig) {
+  const { sourceDir, ignoredDirs } = sourceFileListOptions(sourceDirOrConfig);
   try {
-    return await listSourceFilesInDirectory(sourceDir);
+    return await listSourceFilesInDirectory(sourceDir, '', ignoredDirs);
   } catch (error) {
     if (error.code === 'ENOENT') {
       return [];
@@ -18,7 +19,7 @@ export async function listSourceFiles(sourceDir) {
   }
 }
 
-async function listSourceFilesInDirectory(directory, prefix = '') {
+async function listSourceFilesInDirectory(directory, prefix = '', ignoredDirs = []) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
 
@@ -28,7 +29,11 @@ async function listSourceFilesInDirectory(directory, prefix = '') {
       if (entry.name.startsWith('.')) {
         continue;
       }
-      files.push(...await listSourceFilesInDirectory(path.join(directory, entry.name), relativePath));
+      const childDirectory = path.join(directory, entry.name);
+      if (isIgnoredSourceDirectory(childDirectory, ignoredDirs)) {
+        continue;
+      }
+      files.push(...await listSourceFilesInDirectory(childDirectory, relativePath, ignoredDirs));
       continue;
     }
 
@@ -38,6 +43,34 @@ async function listSourceFilesInDirectory(directory, prefix = '') {
   }
 
   return files.sort();
+}
+
+function sourceFileListOptions(sourceDirOrConfig) {
+  if (typeof sourceDirOrConfig === 'string') {
+    return {
+      sourceDir: sourceDirOrConfig,
+      ignoredDirs: [],
+    };
+  }
+
+  const sourceDir = sourceDirOrConfig.sourceDir;
+  const operationSourceDir = sourceDirOrConfig.operations?.sourceDir;
+  return {
+    sourceDir,
+    ignoredDirs: operationSourceDir && isInsideDirectory(sourceDir, operationSourceDir)
+      ? [path.resolve(operationSourceDir)]
+      : [],
+  };
+}
+
+function isIgnoredSourceDirectory(directory, ignoredDirs) {
+  const resolved = path.resolve(directory);
+  return ignoredDirs.some((ignoredDir) => resolved === ignoredDir || resolved.startsWith(`${ignoredDir}${path.sep}`));
+}
+
+function isInsideDirectory(parent, child) {
+  const relative = path.relative(path.resolve(parent), path.resolve(child));
+  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
 }
 
 export async function readSourceFile(config, filename) {

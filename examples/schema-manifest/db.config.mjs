@@ -3,12 +3,14 @@ import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   dbDir: './db',
-  stateDir: './.db',
-  schemaOutFile: './src/generated/db.schema.json',
+  outputs: {
+    stateDir: './.db',
+    types: './.db/types/index.ts',
+    committedTypes: './src/generated/db.types.ts',
+    schemaManifest: './src/generated/db.schema.json',
+  },
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
-    commitOutFile: './src/generated/db.types.ts',
     emitComments: true,
   },
   schemaManifest: {

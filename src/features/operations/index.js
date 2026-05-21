@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { dbError } from '../../errors.js';
 import { parseJsonc } from '../../jsonc.js';
 import { resolveFrom, writeText } from '../../fs-utils.js';
 import { canonicalOperation, normalizeOperationTemplate, stableStringify } from '../../shared/operations.js';
+import { operationMapFromEntries } from './maps.js';
 
 export function hashOperation(input) {
   return `sha256:${createHash('sha256').update(stableStringify(canonicalOperation(input))).digest('hex')}`;
@@ -12,24 +14,17 @@ export function hashOperation(input) {
 export async function buildOperationManifest(config, options = {}) {
   const operations = await loadOperationSources(config, options);
   const generatedAt = options.generatedAt ?? new Date().toISOString();
-  const registryEntries = operations.map((operation) => {
-    const normalized = normalizeOperationTemplate(operation);
-    const hash = hashOperation(normalized);
-    return [hash, {
-      ...normalized,
-      hash,
-    }];
-  });
-  const registry = Object.fromEntries(registryEntries);
+  const registryEntries = buildRegistryEntries(operations);
+  const registry = operationMapFromEntries(registryEntries);
   const refs = {
     version: 1,
     kind: 'db.operationRefs',
     generatedAt,
-    operations: Object.fromEntries(registryEntries.map(([hash, operation]) => [
-      operation.name ?? hash,
+    operations: operationMapFromEntries(registryEntries.map(([ref, operation]) => [
+      operation.name ?? ref,
       {
-        name: operation.name ?? hash,
-        hash,
+        name: operation.name ?? ref,
+        ref: operation.ref,
       },
     ])),
   };
@@ -42,13 +37,14 @@ export async function buildOperationManifest(config, options = {}) {
 
   const outFiles = [];
   const refsOutFiles = [];
-  const outFile = outputPath(config, options.outFile ?? config.operations?.outFile);
-  const refsOutFile = outputPath(config, options.refsOutFile ?? config.operations?.refsOutFile);
-  if (outFile) {
+  const shouldWrite = options.write !== false;
+  const outFile = outputPath(config, optionValue(options, 'outFile', config.operations?.outFile));
+  const refsOutFile = outputPath(config, optionValue(options, 'refsOutFile', config.operations?.refsOutFile));
+  if (shouldWrite && outFile) {
     await writeText(outFile, `${JSON.stringify(manifest, null, 2)}\n`);
     outFiles.push(outFile);
   }
-  if (refsOutFile) {
+  if (shouldWrite && refsOutFile) {
     await writeText(refsOutFile, `${JSON.stringify(refs, null, 2)}\n`);
     refsOutFiles.push(refsOutFile);
   }
@@ -59,6 +55,85 @@ export async function buildOperationManifest(config, options = {}) {
     outFiles,
     refsOutFiles,
   };
+}
+
+export function operationClientContract(refs) {
+  return {
+    version: 1,
+    kind: 'db.operationContract',
+    operations: operationMapFromEntries(
+      Object.entries(refs?.operations ?? {})
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([name, operationRef]) => [
+          name,
+          {
+            name: operationRef?.name ?? name,
+            ref: operationRef?.ref,
+          },
+        ]),
+    ),
+  };
+}
+
+function buildRegistryEntries(operations) {
+  const seenNames = new Map();
+  const seenRefs = new Map();
+  return operations.map((operation, index) => {
+    const normalized = normalizeOperationTemplate(operation);
+    const ref = normalized.ref ?? hashOperation(normalized);
+    const name = normalized.name ?? ref;
+    const previousName = seenNames.get(name);
+    if (previousName) {
+      throw duplicateOperationName(name, previousName, { index, ref });
+    }
+    const previousRef = seenRefs.get(ref);
+    if (previousRef) {
+      throw duplicateOperationRef(ref, previousRef, { index, name });
+    }
+    seenNames.set(name, { index, ref });
+    seenRefs.set(ref, { index, name });
+    return [ref, {
+      ...normalized,
+      name,
+      ref,
+    }];
+  });
+}
+
+function duplicateOperationName(name, previous, current) {
+  return dbError(
+    'OPERATION_DUPLICATE_NAME',
+    `Registered operation name "${name}" is used more than once.`,
+    {
+      status: 400,
+      hint: 'Give each registered operation a unique name so generated client refs map to one callable operation.',
+      details: {
+        name,
+        firstIndex: previous.index,
+        duplicateIndex: current.index,
+        firstRef: previous.ref,
+        duplicateRef: current.ref,
+      },
+    },
+  );
+}
+
+function duplicateOperationRef(ref, previous, current) {
+  return dbError(
+    'OPERATION_DUPLICATE_REF',
+    `Registered operation ref "${ref}" is used more than once.`,
+    {
+      status: 400,
+      hint: 'Give each registered operation a unique ref so generated client refs map to one callable operation.',
+      details: {
+        ref,
+        firstIndex: previous.index,
+        duplicateIndex: current.index,
+        firstName: previous.name,
+        duplicateName: current.name,
+      },
+    },
+  );
 }
 
 async function loadOperationSources(config, options) {
@@ -117,6 +192,10 @@ async function listOperationFiles(directory) {
 function operationNameFromFile(filePath) {
   const basename = path.basename(filePath).replace(/\.(jsonc?|rest|txt)$/i, '');
   return basename.replace(/(^|[-_])([a-z0-9])/gi, (_match, _separator, char) => char.toUpperCase());
+}
+
+function optionValue(options, key, fallback) {
+  return Object.hasOwn(options, key) && options[key] !== undefined ? options[key] : fallback;
 }
 
 function outputPath(config, value) {
