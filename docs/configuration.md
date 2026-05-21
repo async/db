@@ -365,7 +365,11 @@ Explicit integration options such as `createDbRequestHandler(db, { trace })`,
 `registerDbRoutes(app, db, { trace })` win over `db.config.mjs`
 `server.trace`.
 
-Use `server.expose` when a project wants production-like route hardening:
+Use `server.expose` when a project wants production-like route hardening.
+`operations.enabled: true` only enables registered operation execution; it does
+not automatically lock down raw REST routes. To make registered operations the
+only data API path, opt into operation-only exposure with
+`server.expose.rest: 'registered-only'`:
 
 ```js
 import { defineConfig } from '@async/db/config';
@@ -373,9 +377,11 @@ import { defineConfig } from '@async/db/config';
 export default defineConfig({
   outputs: {
     operationRegistry: './src/generated/db.operations.json',
+    operationRefs: './src/generated/db.operation-refs.json',
   },
   operations: {
     enabled: true,
+    acceptRefs: 'ref',
   },
   server: {
     expose: {
@@ -391,8 +397,18 @@ export default defineConfig({
 
 Exposure values are `open`, `registered-only`, `dev`, `disabled`, and `false`.
 `dev` routes are available unless `NODE_ENV=production`. `registered-only` is
-primarily for REST and GraphQL: raw REST resource and batch routes are blocked, while
-`POST /__db/operations/:ref` can still execute registered operation templates.
+not a general hardening switch. For REST it specifically means raw REST resource
+and batch routes are blocked, while `POST /__db/operations/:ref` can still
+execute registered operation templates.
+
+When REST exposure is `registered-only`, `async-db doctor` and the built-in
+server require registered operations to be enabled and resolvable through
+`operations.registry`, `operations.resolveRef`, `outputs.operationRegistry` /
+`operations.outFile`, or operation files under `operations.sourceDir`. Missing,
+invalid, or empty operation sources fail early with
+`OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS`. For public operation-only APIs,
+prefer `operations.acceptRefs: 'ref'`; doctor reports this as non-blocking
+guidance.
 
 ## Registered Queries
 

@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { openDb } from './db.js';
 import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
-import { createDbRequestHandler, reloadDb, watchSourceDir } from './server.js';
+import { createDbRequestHandler, reloadDb, startDbServer, watchSourceDir } from './server.js';
 
 test('server reload path keeps valid resources when another source file fails', async () => {
   const cwd = await makeProject();
@@ -844,6 +844,219 @@ test('request handler executes registered operations while blocking raw REST whe
     id: 'u_1',
     name: 'Ada',
   });
+});
+
+test('request handler keeps raw REST open when operations are enabled without registered-only exposure', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada',
+      email: 'ada@example.com',
+    },
+  ]));
+
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        'users.get': {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+        },
+      },
+    },
+  });
+  const handler = createDbRequestHandler(db);
+  const rawUsers = makeResponse();
+  const operation = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/users'), rawUsers), true);
+  assert.equal(await handler(makeRequest('POST', '/__db/operations/users.get', {
+    variables: {
+      id: 'u_1',
+    },
+  }), operation), true);
+
+  assert.equal(rawUsers.status, 200);
+  assert.deepEqual(rawUsers.json()[0], {
+    id: 'u_1',
+    name: 'Ada',
+    email: 'ada@example.com',
+  });
+  assert.equal(operation.status, 200);
+  assert.deepEqual(operation.json(), {
+    id: 'u_1',
+    name: 'Ada',
+    email: 'ada@example.com',
+  });
+});
+
+test('request handler executes strict registered operations from sourceDir', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada',
+      email: 'ada@example.com',
+    },
+  ]));
+  await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/operations/get-user.jsonc'), `{
+    "name": "GetUser",
+    "ref": "users.get",
+    "method": "GET",
+    "path": "/users/{id}.json",
+    "query": {
+      "select": "id,name"
+    }
+  }`, 'utf8');
+
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      sourceDir: './db/operations',
+      acceptRefs: 'ref',
+    },
+    server: {
+      expose: {
+        rest: 'registered-only',
+      },
+    },
+  });
+  const handler = createDbRequestHandler(db);
+  const rawUsers = makeResponse();
+  const operation = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/users'), rawUsers), true);
+  assert.equal(await handler(makeRequest('POST', '/__db/operations/users.get', {
+    variables: {
+      id: 'u_1',
+    },
+  }), operation), true);
+
+  assert.equal(rawUsers.status, 403);
+  assert.equal(rawUsers.json().error.code, 'REST_REGISTERED_ONLY');
+  assert.equal(operation.status, 200);
+  assert.deepEqual(operation.json(), {
+    id: 'u_1',
+    name: 'Ada',
+  });
+});
+
+test('server startup rejects registered-only REST when operations are disabled before binding', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  await assert.rejects(
+    () => startDbServer({
+      cwd,
+      port: 0,
+      server: {
+        expose: {
+          rest: 'registered-only',
+        },
+      },
+    }),
+    (error) => {
+      assert.equal(error.code, 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+      assert.equal(error.diagnostics?.[0]?.code, 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+      assert.equal(error.diagnostics[0].details.reason, 'disabled');
+      return true;
+    },
+  );
+});
+
+test('server startup rejects missing generated registry in registered-only REST mode', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  await assert.rejects(
+    () => startDbServer({
+      cwd,
+      port: 0,
+      operations: {
+        enabled: true,
+        outFile: './src/generated/missing.operations.json',
+      },
+      server: {
+        expose: {
+          rest: 'registered-only',
+        },
+      },
+    }),
+    (error) => {
+      assert.equal(error.code, 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+      assert.equal(error.diagnostics?.[0]?.details.reason, 'registry-load-failed');
+      assert.equal(error.diagnostics[0].details.outFile.reason, 'missing');
+      return true;
+    },
+  );
+});
+
+test('server startup rejects invalid generated registry in registered-only REST mode', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/generated/db.operations.json'), '{ not json', 'utf8');
+
+  await assert.rejects(
+    () => startDbServer({
+      cwd,
+      port: 0,
+      operations: {
+        enabled: true,
+        outFile: './src/generated/db.operations.json',
+      },
+      server: {
+        expose: {
+          rest: 'registered-only',
+        },
+      },
+    }),
+    (error) => {
+      assert.equal(error.code, 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+      assert.equal(error.diagnostics?.[0]?.details.reason, 'registry-load-failed');
+      assert.equal(error.diagnostics[0].details.outFile.reason, 'invalid-json');
+      return true;
+    },
+  );
+});
+
+test('server startup rejects empty generated registry in registered-only REST mode', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/generated/db.operations.json'), JSON.stringify({
+    version: 1,
+    kind: 'db.operations',
+    operations: {},
+  }), 'utf8');
+
+  await assert.rejects(
+    () => startDbServer({
+      cwd,
+      port: 0,
+      operations: {
+        enabled: true,
+        outFile: './src/generated/db.operations.json',
+      },
+      server: {
+        expose: {
+          rest: 'registered-only',
+        },
+      },
+    }),
+    (error) => {
+      assert.equal(error.code, 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+      assert.equal(error.diagnostics?.[0]?.details.reason, 'registry-empty');
+      assert.equal(error.diagnostics[0].details.outFile.reason, 'empty');
+      return true;
+    },
+  );
 });
 
 test('request handler can execute registered operations from a generated registry file', async () => {

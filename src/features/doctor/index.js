@@ -3,6 +3,7 @@ import { forkSourceExists, isValidForkName } from '../config/forks.js';
 import { resourceConfigValue } from '../../names.js';
 import { duplicateIdFindings, mixedIdTypeFindings } from './duplicate-ids.js';
 import { inconsistentFieldTypeFindings } from './field-consistency.js';
+import { operationStrictModeFindings } from '../operations/readiness.js';
 import { relationSuggestionFindings } from './relations.js';
 import { schemaGuidanceFindings } from './schema-guidance.js';
 
@@ -26,6 +27,7 @@ export async function runDbDoctor(config) {
     })),
     ...doctorResourceFindings(project.resources, config),
     ...schemaGuidanceFindings(project, inferredProject),
+    ...await operationStrictModeFindings(config),
     ...await doctorForkFindings(config),
   ];
 

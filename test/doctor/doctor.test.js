@@ -193,6 +193,82 @@ test('doctor validates configured fork folders', async () => {
   assert.equal(result.findings.some((finding) => finding.code === 'FORK_NAME_INVALID' && finding.details?.fork === '../unsafe'), true);
 });
 
+test('doctor reports registered-only REST when operations are disabled', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeConfig(cwd, `export default {
+    server: {
+      expose: {
+        rest: 'registered-only',
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const result = await runDbDoctor(config);
+  const finding = result.findings.find((candidate) => candidate.code === 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+
+  assert.equal(finding.severity, 'error');
+  assert.equal(finding.source, 'doctor');
+  assert.equal(finding.details.reason, 'disabled');
+  assert.match(finding.message, /registered-only/);
+  assert.match(finding.hint, /operations\.enabled: true/);
+});
+
+test('doctor reports registered-only REST when operations have no resolvable source', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeConfig(cwd, `export default {
+    operations: {
+      enabled: true,
+    },
+    server: {
+      expose: {
+        rest: 'registered-only',
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const result = await runDbDoctor(config);
+  const finding = result.findings.find((candidate) => candidate.code === 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+
+  assert.equal(finding.severity, 'error');
+  assert.equal(finding.source, 'doctor');
+  assert.equal(finding.details.reason, 'no-source');
+  assert.match(finding.hint, /outputs\.operationRegistry/);
+});
+
+test('doctor recommends ref-only acceptance for operation-only exposure without blocking', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeConfig(cwd, `export default {
+    operations: {
+      enabled: true,
+      registry: {
+        'users.get': {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+        },
+      },
+    },
+    server: {
+      expose: {
+        rest: 'registered-only',
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const result = await runDbDoctor(config);
+  const finding = result.findings.find((candidate) => candidate.code === 'OPERATIONS_STRICT_MODE_ACCEPT_REFS_RECOMMENDED');
+
+  assert.equal(result.summary.error, 0);
+  assert.equal(finding.severity, 'info');
+  assert.match(finding.message, /acceptRefs: "ref"/);
+});
+
 test('doctor reports missing store names and large json stores without indexes', async () => {
   const cwd = await makeProject();
   const activityEvents = Array.from({ length: 1001 }, (_, index) => ({

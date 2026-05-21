@@ -456,6 +456,78 @@ test('registerDbRoutes runs lifecycle beforeRequest for registered operations', 
   assert.deepEqual(calls, ['operation:users.get']);
 });
 
+test('registerDbRoutes keeps explicit operation routes app-owned when server exposure is registered-only', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      registry: {
+        'users.get': {
+          name: 'GetUser',
+          method: 'GET',
+          path: '/users/{id}.json',
+        },
+      },
+    },
+    server: {
+      expose: {
+        rest: 'registered-only',
+      },
+    },
+  });
+  const app = fakeHonoApp();
+  const calls = [];
+
+  registerDbRoutes(app, db, {
+    prefix: '/api/db',
+    operations: true,
+    lifecycleHooks: {
+      beforeRequest(ctx) {
+        calls.push(`${ctx.method}:${ctx.ref ?? ctx.resourceName}`);
+        if (ctx.method === 'operation' && !ctx.c.req.header('authorization')) {
+          return ctx.c.json({ error: 'Unauthorized' }, 401);
+        }
+        return undefined;
+      },
+    },
+  });
+
+  const unauthorized = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'users.get',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+  }));
+  const authorized = await app.route('POST', '/api/db/operations/:ref').handler(fakeHonoContext({
+    params: {
+      ref: 'users.get',
+    },
+    body: {
+      variables: {
+        id: 'u_1',
+      },
+    },
+    headers: {
+      authorization: 'Bearer test',
+    },
+  }));
+
+  assert.equal(unauthorized.status, 401);
+  assert.deepEqual(unauthorized.body, { error: 'Unauthorized' });
+  assert.equal(authorized.status, 200);
+  assert.deepEqual(authorized.body, {
+    id: 'u_1',
+    name: 'Ada',
+  });
+  assert.deepEqual(calls, ['operation:users.get', 'operation:users.get']);
+});
+
 test('registerDbRoutes can disable operation routes for a local mount', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
@@ -774,6 +846,9 @@ function fakeHonoContext(options = {}) {
       },
       async json() {
         return options.body ?? {};
+      },
+      header(name) {
+        return options.headers?.[String(name).toLowerCase()] ?? options.headers?.[name];
       },
       url: options.url ?? 'http://db.local/api/pages',
     },

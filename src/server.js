@@ -6,6 +6,7 @@ import { openDb } from './db.js';
 import { serializeError } from './errors.js';
 import { loadForkDb } from './features/config/forks.js';
 import { defaultHttpFeatureRegistry } from './features/http/registry.js';
+import { assertOperationStrictModeReady } from './features/operations/readiness.js';
 import { runMockBehavior } from './mock.js';
 import { createDbOperationHandler } from './operations.js';
 import { handleRestRequest, readJsonBody, sendJson, sendText } from './rest/handler.js';
@@ -17,6 +18,12 @@ export async function startDbServer(options = {}) {
     ...options,
     allowSourceErrors: true,
   });
+  try {
+    await assertOperationStrictModeReady(db.config);
+  } catch (error) {
+    await db.close?.();
+    throw error;
+  }
   const host = options.host ?? db.config.server?.host ?? '127.0.0.1';
   const port = Number(options.port ?? db.config.server?.port ?? 7331);
   const events = createViewerEventHub();

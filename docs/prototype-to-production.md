@@ -229,9 +229,12 @@ Refs are allowlist identifiers, not secrets. They reduce route exploration and
 hide query shape from casual client inspection, but anyone who can call your API
 still needs normal auth, authorization, rate limits, and monitoring.
 
-## Lock Down Raw REST
+## Operation-Only Exposure
 
-Once the app uses registered operation refs, block raw REST exploration:
+`operations.enabled: true` enables registered operation execution without
+closing local REST or viewer routes. Once the app uses registered operation
+refs as its public data contract, opt into operation-only exposure to block raw
+REST exploration:
 
 ```js
 import { defineConfig } from '@async/db/config';
@@ -239,6 +242,7 @@ import { defineConfig } from '@async/db/config';
 export default defineConfig({
   outputs: {
     operationRegistry: './src/generated/db.operations.json',
+    operationRefs: './src/generated/db.operation-refs.json',
   },
   operations: {
     enabled: true,
@@ -258,7 +262,9 @@ export default defineConfig({
 });
 ```
 
-With that policy, raw routes such as these are rejected:
+`registered-only` is not a general hardening switch. It specifically means only
+registered operations may use the REST data API. With that policy, raw routes
+such as these are rejected:
 
 ```txt
 GET /api/db/users.json
@@ -272,6 +278,13 @@ Registered operations still run:
 POST /api/db/operations/GetUserProfile
 POST /api/db/operations/users.profile.get
 ```
+
+The built-in server and `async-db doctor` fail early when
+`server.expose.rest: 'registered-only'` is configured without
+`operations.enabled: true` or without a resolvable operation source. Provide
+`outputs.operationRegistry`, `operations.registry`, `operations.resolveRef`, or
+operation files under `operations.sourceDir`; otherwise use
+`server.expose.rest: 'open'` while keeping local REST routes available.
 
 Use `server.expose.graphql: false` when the production-facing API is REST-only.
 If you use registered GraphQL operations, keep `graphql.enabled` on and use

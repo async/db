@@ -12,7 +12,10 @@ export function hashOperation(input) {
 }
 
 export async function buildOperationManifest(config, options = {}) {
-  const operations = await loadOperationSources(config, options);
+  const operations = await loadOperationSources(config, {
+    ...options,
+    createDirectory: true,
+  });
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const registryEntries = buildRegistryEntries(operations);
   const registry = operationMapFromEntries(registryEntries);
@@ -55,6 +58,11 @@ export async function buildOperationManifest(config, options = {}) {
     outFiles,
     refsOutFiles,
   };
+}
+
+export async function buildOperationRegistry(config, options = {}) {
+  const operations = await loadOperationSources(config, options);
+  return operationMapFromEntries(buildRegistryEntries(operations));
 }
 
 export function operationClientContract(refs) {
@@ -136,7 +144,7 @@ function duplicateOperationRef(ref, previous, current) {
   );
 }
 
-async function loadOperationSources(config, options) {
+export async function loadOperationSources(config, options = {}) {
   if (Array.isArray(options.operations)) {
     return options.operations;
   }
@@ -146,13 +154,24 @@ async function loadOperationSources(config, options) {
     return [];
   }
 
-  try {
-    await mkdir(sourceDir, { recursive: true });
-  } catch {
-    return [];
+  if (options.createDirectory === true) {
+    try {
+      await mkdir(sourceDir, { recursive: true });
+    } catch {
+      return [];
+    }
   }
 
-  const files = await listOperationFiles(sourceDir);
+  let files = [];
+  try {
+    files = await listOperationFiles(sourceDir);
+  } catch (error) {
+    if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
+      return [];
+    }
+    throw error;
+  }
+
   const operations = [];
   for (const filePath of files) {
     const text = await readFile(filePath, 'utf8');

@@ -3,6 +3,7 @@ import { dbError } from '../../errors.js';
 import { executeGraphql } from '../../graphql/index.js';
 import { handleRestRequest } from '../../rest/handler.js';
 import { normalizeOperationTemplate, operationRequest } from '../../shared/operations.js';
+import { buildOperationRegistry } from './index.js';
 import { operationMapFromEntries } from './maps.js';
 
 export function createDbOperationHandler(db, options = {}) {
@@ -146,7 +147,7 @@ function normalizeAcceptRefs(value) {
 
 async function resolveOperationRef(db, options, ref) {
   const decodedRef = decodeOperationRef(ref);
-  const registry = await operationRegistry(options);
+  const registry = await operationRegistry(db.config, options);
   const context = {
     ref,
     decodedRef,
@@ -201,21 +202,35 @@ function defaultOperationForRef(registry, decodedRef, acceptRefs) {
   return null;
 }
 
-async function operationRegistry(options) {
+async function operationRegistry(config, options) {
   if (options.registry && Object.keys(options.registry).length > 0) {
     return normalizeOperationRegistry(options.registry);
   }
 
-  if (!options.outFile) {
+  if (options.outFile) {
+    try {
+      const manifest = JSON.parse(await readFile(options.outFile, 'utf8'));
+      return normalizeOperationRegistry(manifest.operations ?? {});
+    } catch (error) {
+      throw operationRegistryLoadFailed(options.outFile, error);
+    }
+  }
+
+  if (typeof options.resolveRef === 'function') {
     return operationMapFromEntries();
   }
 
-  try {
-    const manifest = JSON.parse(await readFile(options.outFile, 'utf8'));
-    return normalizeOperationRegistry(manifest.operations ?? {});
-  } catch (error) {
-    throw operationRegistryLoadFailed(options.outFile, error);
+  if (options.sourceDir) {
+    return buildOperationRegistry({
+      ...config,
+      operations: {
+        ...(config.operations ?? {}),
+        sourceDir: options.sourceDir,
+      },
+    });
   }
+
+  return operationMapFromEntries();
 }
 
 function normalizeOperationRegistry(registry) {
