@@ -31,6 +31,7 @@ are omitted. Commit links point at the canonical GitHub repository:
 - 2026-05-20 - Added `rest.enabled` and `graphql.enabled` toggles so apps can disable generated REST resource routes, REST batching, or the GraphQL endpoint while keeping viewer, schema, manifest, import, events, and other dev-tool routes available, with structured disabled-feature errors and discovery/manifest capability reporting. Commit [4698795](https://github.com/PatrickJS/jsondb/commit/469879538d79635b79052a231043b2f8c12d123f).
 - 2026-05-20 - Added registered operations with stable hashes, manifest and ref output, `async-db operations build`, `buildOperationManifest()`, `hashOperation()`, `client.operation()` / `client.query()`, `POST /__db/operations/:ref`, `operations.enabled`, route exposure policies, and REST/GraphQL operation execution by name or hash. Commits [b6b0d83](https://github.com/PatrickJS/jsondb/commit/b6b0d83a818cc1a6aee6fc240a4df85d78e579c9) and [639dfa1](https://github.com/PatrickJS/jsondb/commit/639dfa197e60541323df3de87fcd93edea1580d7).
 - 2026-05-20 - Added opt-in request tracing with `x-async-db-request-id`, route/resource/operation metadata, safe query-key capture, phase timings, slow-request labeling, runtime log events, concise console output, and standalone, Vite, and Hono trace overrides without recording request bodies, response bodies, cookies, or authorization headers. Commit [ed9b643](https://github.com/PatrickJS/jsondb/commit/ed9b643584d067967d1a4afdbe2329787090fadf).
+- 2026-05-20 - Added a deterministic operations contract workflow with `async-db operations contract`, `--out` and `--check` support, first-class server registry versus client-safe refs handling, runtime operation maps, Hono operation mounting, and updated operation tooling/docs for prototype-to-production REST flows. Commit [d73312d](https://github.com/PatrickJS/jsondb/commit/d73312df380685087aa408fd735650b88918eaa9).
 
 ### Client, Viewer, Examples, and Mocking
 
@@ -63,6 +64,7 @@ are omitted. Commit links point at the canonical GitHub repository:
 
 - 2026-05-11 - Added configurable fixture directories with `dbDir`, while preserving `sourceDir` compatibility. Commit [d5371c8](https://github.com/PatrickJS/jsondb/commit/d5371c824d061e0bde11e8d9549dae7cc6709e9f).
 - 2026-05-11 - Added `defineConfig`, config typings, the example config file, and expanded README configuration guidance. Commit [15f559b](https://github.com/PatrickJS/jsondb/commit/15f559b42ba319c3d4ebf166ced04c73737eaadb).
+- 2026-05-20 - Added unified `outputs` configuration for generated state, generated types, committed types, schema manifests, viewer manifests, operation registries, operation refs, and Hono starter output, replacing scattered committed-output options across docs, examples, fork config, and tests. Commit [d73312d](https://github.com/PatrickJS/jsondb/commit/d73312df380685087aa408fd735650b88918eaa9).
 
 ### REST Shaping and Relations
 
@@ -70,6 +72,7 @@ are omitted. Commit links point at the canonical GitHub repository:
 - 2026-05-14 - Added REST response formats, fixture-based resource naming strategies, custom resource naming hooks, and duplicate-resource diagnostics. Commit [0c95b52](https://github.com/PatrickJS/jsondb/commit/0c95b5237d3d4530f6f5cdf534df1358943cc1dc).
 - 2026-05-14 - Added canonical resource alias resolution and collision diagnostics across CLI commands, runtime APIs, REST, SQLite, generated starters, schema loading, and the viewer. Commit [b7089b1](https://github.com/PatrickJS/jsondb/commit/b7089b13d3cbca060d5b51fb04ccd8a89a87ad70).
 - 2026-05-19 - Added a REST format registry with JSON/HTML/Markdown renderers, Accept negotiation, manifest-aware formatting, and richer viewer JSON rendering. Commit [9ffa49b](https://github.com/PatrickJS/jsondb/commit/9ffa49bfbf9bf4c78854c3b6a93d9f4250e4f34d).
+- 2026-05-20 - Documented and updated examples for fixture-like `/db/*.json` REST routes, including `db/<fixture>.json` to `GET /db/<fixture>.json` mapping, `?id=` guidance, extensionless route semantics, and rest-client demo paths. Commit [dca5ba0](https://github.com/PatrickJS/jsondb/commit/dca5ba0a9de4c0ad356ef299f858e848c82fc48c).
 
 ### GraphQL
 
@@ -123,3 +126,4 @@ are omitted. Commit links point at the canonical GitHub repository:
 - 2026-05-14 - Added redundant-write avoidance and generated metadata preservation together. Commit [d15b30c](https://github.com/PatrickJS/jsondb/commit/d15b30c938ee216e9765ca6ef8fecafa664d6e32).
 - 2026-05-19 - Restructured project documentation into a task-focused `docs/` handbook and expanded README coverage for schema metadata, GraphQL, file maps, examples, generated files, configuration, server/viewer behavior, package APIs, integrations, CI, and release guidance. Commits [8cce7d8](https://github.com/PatrickJS/jsondb/commit/8cce7d80f856acb58aa2f64ec933c9dde42fe61d), [14d2a53](https://github.com/PatrickJS/jsondb/commit/14d2a53b384ce4904c2d7869996497b4b63f9a9d), and [e5f104d](https://github.com/PatrickJS/jsondb/commit/e5f104df1cd8263bae0912542be17fd21a28b29b).
 - 2026-05-20 - Ignored generated `.jsondb/` output and removed generated example runtime artifacts, state snapshots, schema outputs, and generated type copies from `examples/*/.jsondb`. Commit [d54356d](https://github.com/PatrickJS/jsondb/commit/d54356d61e44c242427a1e314a05177e70e803fb).
+- 2026-05-20 - Pinned `actions/checkout` and `actions/setup-node` in CI to exact commit SHAs while keeping version comments, making GitHub Actions runs deterministic instead of relying on floating action tags. Commit [4bde6b5](https://github.com/PatrickJS/jsondb/commit/4bde6b5a214e33584ce721df65fa89f1ccd63bc4).
