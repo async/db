@@ -4,11 +4,14 @@ import { pathToFileURL } from 'node:url';
 import { resolveFrom } from '../../fs-utils.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 import { normalizeForks } from './forks.js';
+import { normalizeSchemaLoadMode, resolveSchemaLocator } from '../schema/locator.js';
 
 export async function loadConfig(options = {}) {
-  const cwd = options.cwd ? path.resolve(options.cwd) : process.cwd();
-  const configPath = options.configPath
-    ? resolveFrom(cwd, options.configPath)
+  const rawOptions = typeof options === 'string' ? { from: options } : options;
+  const locator = await resolveSchemaLocator(rawOptions);
+  const cwd = locator.cwd;
+  const configPath = rawOptions.configPath
+    ? resolveFrom(cwd, rawOptions.configPath)
     : await findConfigPath(cwd);
 
   let userConfig = {};
@@ -19,9 +22,11 @@ export async function loadConfig(options = {}) {
     userConfig = module.default ?? module.config ?? {};
   }
 
-  const inlineOptions = { ...options };
+  const inlineOptions = { ...rawOptions };
   delete inlineOptions.cwd;
   delete inlineOptions.configPath;
+  delete inlineOptions.from;
+  delete inlineOptions.load;
 
   rejectUnsupportedRuntimeConfig(userConfig);
   rejectUnsupportedRuntimeConfig(inlineOptions);
@@ -30,11 +35,23 @@ export async function loadConfig(options = {}) {
   normalizeOutputAliases(merged, userConfig, inlineOptions);
   merged.cwd = cwd;
   merged.configPath = configPath;
-  const sourceDir = hasOwnConfigValue(userConfig, 'sourceDir') || hasOwnConfigValue(inlineOptions, 'sourceDir')
-    ? merged.sourceDir
-    : merged.dbDir;
+  const hasInlineSourceDir = hasOwnConfigValue(inlineOptions, 'sourceDir') || hasOwnConfigValue(inlineOptions, 'dbDir');
+  const hasUserSourceDir = hasOwnConfigValue(userConfig, 'sourceDir') || hasOwnConfigValue(userConfig, 'dbDir');
+  const sourceDir = hasInlineSourceDir
+    ? (hasOwnConfigValue(inlineOptions, 'sourceDir') ? merged.sourceDir : merged.dbDir)
+    : rawOptions.from
+      ? locator.sourceDir
+      : hasUserSourceDir
+        ? (hasOwnConfigValue(userConfig, 'sourceDir') ? merged.sourceDir : merged.dbDir)
+        : merged.dbDir;
   merged.sourceDir = resolveFrom(cwd, sourceDir);
   merged.dbDir = merged.sourceDir;
+  merged.schemaLocator = {
+    ...locator,
+    cwd,
+    sourceDir: merged.sourceDir,
+  };
+  merged.schemaLoadMode = normalizeSchemaLoadMode(rawOptions.load ?? 'data');
   merged.stateDir = resolveFrom(cwd, merged.stateDir);
   merged.outputs.stateDir = merged.stateDir;
 

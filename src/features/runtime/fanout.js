@@ -1,3 +1,5 @@
+import { callFieldResolver, valueFromResolveManyResult } from '../schema/resolvers.js';
+
 export async function resolveSelectedComputedFields(db, resource, records, fieldNames, options = {}) {
   const selected = [...new Set(fieldNames)]
     .filter((fieldName) => resource.fields?.[fieldName]?.computed)
@@ -15,11 +17,20 @@ export async function resolveSelectedComputedFields(db, resource, records, field
   for (const fieldName of selected) {
     const resolver = resource.resolvers.fields[fieldName];
     if (typeof resolver.resolveMany === 'function') {
-      const values = await resolver.resolveMany({
+      const args = {
         records: nextRecords,
         db,
         resource,
         cache,
+      };
+      const values = await callFieldResolver(resolver.resolveMany, args, {
+        db,
+        config: db.config,
+        resource,
+        fieldName,
+        cache,
+        context: options.context,
+        value: nextRecords,
       });
       applyManyResolvedValues(nextRecords, resource, fieldName, values);
       continue;
@@ -27,11 +38,20 @@ export async function resolveSelectedComputedFields(db, resource, records, field
 
     if (typeof resolver.resolve === 'function') {
       for (const record of nextRecords) {
-        record[fieldName] = await resolver.resolve({
+        const args = {
           record,
           db,
           resource,
           cache,
+        };
+        record[fieldName] = await callFieldResolver(resolver.resolve, args, {
+          db,
+          config: db.config,
+          resource,
+          fieldName,
+          cache,
+          context: options.context,
+          value: record,
         });
       }
     }
@@ -43,35 +63,21 @@ export async function resolveSelectedComputedFields(db, resource, records, field
 function applyManyResolvedValues(records, resource, fieldName, values) {
   if (Array.isArray(values)) {
     for (const [index, record] of records.entries()) {
-      record[fieldName] = values[index];
+      record[fieldName] = valueFromResolveManyResult(values, resource, record, index);
     }
     return;
   }
 
   if (values instanceof Map) {
     for (const [index, record] of records.entries()) {
-      const key = keyForRecord(record, resource, index);
-      record[fieldName] = values.get(key) ?? values.get(String(key)) ?? values.get(index);
+      record[fieldName] = valueFromResolveManyResult(values, resource, record, index);
     }
     return;
   }
 
   if (values && typeof values === 'object') {
     for (const [index, record] of records.entries()) {
-      const key = keyForRecord(record, resource, index);
-      record[fieldName] = values[key] ?? values[String(key)] ?? values[index];
+      record[fieldName] = valueFromResolveManyResult(values, resource, record, index);
     }
   }
-}
-
-function keyForRecord(record, resource, index) {
-  if (resource.kind === 'collection') {
-    const idField = resource.idField ?? 'id';
-    const id = record?.[idField];
-    if (id !== undefined && id !== null && id !== '') {
-      return id;
-    }
-  }
-
-  return index;
 }

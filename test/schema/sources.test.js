@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { syncDb, loadConfig, loadProjectSchema, generateTypes } from '../../src/index.js';
+import { syncDb, loadConfig, loadProjectSchema, generateTypes, openDb, resolveSchemaLocator } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('schema-only fixtures generate types and initialize empty state', async () => {
@@ -264,6 +264,198 @@ export default collection({
   assert.match(generated, /ownerPersonId\?: string \| null;/);
   assert.match(generated, /lastViewedAt\?: string;/);
   assert.match(generated, /\[key: string\]: unknown;/);
+});
+
+test('root db.schema.mjs loads as the authoritative schema registry', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'db.schema.mjs'), `
+import { collection, field } from '@async/db/schema';
+
+export default {
+  users: collection({
+    idField: 'id',
+    fields: {
+      id: field.string({ required: true }),
+      name: field.string({ required: true }),
+    },
+  }),
+};
+`);
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada', email: 'ada@example.com' }]));
+  await writeFixture(cwd, 'users.schema.json', JSON.stringify({
+    kind: 'collection',
+    fields: {
+      id: { type: 'string', required: true },
+      email: { type: 'string', required: true },
+    },
+  }));
+
+  const config = await loadConfig({ cwd });
+  const project = await loadProjectSchema(config);
+  const users = project.resources.find((resource) => resource.name === 'users');
+
+  assert.deepEqual(Object.keys(users.fields), ['id', 'name']);
+  assert.equal(users.schemaPath, path.join(cwd, 'db.schema.mjs'));
+  assert.equal(project.diagnostics.some((diagnostic) => diagnostic.code === 'SCHEMA_UNKNOWN_FIELD'), true);
+});
+
+test('schema locators resolve projects, db folders, root schemas, and schema files', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db.schema.mjs'), 'export default {};');
+  await writeFixture(cwd, 'users.schema.json', JSON.stringify({ fields: {} }));
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), 'export default { fields: {} };');
+
+  const project = await resolveSchemaLocator({ cwd, from: '.' });
+  assert.equal(project.mode, 'project');
+  assert.equal(project.cwd, cwd);
+  assert.equal(project.sourceDir, path.join(cwd, 'db'));
+
+  const dbFolder = await resolveSchemaLocator({ cwd, from: './db' });
+  assert.equal(dbFolder.mode, 'source-dir');
+  assert.equal(dbFolder.cwd, cwd);
+  assert.equal(dbFolder.sourceDir, path.join(cwd, 'db'));
+
+  const root = await resolveSchemaLocator({ cwd, from: './db.schema.mjs' });
+  assert.equal(root.mode, 'root-schema');
+  assert.equal(root.file, path.join(cwd, 'db.schema.mjs'));
+
+  const users = await resolveSchemaLocator({ cwd, from: './db/users.schema.json' });
+  assert.equal(users.mode, 'schema-file');
+  assert.equal(users.resourceName, 'users');
+  assert.equal(users.sourceDir, path.join(cwd, 'db'));
+
+  const docs = await resolveSchemaLocator({ cwd, from: './db/docs/index.schema.mjs' });
+  assert.equal(docs.mode, 'schema-file');
+  assert.equal(docs.resourceName, 'docs');
+  assert.equal(docs.sourceDir, path.join(cwd, 'db'));
+});
+
+test('schema load mode skips seed files and content source readers', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada', extra: true }]));
+  await writeFixture(cwd, 'users.schema.mjs', `
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  fields: {
+    id: field.string({ required: true }),
+    name: field.string({ required: true }),
+  },
+  seed: [{ id: 'seeded', name: 'Seeded' }],
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'json' }),
+  fields: {
+    id: field.string({ required: true }),
+    body: field.string(),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/broken.mdx'), 'not json');
+
+  const config = await loadConfig({ cwd });
+  const project = await loadProjectSchema(config, { load: 'schema' });
+  const users = project.resources.find((resource) => resource.name === 'users');
+
+  assert.equal(project.loadMode, 'schema');
+  assert.deepEqual(project.resources.map((resource) => resource.name), ['docs', 'users']);
+  assert.deepEqual(users.seed, []);
+  assert.equal(project.diagnostics.some((diagnostic) => diagnostic.code === 'SCHEMA_UNKNOWN_FIELD'), false);
+  assert.equal(project.diagnostics.some((diagnostic) => diagnostic.code === 'CONTENT_SOURCE_LOAD_FAILED'), false);
+});
+
+test('single schema file locator limits resources and loads sibling seed in data mode', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.json', JSON.stringify({
+    kind: 'collection',
+    fields: {
+      id: { type: 'string', required: true },
+      name: { type: 'string', required: true },
+    },
+  }));
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeFixture(cwd, 'posts.json', JSON.stringify([{ id: 'p_1', title: 'Ignored' }]));
+
+  const config = await loadConfig({ cwd, from: './db/users.schema.json' });
+  const schemaOnly = await loadProjectSchema(config, { load: 'schema' });
+  const withData = await loadProjectSchema(config, { load: 'data' });
+
+  assert.equal(config.schemaLocator.mode, 'schema-file');
+  assert.deepEqual(schemaOnly.resources.map((resource) => resource.name), ['users']);
+  assert.deepEqual(schemaOnly.resources[0].seed, []);
+  assert.deepEqual(withData.resources.map((resource) => resource.name), ['users']);
+  assert.deepEqual(withData.resources[0].seed, [{ id: 'u_1', name: 'Ada' }]);
+});
+
+test('folder index.schema.mjs creates a static collection from frontmatter mdx files', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeConfig(cwd, `export default {
+    resources: {
+      docs: {
+        store: 'static'
+      }
+    }
+  };`);
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'frontmatter' }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/intro.mdx'), `---
+title: Intro
+---
+# Hello
+`, 'utf8');
+
+  const db = await openDb({ cwd });
+
+  assert.deepEqual(await db.collection('docs').all(), [
+    {
+      id: 'intro',
+      title: 'Intro',
+      body: '# Hello',
+    },
+  ]);
+  await assert.rejects(
+    () => db.collection('docs').create({ id: 'next', title: 'Next', body: 'Body' }),
+    (error) => error.code === 'STORE_RESOURCE_READ_ONLY',
+  );
+});
+
+test('folder index.schema.mjs requires an explicit source glob', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  fields: {
+    id: field.string({ required: true }),
+  },
+});
+`);
+
+  const project = await loadProjectSchema(await loadConfig({ cwd }));
+  const diagnostic = project.diagnostics.find((entry) => entry.code === 'SCHEMA_UNBUNDLE_FOLDER_SOURCE_REQUIRED');
+
+  assert.equal(diagnostic.severity, 'error');
+  assert.equal(diagnostic.resource, 'docs');
+  assert.equal(diagnostic.file, 'db/docs/index.schema.mjs');
+  assert.match(diagnostic.hint, /source: files\('\.\/\*\*\/\*\.mdx', \{ read: 'frontmatter' \}\)/);
 });
 
 test('schema-only fixtures can generate synthetic seed records', async () => {

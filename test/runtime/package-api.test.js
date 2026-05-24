@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { openDb } from '../../src/index.js';
+import { loadDbSchema, openDb } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('defaults apply when creating records through the package API', async () => {
@@ -37,6 +37,39 @@ test('defaults apply when creating records through the package API', async () =>
     role: 'user',
     active: true,
   });
+});
+
+test('openDb hydrates runtime data from a loaded metadata-only schema', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true }
+    }
+  }`);
+
+  const schema = await loadDbSchema({ from: path.join(cwd, 'db/users.schema.jsonc') });
+  assert.equal(schema.loadMode, 'schema');
+  assert.deepEqual(schema.resource('users').seed, []);
+
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ]));
+
+  const db = await openDb({ schema });
+
+  assert.equal(db.config.schemaLoadMode, 'runtime');
+  assert.deepEqual(await db.collection('users').all(), [
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ]);
 });
 
 test('defaults can be disabled on package API create', async () => {

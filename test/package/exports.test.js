@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 test('consumer projects can import package APIs through the @async/db package', async () => {
   const cwd = await makeProject();
-  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, openDb } from '@async/db';
+  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, loadDbSchema, openDb } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
 import { sqliteStore } from '@async/db/sqlite';
@@ -19,6 +19,7 @@ import { kvStore } from '@async/db/kv';
 import { redisStore } from '@async/db/redis';
 
 if (typeof openDb !== 'function') throw new Error('missing package API');
+if (typeof loadDbSchema !== 'function') throw new Error('missing schema API');
 if (typeof createDbOperationHandler !== 'function') throw new Error('missing operation handler API');
 if (typeof createDbRequestHandler !== 'function') throw new Error('missing request handler API');
 if (typeof createDbClient !== 'function') throw new Error('missing client API');
@@ -88,6 +89,20 @@ test('public declarations expose stable operation handler API', async () => {
   assert.match(declarations, /executeRequest\(ref: string, body\?: DbOperationRequestBody \| null\): Promise<DbOperationResult>;/);
   assert.doesNotMatch(declarations, /execute\(ref: string, variables\?: Record<string, unknown>, options\?: unknown\)/);
   assert.doesNotMatch(declarations, /executeRequest\(ref: string, body\?: .*options\?: unknown\)/);
+});
+
+test('public declarations expose schema loader and validator API', async () => {
+  const declarations = await readFile(path.resolve('src/index.d.ts'), 'utf8');
+
+  assert.match(declarations, /export type DbSchemaValidatorMode = 'create' \| 'replace' \| 'patch';/);
+  assert.match(declarations, /export type DbSchemaValidatorUnknownFields = 'error' \| 'strip' \| 'allow' \| 'warn' \| 'ignore';/);
+  assert.match(declarations, /export type DbSchemaResolverOptions = \{/);
+  assert.match(declarations, /export type DbLoadedSchema = \{/);
+  assert.match(declarations, /validator<TValue = Record<string, unknown>>\(name: string, options\?: DbSchemaValidatorOptions\): DbSchemaValidator<TValue>;/);
+  assert.match(declarations, /resolver<TArgs = Record<string, unknown>, TValue = unknown>\(\s+selector: string,\s+options\?: DbSchemaResolverOptions,\s+\): DbSchemaFieldResolver<TArgs, TValue> \| Record<string, DbSchemaFieldResolver<TArgs, TValue>>;/);
+  assert.match(declarations, /export type DbOpenOptions = Omit<DbOptions, 'schema'> & \{/);
+  assert.match(declarations, /export function openDb<Types extends DbTypeMap = DbTypeMap>\(options\?: DbOpenOptions \| string\): Promise<Db<Types>>;/);
+  assert.match(declarations, /export function loadDbSchema\(options\?: DbOptions \| string\): Promise<DbLoadedSchema>;/);
 });
 
 test('public Hono declarations keep resource and operation hook contexts distinct', async () => {

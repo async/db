@@ -26,6 +26,7 @@ export function assertRecordMatchesResource(record, resource, config, options = 
 export function validateRecordAgainstResource(record, resource, config, options = {}) {
   const diagnostics = [];
   const source = options.source ?? `${resource.name} record`;
+  const requireFields = options.requireFields !== false;
 
   if (!record || typeof record !== 'object' || Array.isArray(record)) {
     diagnostics.push({
@@ -60,7 +61,7 @@ export function validateRecordAgainstResource(record, resource, config, options 
       continue;
     }
 
-    if (field.required && (record[fieldName] === undefined || (record[fieldName] === null && !field.nullable))) {
+    if (requireFields && field.required && (record[fieldName] === undefined || (record[fieldName] === null && !field.nullable))) {
       diagnostics.push({
         code: 'SCHEMA_REQUIRED_FIELD_MISSING',
         severity: 'error',
@@ -76,6 +77,8 @@ export function validateRecordAgainstResource(record, resource, config, options 
         config,
         fieldPath: fieldName,
         resource,
+        requireFields,
+        source,
       }));
     }
   }
@@ -306,7 +309,12 @@ function validateObjectFields(value, field, context) {
     const fieldPath = `${context.fieldPath}.${childName}`;
     const childValue = value[childName];
 
-    if (childField.required && (childValue === undefined || (childValue === null && !childField.nullable))) {
+    if (childField.readOnly && childValue !== undefined) {
+      diagnostics.push(readOnlyFieldDiagnostic(context.resource, fieldPath, context.source ?? `${context.resource.name} record`));
+      continue;
+    }
+
+    if (context.requireFields !== false && childField.required && (childValue === undefined || (childValue === null && !childField.nullable))) {
       diagnostics.push({
         code: 'SCHEMA_REQUIRED_FIELD_MISSING',
         severity: 'error',

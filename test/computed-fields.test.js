@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { executeGraphql, generateSchemaManifest, loadConfig, openDb, syncDb } from '../src/index.js';
+import { executeGraphql, generateSchemaManifest, loadConfig, loadDbSchema, openDb, syncDb } from '../src/index.js';
 import { handleRestRequest } from '../src/rest/handler.js';
 import { makeProject, writeFixture } from './helpers.js';
 
@@ -134,6 +134,126 @@ export default collection({
     { id: 'u_1', initials: 'AL' },
     { id: 'u_2', initials: 'GH' },
   ]);
+});
+
+test('computed field shorthand binds runtime context as this for normal functions', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.mjs', `
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    firstName: field.string({ required: true }),
+    contextName: field.computed(field.string(), function users_contextName_resolver() {
+      return \`\${this.get('prefix') ?? this.get('resource').name}:\${this.value.firstName}\`;
+    }),
+  },
+  seed: [
+    { id: 'u_1', firstName: 'Ada' },
+  ],
+});
+`);
+  const db = await openDb({
+    cwd,
+    services: {
+      prefix: 'service',
+    },
+  });
+
+  const rest = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('GET'),
+    rest,
+    new URL('http://db.local/users?select=id,contextName'),
+  );
+
+  assert.deepEqual(rest.json(), [
+    { id: 'u_1', contextName: 'service:Ada' },
+  ]);
+});
+
+test('loaded schema exposes field resolver callables with delegated this context', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.mjs', `
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    firstName: field.string({ required: true }),
+    lastName: field.string({ required: true }),
+    displayName: field.computed(field.string(), function users_displayName_resolver({ record }) {
+      const prefix = this.get('prefix') ?? 'user';
+      return \`\${prefix}:\${this.value.firstName}:\${this._internal.value.lastName}:\${record.lastName}:\${this.get('resource').name}\`;
+    }),
+    initials: field.computed(field.string(), {
+      resolveMany({ records }) {
+        return new Map(records.map((record) => [
+          record.id,
+          \`\${record.firstName[0]}\${record.lastName[0]}\`,
+        ]));
+      },
+    }),
+  },
+  seed: [],
+});
+`);
+
+  const schema = await loadDbSchema({ from: cwd });
+  const displayName = schema.resolver('users.displayName', {
+    context: {
+      prefix: 'ctx',
+      value: {
+        firstName: 'Override',
+      },
+    },
+  });
+  const value = await displayName({
+    record: {
+      id: 'u_1',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    },
+  });
+
+  assert.equal(value, 'ctx:Override:Lovelace:Lovelace:users');
+
+  const userResolvers = schema.resolver('users');
+  assert.equal(
+    await userResolvers.displayName({
+      record: {
+        id: 'u_1',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      },
+    }),
+    'user:Ada:Lovelace:Lovelace:users',
+  );
+  assert.equal(
+    await userResolvers.initials({
+      record: {
+        id: 'u_2',
+        firstName: 'Grace',
+        lastName: 'Hopper',
+      },
+    }),
+    'GH',
+  );
+
+  const many = await userResolvers.initials.resolveMany({
+    records: [
+      {
+        id: 'u_3',
+        firstName: 'Katherine',
+        lastName: 'Johnson',
+      },
+    ],
+  });
+  assert.equal(many.get('u_3'), 'KJ');
 });
 
 test('write paths reject computed fields', async () => {

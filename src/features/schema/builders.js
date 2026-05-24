@@ -12,6 +12,14 @@ export function document(definition) {
   };
 }
 
+export function files(patterns, options = {}) {
+  return {
+    kind: 'files',
+    patterns: Array.isArray(patterns) ? [...patterns] : [patterns],
+    read: options.read ?? 'frontmatter',
+  };
+}
+
 function makeField(type, extras = {}) {
   return {
     type,
@@ -78,13 +86,16 @@ export const field = {
   },
 
   computed(definition, resolver = {}) {
+    const normalizedResolver = typeof resolver === 'function'
+      ? { resolve: resolver }
+      : resolver;
     return {
       ...definition,
       computed: true,
       readOnly: true,
       required: false,
-      resolve: resolver.resolve,
-      resolveMany: resolver.resolveMany,
+      resolve: normalizedResolver?.resolve,
+      resolveMany: normalizedResolver?.resolveMany,
     };
   },
 };

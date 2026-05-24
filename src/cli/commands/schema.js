@@ -6,6 +6,7 @@ import { loadProjectSchema } from '../../schema.js';
 import { generateSchemaManifest } from '../../schema-manifest.js';
 import { isHelpRequested, valueAfter } from '../args.js';
 import { printDiagnostic, printSchemaHelp } from '../output.js';
+import { promptForSchemaTarget } from '../schema-prompt.js';
 
 export async function runSchema(config, args) {
   if (isHelpRequested(args)) {
@@ -38,12 +39,22 @@ export async function runSchema(config, args) {
   }
 
   if (args[0] === 'unbundle') {
-    await runSchemaUnbundle(config, project, args);
+    const prompted = await promptedSchemaTarget('unbundle', project, args);
+    if (hasFlag(args, '--all') || prompted?.all) {
+      await runSchemaUnbundleAll(config, project, args);
+      return;
+    }
+    await runSchemaUnbundle(config, project, args, { resourceName: prompted?.resourceName });
     return;
   }
 
   if (args[0] === 'bundle') {
-    await runSchemaBundle(config, project, args);
+    const prompted = await promptedSchemaTarget('bundle', project, args);
+    if (hasFlag(args, '--all') || prompted?.all) {
+      await runSchemaBundleAll(config, project, args);
+      return;
+    }
+    await runSchemaBundle(config, project, args, { resourceName: prompted?.resourceName });
     return;
   }
 
@@ -89,14 +100,15 @@ export async function runSchema(config, args) {
   console.log(JSON.stringify(project.schema, null, 2));
 }
 
-async function runSchemaUnbundle(config, project, args) {
-  const resourceName = positionalArgs(args.slice(1))[0];
+async function runSchemaUnbundle(config, project, args, options = {}) {
+  const resourceName = options.resourceName ?? positionalArgs(args.slice(1))[0];
   if (!resourceName) {
+    const example = schemaTargetExample(project);
     throw dbError(
       'SCHEMA_UNBUNDLE_REQUIRES_RESOURCE',
-      'SCHEMA_UNBUNDLE_REQUIRES_RESOURCE: schema unbundle requires a resource name.',
+      `SCHEMA_UNBUNDLE_REQUIRES_RESOURCE: schema unbundle requires a resource name. Use async-db schema unbundle ${example}, or async-db schema unbundle --all.`,
       {
-        hint: 'Use async-db schema unbundle users.',
+        hint: `Use async-db schema unbundle ${example}, or async-db schema unbundle --all.`,
       },
     );
   }
@@ -139,14 +151,15 @@ async function runSchemaUnbundle(config, project, args) {
   }
 }
 
-async function runSchemaBundle(config, project, args) {
-  const resourceName = positionalArgs(args.slice(1))[0];
+async function runSchemaBundle(config, project, args, options = {}) {
+  const resourceName = options.resourceName ?? positionalArgs(args.slice(1))[0];
   if (!resourceName) {
+    const example = schemaTargetExample(project);
     throw dbError(
       'SCHEMA_BUNDLE_REQUIRES_RESOURCE',
-      'SCHEMA_BUNDLE_REQUIRES_RESOURCE: schema bundle requires a resource name.',
+      `SCHEMA_BUNDLE_REQUIRES_RESOURCE: schema bundle requires a resource name. Use async-db schema bundle ${example} --out artifacts/${example}.bundle.schema.json, or async-db schema bundle --all.`,
       {
-        hint: 'Use async-db schema bundle users --out artifacts/users.bundle.schema.json.',
+        hint: `Use async-db schema bundle ${example} --out artifacts/${example}.bundle.schema.json, or async-db schema bundle --all.`,
       },
     );
   }
@@ -172,6 +185,129 @@ async function runSchemaBundle(config, project, args) {
 
   await writeOutput(outFile, content, config, { force });
   console.log(`Generated ${path.relative(config.cwd, outFile)}`);
+}
+
+async function runSchemaBundleAll(config, project, args) {
+  const outFile = outputPath(config, valueAfter(args, '--out')) ?? path.join(config.cwd, 'db.schema.mjs');
+  const force = hasFlag(args, '--force');
+  const duplicate = bundleDuplicateResourceDiagnostic(config, project);
+  if (duplicate) {
+    throw dbError(duplicate.code, `${duplicate.code}: ${duplicate.message}`, {
+      hint: duplicate.hint,
+      details: duplicate.details,
+    });
+  }
+
+  if (isInsidePath(config.sourceDir, outFile) && !force) {
+    const relative = path.relative(config.cwd, outFile);
+    throw dbError(
+      'SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE',
+      `SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE: schema bundle output ${relative} is inside the active fixture directory.`,
+      {
+        hint: 'Write the root schema outside db/, or pass --force if you intentionally want a live schema source inside db/.',
+        details: {
+          command: 'schema bundle --all',
+          file: relative,
+          sourceDir: path.relative(config.cwd, config.sourceDir),
+          severity: 'error',
+        },
+      },
+    );
+  }
+
+  const result = renderRootSchemaBundle(config, project, outFile);
+  const rootOutFile = path.resolve(config.cwd, 'db.schema.mjs');
+  const plannedWrites = [
+    ...bundleAllSeedWrites(config, project, { force }),
+    {
+      filePath: outFile,
+      content: result.content,
+      options: {
+        force,
+        existsCode: path.resolve(outFile) === rootOutFile ? 'SCHEMA_BUNDLE_ROOT_EXISTS' : 'SCHEMA_BUNDLE_OUTPUT_EXISTS',
+        existsHint: path.resolve(outFile) === rootOutFile
+          ? 'Review the existing root schema, choose a different --out path, or pass --force to replace it.'
+          : 'Review the existing output, choose a different --out path, or pass --force to overwrite it.',
+        command: 'schema bundle --all',
+      },
+    },
+  ];
+  const preflight = [];
+  for (const write of plannedWrites) {
+    preflight.push({
+      ...write,
+      result: await preflightOutput(write.filePath, write.content, config, write.options),
+    });
+  }
+
+  for (const diagnostic of result.diagnostics) {
+    printDiagnostic(diagnostic);
+  }
+  for (const write of preflight) {
+    if (!write.result.shouldWrite) {
+      continue;
+    }
+    await writeText(write.filePath, write.content);
+    if (write.diagnostic) {
+      printDiagnostic(write.diagnostic);
+    }
+    if (write.kind === 'seed') {
+      console.log(`Generated ${path.relative(config.cwd, write.filePath)}`);
+    }
+  }
+  console.log(`Generated ${path.relative(config.cwd, outFile)}`);
+}
+
+async function runSchemaUnbundleAll(config, project, args) {
+  const schemaDir = outputPath(config, valueAfter(args, '--schema-dir')) ?? config.sourceDir;
+  const force = hasFlag(args, '--force');
+  if (!project.rootSchema?.found) {
+    throw dbError(
+      'SCHEMA_UNBUNDLE_ROOT_REQUIRED',
+      'SCHEMA_UNBUNDLE_ROOT_REQUIRED: schema unbundle --all requires db.schema.mjs.',
+      {
+        hint: 'Create db.schema.mjs first with async-db schema bundle --all, or unbundle a single resource by name.',
+        details: {
+          command: 'schema unbundle --all',
+          file: 'db.schema.mjs',
+          severity: 'error',
+        },
+      },
+    );
+  }
+
+  printDiagnostic({
+    code: 'SCHEMA_UNBUNDLE_SEED_NOT_MOVED',
+    severity: 'warn',
+    message: 'SCHEMA_UNBUNDLE_SEED_NOT_MOVED: schema unbundle --all writes schema files only; seed/data fixtures are left untouched.',
+    hint: 'Use single-resource schema unbundle with --seed-out when you want to move embedded seed data.',
+    details: {
+      command: 'schema unbundle --all',
+    },
+  });
+
+  for (const resource of project.resources) {
+    const executable = resource.source || resourceHasResolvers(resource);
+    const outFile = resource.source
+      ? path.join(schemaDir, resource.name, 'index.schema.mjs')
+      : path.join(schemaDir, `${resource.name}.schema.${executable ? 'mjs' : 'jsonc'}`);
+    const content = executable
+      ? renderUnbundledSchemaModule(config, resource, outFile)
+      : `${JSON.stringify(schemaSourceForResource(resource), null, 2)}\n`;
+
+    if (resourceHasResolvers(resource)) {
+      printDiagnostic(executableUnbundleDiagnostic(config, resource, outFile));
+    }
+
+    await writeOutput(outFile, content, config, {
+      force,
+      existsCode: 'SCHEMA_UNBUNDLE_OUTPUT_EXISTS',
+      existsHint: 'Review the existing per-resource schema file, choose a different --schema-dir, or pass --force to overwrite it.',
+      command: 'schema unbundle --all',
+      resource: resource.name,
+    });
+    console.log(`Generated ${path.relative(config.cwd, outFile)}`);
+  }
 }
 
 async function runSchemaInfer(config, args) {
@@ -212,6 +348,525 @@ async function runSchemaInfer(config, args) {
   console.log(JSON.stringify(project.schema, null, 2));
 }
 
+async function promptedSchemaTarget(command, project, args) {
+  if (hasFlag(args, '--all') || positionalArgs(args.slice(1))[0]) {
+    return undefined;
+  }
+
+  return promptForSchemaTarget({
+    command,
+    resources: project.resources.map((resource) => resource.name),
+  });
+}
+
+function schemaTargetExample(project) {
+  return project.resources[0]?.name ?? '<resource>';
+}
+
+function renderRootSchemaBundle(config, project, outFile) {
+  const imports = new Map();
+  const diagnostics = [];
+  for (const resource of project.resources) {
+    if (!resourceHasResolvers(resource) || !resource.schemaPath?.endsWith('.schema.mjs')) {
+      continue;
+    }
+    const alias = imports.get(resource.schemaPath) ?? importAliasForResource(resource.name, imports);
+    imports.set(resource.schemaPath, alias);
+    for (const [fieldName, resolver] of Object.entries(resource.resolvers?.fields ?? {})) {
+      for (const resolverKind of ['resolve', 'resolveMany']) {
+        if (!resolver[resolverKind]) {
+          continue;
+        }
+        diagnostics.push(importedResolverDiagnostic(config, resource, fieldName, resolverKind));
+        if (isArrowLikeFunction(resolver[resolverKind])) {
+          diagnostics.push(arrowResolverDiagnostic(config, resource, fieldName, resolverKind));
+        }
+      }
+    }
+  }
+
+  const lines = [
+    '// Generated by async-db schema bundle --all.',
+    '',
+    `import { collection, document, field, files } from '@async/db/schema';`,
+  ];
+  for (const [sourceFile, alias] of imports) {
+    lines.push(`import ${alias} from '${moduleSpecifier(outFile, sourceFile)}';`);
+  }
+  lines.push('', 'export default {');
+  for (const resource of project.resources) {
+    lines.push(...renderRootSchemaResource(config, resource, imports));
+  }
+  lines.push('};', '');
+
+  return {
+    content: lines.join('\n'),
+    diagnostics,
+  };
+}
+
+function renderRootSchemaResource(config, resource, imports) {
+  const helper = resource.kind === 'document' ? 'document' : 'collection';
+  const lines = [`  ${propertyName(resource.name)}: ${helper}({`];
+  if (resource.description) {
+    lines.push(`    description: ${JSON.stringify(resource.description)},`);
+  }
+  if (resource.kind === 'collection') {
+    lines.push(`    idField: ${JSON.stringify(resource.idField)},`);
+  }
+  if (resource.source) {
+    lines.push(`    source: ${renderSourceExpression(rootSchemaSourceGlob(config, resource))},`);
+  }
+  lines.push('    fields: {');
+  for (const [fieldName, field] of Object.entries(resource.fields ?? {})) {
+    lines.push(`      ${propertyName(fieldName)}: ${renderFieldExpression(field, resource, fieldName, imports)},`);
+  }
+  lines.push('    },');
+  lines.push('  }),', '');
+  return lines;
+}
+
+function rootSchemaSourceGlob(config, resource) {
+  if (!isFolderMarkerResource(config, resource)) {
+    return resource.source;
+  }
+
+  if (resource.source?.kind === 'files') {
+    return {
+      ...resource.source,
+      patterns: resource.source.patterns.map((source) => rebaseFolderSourceGlob(config, resource, source)),
+    };
+  }
+
+  if (Array.isArray(resource.source)) {
+    return resource.source.map((source) => rebaseFolderSourceGlob(config, resource, source));
+  }
+
+  return rebaseFolderSourceGlob(config, resource, resource.source);
+}
+
+function isFolderMarkerResource(config, resource) {
+  if (!resource.schemaPath) {
+    return false;
+  }
+  const relative = path.relative(config.cwd, resource.schemaPath).split(path.sep).join('/');
+  return relative.endsWith('/index.schema.mjs');
+}
+
+function rebaseFolderSourceGlob(config, resource, source) {
+  if (typeof source !== 'string' || path.isAbsolute(source)) {
+    return source;
+  }
+
+  const normalizedSource = source.split('\\').join('/');
+  const schemaDir = path.dirname(resource.schemaPath);
+  const relativeSchemaDir = path.relative(config.cwd, schemaDir).split(path.sep).join('/');
+  const sourcePath = normalizedSource.replace(/^\.\//u, '');
+  const rebased = path.posix.normalize(path.posix.join(relativeSchemaDir, sourcePath));
+  return rebased.startsWith('.') ? rebased : `./${rebased}`;
+}
+
+function renderSourceExpression(source) {
+  const normalized = source?.kind === 'files'
+    ? source
+    : {
+      kind: 'files',
+      patterns: Array.isArray(source) ? source : [source],
+      read: 'frontmatter',
+    };
+  const patterns = normalized.patterns ?? [];
+  const patternExpression = patterns.length === 1 ? JSON.stringify(patterns[0]) : literal(patterns);
+  return `files(${patternExpression}, ${objectLiteral({ read: normalized.read ?? 'frontmatter' })})`;
+}
+
+function renderFieldExpression(field, resource, fieldName, imports, fieldPath = fieldName, options = {}) {
+  const computed = field.computed === true;
+  const base = renderBaseFieldExpression(field, resource, fieldPath, imports);
+  if (!computed) {
+    return base;
+  }
+
+  const resolver = resource.resolvers?.fields?.[fieldName];
+  if (!resolver) {
+    return `field.computed(${base})`;
+  }
+
+  const fieldAccess = resolverFieldAccess(resource, fieldName, imports, options);
+  if (!fieldAccess) {
+    return `field.computed(${base})`;
+  }
+
+  if (resolver.resolve && resolver.resolveMany) {
+    return [
+      `field.computed(${base}, {`,
+      `        resolve: function ${resolverFunctionName(resource.name, fieldName, 'resolve')}(context) {`,
+      `          return ${fieldAccess}.resolve.call(this, context);`,
+      '        },',
+      `        resolveMany: function ${resolverFunctionName(resource.name, fieldName, 'resolveMany')}(context) {`,
+      `          return ${fieldAccess}.resolveMany.call(this, context);`,
+      '        },',
+      '      })',
+    ].join('\n');
+  }
+
+  if (resolver.resolveMany) {
+    return [
+      `field.computed(${base}, {`,
+      `        resolveMany: function ${resolverFunctionName(resource.name, fieldName, 'resolveMany')}(context) {`,
+      `          return ${fieldAccess}.resolveMany.call(this, context);`,
+      '        },',
+      '      })',
+    ].join('\n');
+  }
+
+  return [
+    `field.computed(${base}, function ${resolverFunctionName(resource.name, fieldName, 'resolve')}(context) {`,
+    `        return ${fieldAccess}.resolve.call(this, context);`,
+    '      })',
+  ].join('\n');
+}
+
+function renderBaseFieldExpression(field, resource, fieldPath, imports) {
+  const options = fieldOptions(field);
+  switch (field.type) {
+    case 'string':
+      return renderFieldCall('field.string', options);
+    case 'datetime':
+      return renderFieldCall('field.datetime', options);
+    case 'number':
+      return renderFieldCall('field.number', options);
+    case 'boolean':
+      return renderFieldCall('field.boolean', options);
+    case 'enum':
+      return renderFieldCall('field.enum', options, [literal(field.values ?? [])]);
+    case 'array':
+      return renderFieldCall('field.array', options, [
+        renderBaseFieldExpression(field.items ?? { type: 'unknown' }, resource, `${fieldPath}Item`, imports),
+      ]);
+    case 'object':
+      return renderObjectFieldExpression(field, resource, fieldPath, imports, options);
+    case 'unknown':
+    default:
+      return renderFieldCall('field.json', options);
+  }
+}
+
+function renderObjectFieldExpression(field, resource, fieldPath, imports, options) {
+  const fields = field.fields ?? {};
+  const fieldEntries = Object.entries(fields);
+  if (fieldEntries.length === 0) {
+    return renderFieldCall('field.object', options);
+  }
+
+  const lines = ['field.object({'];
+  for (const [childName, childField] of fieldEntries) {
+    lines.push(`        ${propertyName(childName)}: ${renderBaseFieldExpression(childField, resource, `${fieldPath}${childName}`, imports)},`);
+  }
+  const optionText = renderOptions(options);
+  lines.push(`      }${optionText ? `, ${optionText}` : ''})`);
+  return lines.join('\n');
+}
+
+function fieldOptions(field) {
+  const options = {};
+  if (field.required === true) {
+    options.required = true;
+  }
+  if (field.nullable === true) {
+    options.nullable = true;
+  }
+  if (field.description !== undefined) {
+    options.description = field.description;
+  }
+  if (field.default !== undefined) {
+    options.default = field.default;
+  }
+  if (field.unique === true) {
+    options.unique = true;
+  }
+  for (const key of ['min', 'max', 'minLength', 'maxLength', 'pattern']) {
+    if (field[key] !== undefined) {
+      options[key] = field[key];
+    }
+  }
+  if (field.additionalProperties !== undefined) {
+    options.additionalProperties = field.additionalProperties;
+  }
+  if (field.relation !== undefined) {
+    options.relation = field.relation;
+  }
+  return options;
+}
+
+function renderFieldCall(callee, options, args = []) {
+  const renderedArgs = [...args];
+  const optionText = renderOptions(options);
+  if (optionText) {
+    renderedArgs.push(optionText);
+  }
+  return `${callee}(${renderedArgs.join(', ')})`;
+}
+
+function renderOptions(options) {
+  return Object.keys(options).length === 0 ? '' : objectLiteral(options);
+}
+
+function renderUnbundledSchemaModule(config, resource, outFile) {
+  const imports = new Map();
+  const rootSchemaPath = projectRootSchemaPath(config);
+  if (resourceHasResolvers(resource)) {
+    imports.set(rootSchemaPath, 'rootSchema');
+  }
+
+  return renderSchemaModule(resource, {
+    imports,
+    outFile,
+    rootSchemaAlias: imports.get(rootSchemaPath),
+  });
+}
+
+function renderSchemaModule(resource, options = {}) {
+  const helper = resource.kind === 'document' ? 'document' : 'collection';
+  const lines = [
+    `import { collection, document, field, files } from '@async/db/schema';`,
+  ];
+  for (const [sourceFile, alias] of options.imports ?? []) {
+    lines.push(`import ${alias} from '${moduleSpecifier(options.outFile, sourceFile)}';`);
+  }
+  lines.push(
+    '',
+    `export default ${helper}({`,
+  );
+  if (resource.description) {
+    lines.push(`  description: ${JSON.stringify(resource.description)},`);
+  }
+  if (resource.source) {
+    lines.push(`  source: ${renderSourceExpression(resource.source)},`);
+  }
+  if (resource.kind === 'collection') {
+    lines.push(`  idField: ${JSON.stringify(resource.idField)},`);
+  }
+  lines.push('  fields: {');
+  for (const [fieldName, field] of Object.entries(resource.fields ?? {})) {
+    lines.push(`    ${propertyName(fieldName)}: ${renderFieldExpression(field, resource, fieldName, options.imports ?? new Map(), fieldName, {
+      rootSchemaAlias: options.rootSchemaAlias,
+    })},`);
+  }
+  lines.push('  },');
+  lines.push('});', '');
+  return lines.join('\n');
+}
+
+function bundleAllSeedWrites(config, project, options = {}) {
+  return project.resources
+    .filter((resource) => (
+      resource.schemaHasSeed
+      && !resource.dataPath
+      && !isEmptySeed(resource.schemaSeed, resource.kind)
+    ))
+    .map((resource) => {
+      const filePath = defaultSeedOutFile(config, resource);
+      return {
+        kind: 'seed',
+        filePath,
+        content: `${JSON.stringify(resource.schemaSeed, null, 2)}\n`,
+        diagnostic: bundleSeedUnbundledDiagnostic(config, resource, filePath),
+        options: {
+          force: options.force,
+          existsCode: 'SCHEMA_BUNDLE_SEED_OUTPUT_EXISTS',
+          existsHint: 'Review the existing seed fixture, remove embedded schema seed, choose a different fixture source, or pass --force to overwrite it.',
+          command: 'schema bundle --all',
+          resource: resource.name,
+        },
+      };
+    });
+}
+
+function importedResolverDiagnostic(config, resource, fieldName, resolverKind) {
+  const relative = path.relative(config.cwd, resource.schemaPath);
+  const wrapper = resolverFunctionName(resource.name, fieldName, resolverKind);
+  return {
+    code: 'SCHEMA_BUNDLE_IMPORTED_RESOLVER',
+    severity: 'warn',
+    resource: resource.name,
+    file: relative,
+    message: `SCHEMA_BUNDLE_IMPORTED_RESOLVER: ${resource.name}.${fieldName} uses a ${resolverKind} resolver from ${relative}. The root schema will import the original module and generate an inline named wrapper to preserve behavior.`,
+    hint: `This is safe and non-destructive. To make db.schema.mjs fully standalone, move the resolver body into ${wrapper} manually.`,
+    details: {
+      command: 'schema bundle --all',
+      resource: resource.name,
+      field: fieldName,
+      resolver: resolverKind,
+      wrapper,
+      strategy: 'inline-wrapper-import-original-module',
+    },
+  };
+}
+
+function bundleSeedUnbundledDiagnostic(config, resource, outFile) {
+  const relative = path.relative(config.cwd, outFile);
+  return {
+    code: 'SCHEMA_BUNDLE_SEED_UNBUNDLED',
+    severity: 'warn',
+    resource: resource.name,
+    file: relative,
+    message: `SCHEMA_BUNDLE_SEED_UNBUNDLED: ${resource.name} has embedded schema seed. schema bundle --all wrote ${relative} so db.schema.mjs can stay schema-only.`,
+    hint: `Keep seed data in ${relative}. The generated root schema intentionally omits seed.`,
+    details: {
+      command: 'schema bundle --all',
+      resource: resource.name,
+      file: relative,
+      strategy: 'split-schema-seed-before-root-bundle',
+    },
+  };
+}
+
+function arrowResolverDiagnostic(config, resource, fieldName, resolverKind) {
+  const relative = path.relative(config.cwd, resource.schemaPath);
+  const wrapper = resolverFunctionName(resource.name, fieldName, resolverKind);
+  return {
+    code: 'SCHEMA_BUNDLE_ARROW_RESOLVER_WRAPPED',
+    severity: 'warn',
+    resource: resource.name,
+    file: relative,
+    message: `SCHEMA_BUNDLE_ARROW_RESOLVER_WRAPPED: ${resource.name}.${fieldName} ${resolverKind} is an arrow-like resolver. The generated wrapper preserves behavior, but the original resolver still cannot use runtime this.`,
+    hint: `To use services through this, move the resolver body into ${wrapper} in db.schema.mjs.`,
+    details: {
+      command: 'schema bundle --all',
+      resource: resource.name,
+      field: fieldName,
+      resolver: resolverKind,
+      wrapper,
+    },
+  };
+}
+
+function executableUnbundleDiagnostic(config, resource, outFile) {
+  const relative = path.relative(config.cwd, outFile);
+  return {
+    code: 'SCHEMA_UNBUNDLE_EXECUTABLE_REQUIRES_MJS',
+    severity: 'warn',
+    resource: resource.name,
+    file: relative,
+    message: `SCHEMA_UNBUNDLE_EXECUTABLE_REQUIRES_MJS: ${resource.name} contains executable resolver functions, so schema unbundle --all will write ${relative} instead of JSONC.`,
+    hint: 'Keep the .mjs output so resolver behavior is preserved through inline wrappers.',
+    details: {
+      command: 'schema unbundle --all',
+      resource: resource.name,
+      file: relative,
+      outputFormat: 'mjs',
+      reason: 'computed-resolver',
+    },
+  };
+}
+
+function bundleDuplicateResourceDiagnostic(config, project) {
+  const duplicate = project.diagnostics.find((diagnostic) => diagnostic.code === 'DUPLICATE_RESOURCE_NAME');
+  if (!duplicate) {
+    return undefined;
+  }
+
+  const files = duplicate.details?.files ?? (duplicate.file ? [duplicate.file] : []);
+  return {
+    code: 'SCHEMA_BUNDLE_DUPLICATE_RESOURCE',
+    severity: 'error',
+    resource: duplicate.resource,
+    files,
+    message: `Multiple schema or data sources resolve to resource "${duplicate.resource}".`,
+    hint: duplicate.hint ?? 'Rename one source or configure resource naming before bundling all schemas.',
+    details: {
+      command: 'schema bundle --all',
+      resource: duplicate.resource,
+      files,
+      severity: 'error',
+      originalCode: duplicate.code,
+      cwd: config.cwd,
+    },
+  };
+}
+
+function resourceHasResolvers(resource) {
+  return Object.keys(resource.resolvers?.fields ?? {}).length > 0;
+}
+
+function resolverFieldAccess(resource, fieldName, imports, options = {}) {
+  if (options.rootSchemaAlias) {
+    return memberExpression(memberExpression(memberExpression(options.rootSchemaAlias, resource.name), 'fields'), fieldName);
+  }
+
+  const alias = imports.get(resource.schemaPath);
+  if (!alias) {
+    return undefined;
+  }
+  return memberExpression(memberExpression(alias, 'fields'), fieldName);
+}
+
+function resolverFunctionName(resourceName, fieldName, resolverKind) {
+  const suffix = resolverKind === 'resolveMany' ? 'resolveMany' : 'resolver';
+  let name = `${resourceName}_${fieldName}_${suffix}`.replace(/[^A-Za-z0-9_$]/g, '_');
+  if (!/^[A-Za-z_$]/.test(name)) {
+    name = `resource_${name}`;
+  }
+  return name;
+}
+
+function importAliasForResource(resourceName, imports) {
+  let alias = `${resourceName}Source`.replace(/[^A-Za-z0-9_$]/g, '_');
+  if (!/^[A-Za-z_$]/.test(alias)) {
+    alias = `resource_${alias}`;
+  }
+  const used = new Set(imports.values());
+  let next = alias;
+  let suffix = 2;
+  while (used.has(next)) {
+    next = `${alias}${suffix}`;
+    suffix += 1;
+  }
+  return next;
+}
+
+function moduleSpecifier(fromFile, sourceFile) {
+  let relative = path.relative(path.dirname(fromFile), sourceFile).split(path.sep).join('/');
+  if (!relative.startsWith('.')) {
+    relative = `./${relative}`;
+  }
+  return relative;
+}
+
+function projectRootSchemaPath(config) {
+  return path.join(config.cwd, 'db.schema.mjs');
+}
+
+function propertyName(name) {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
+}
+
+function memberExpression(base, key) {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)
+    ? `${base}.${key}`
+    : `${base}[${JSON.stringify(key)}]`;
+}
+
+function literal(value, indent = '      ') {
+  return JSON.stringify(value, null, 2)
+    .split('\n')
+    .join(`\n${indent}`);
+}
+
+function objectLiteral(value) {
+  const entries = Object.entries(value);
+  const inline = `{ ${entries.map(([key, entry]) => `${propertyName(key)}: ${JSON.stringify(entry)}`).join(', ')} }`;
+  if (inline.length <= 100 && !inline.includes('\n')) {
+    return inline;
+  }
+
+  return `{\n${entries.map(([key, entry]) => `        ${propertyName(key)}: ${literal(entry, '        ')}`).join(',\n')}\n      }`;
+}
+
+function isArrowLikeFunction(value) {
+  return typeof value === 'function' && value.prototype === undefined;
+}
+
 function requireSchemaResource(project, name) {
   const resourceMap = new Map(project.resources.map((resource) => [resource.name, resource]));
   const { resource, candidates } = resolveResource(resourceMap, name);
@@ -244,6 +899,18 @@ function schemaSourceForResource(resource, options = {}) {
     source.idField = resource.idField;
   }
 
+  if (resource.source) {
+    source.source = resource.source;
+  }
+
+  if (resource.store) {
+    source.store = resource.store;
+  }
+
+  if (resource.parser) {
+    source.parser = resource.parser;
+  }
+
   if (options.includeSeed) {
     source.seed = resource.seed;
   }
@@ -268,18 +935,42 @@ function defaultSeedOutFile(config, resource) {
 }
 
 async function writeOutput(filePath, content, config, options = {}) {
+  const result = await preflightOutput(filePath, content, config, options);
+  if (!result.shouldWrite) {
+    return false;
+  }
+
+  await writeText(filePath, content);
+  return true;
+}
+
+async function preflightOutput(filePath, content, config, options = {}) {
+  if (options.force) {
+    return { shouldWrite: true };
+  }
+
   if (!options.force) {
     try {
       const existing = await readText(filePath);
-      if (!contentMatches(existing, content)) {
-        throw dbError(
-          'SCHEMA_OUTPUT_EXISTS',
-          `SCHEMA_OUTPUT_EXISTS: ${path.relative(config.cwd, filePath)} already exists with different content.`,
-          {
-            hint: 'Review the existing file, choose a different output path, or pass --force to overwrite it.',
-          },
-        );
+      if (contentMatches(existing, content)) {
+        return { shouldWrite: false };
       }
+
+      const relative = path.relative(config.cwd, filePath);
+      const code = options.existsCode ?? 'SCHEMA_OUTPUT_EXISTS';
+      throw dbError(
+        code,
+        `${code}: ${relative} already exists with different content.`,
+        {
+          hint: options.existsHint ?? 'Review the existing file, choose a different output path, or pass --force to overwrite it.',
+          details: {
+            command: options.command,
+            resource: options.resource,
+            file: relative,
+            severity: 'error',
+          },
+        },
+      );
     } catch (error) {
       if (error.code !== 'ENOENT') {
         throw error;
@@ -287,7 +978,7 @@ async function writeOutput(filePath, content, config, options = {}) {
     }
   }
 
-  await writeText(filePath, content);
+  return { shouldWrite: true };
 }
 
 function contentMatches(existing, next) {
@@ -335,8 +1026,11 @@ function positionalArgs(args) {
   const output = [];
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === '--out' || arg === '--schema-out' || arg === '--seed-out' || arg === '--cwd' || arg === '--config') {
+    if (arg === '--out' || arg === '--schema-out' || arg === '--seed-out' || arg === '--schema-dir' || arg === '--cwd' || arg === '--config') {
       index += 1;
+      continue;
+    }
+    if (arg === '--all') {
       continue;
     }
     if (!String(arg).startsWith('-')) {

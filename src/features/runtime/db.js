@@ -9,17 +9,60 @@ import { DbCollection } from './collection.js';
 import { DbDocument } from './document.js';
 
 export async function openDb(options = {}) {
-  const config = await loadConfig(options);
-  const syncOnOpen = options.syncOnOpen ?? true;
+  const rawOptions = typeof options === 'string' ? { from: options } : options;
+  const loadedSchema = loadedSchemaFromOptions(rawOptions);
+  const config = await loadConfig(openOptionsForConfig(rawOptions, loadedSchema));
+  const syncOnOpen = rawOptions.syncOnOpen ?? true;
   const project = syncOnOpen
-    ? await syncDb(config, { allowErrors: options.allowSourceErrors === true })
-    : await loadProjectSchema(config);
+    ? await syncDb(config, { allowErrors: rawOptions.allowSourceErrors === true })
+    : await loadProjectSchema(config, { load: config.schemaLoadMode ?? 'runtime' });
   const db = new Db(config, project.resources, project.diagnostics);
   if (syncOnOpen) {
     await db.runtime.hydrate();
   }
 
   return db;
+}
+
+function loadedSchemaFromOptions(options) {
+  return isLoadedDbSchema(options?.schema) ? options.schema : null;
+}
+
+function openOptionsForConfig(options, loadedSchema) {
+  const next = loadedSchema
+    ? optionsFromLoadedSchema(options, loadedSchema)
+    : { ...options };
+
+  next.load ??= 'runtime';
+  return next;
+}
+
+function optionsFromLoadedSchema(options, loadedSchema) {
+  const { schema: _loadedSchema, ...overrides } = options;
+  const next = {
+    ...(loadedSchema.config ?? {}),
+    ...overrides,
+  };
+
+  next.from ??= locatorInputForLoadedSchema(loadedSchema);
+  return next;
+}
+
+function locatorInputForLoadedSchema(loadedSchema) {
+  const locator = loadedSchema.locator ?? loadedSchema.config?.schemaLocator;
+  if (locator?.file) {
+    return locator.file;
+  }
+
+  if (locator?.mode === 'source-dir' && locator.sourceDir) {
+    return locator.sourceDir;
+  }
+
+  return locator?.cwd ?? loadedSchema.config?.cwd;
+}
+
+function isLoadedDbSchema(value) {
+  return value?.kind === 'DbSchema' && value?.resources instanceof Map && value?.config;
 }
 
 export class Db {

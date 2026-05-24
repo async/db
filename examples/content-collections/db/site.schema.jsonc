@@ -1,0 +1,21 @@
+{
+  "kind": "document",
+  "description": "Site-level content settings stored as an embedded schema seed before aggregate bundle splits it out.",
+  "fields": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string"
+    },
+    "baseUrl": {
+      "type": "string"
+    }
+  },
+  "seed": {
+    "title": "Local Content Lab",
+    "description": "A small dependency-free content collection workflow.",
+    "baseUrl": "https://example.test"
+  }
+}

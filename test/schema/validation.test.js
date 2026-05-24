@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { syncDb, loadConfig, loadProjectSchema } from '../../src/index.js';
+import { syncDb, loadConfig, loadDbSchema, loadProjectSchema } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 test('schema validation reports missing required relation targets', async () => {
@@ -427,4 +427,132 @@ test('schema field constraints validate seed records and schema metadata', async
   assert.match(errors[0].message, /email/);
   assert.match(errors[0].hint, /pattern/);
   await assert.rejects(() => syncDb(config), /violates pattern/);
+});
+
+test('loadDbSchema returns metadata-only schema without invoking resolvers or seed validation', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.mjs', `
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    email: field.string({ required: true }),
+    fullName: field.computed(field.string(), function users_fullName_resolver() {
+      throw new Error('resolver should not run during metadata-only schema loading');
+    }),
+  },
+  seed: [
+    { id: 'u_1' }
+  ],
+});
+`);
+
+  const schema = await loadDbSchema({ from: cwd });
+
+  assert.equal(schema.kind, 'DbSchema');
+  assert.equal(schema.loadMode, 'schema');
+  assert.deepEqual(schema.resourceNames(), ['users']);
+  assert.equal(schema.resource('users').seed.length, 0);
+  assert.equal(schema.schema.resources.users.fields.fullName.computed, true);
+  assert.equal(schema.schema.resources.users.fields.fullName.readOnly, true);
+  assert.equal('resolve' in schema.schema.resources.users.fields.fullName, false);
+  assert.deepEqual(schema.diagnostics.filter((diagnostic) => diagnostic.severity === 'error'), []);
+});
+
+test('schema validators reject computed fields and can strip or allow unknown input', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.mjs', `
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    firstName: field.string({ required: true }),
+    lastName: field.string({ required: true }),
+    nickname: field.string({ default: 'Anonymous' }),
+    profile: field.object({
+      slug: field.string(),
+      auditLabel: field.string({ readOnly: true }),
+    }),
+    fullName: field.computed(field.string(), ({ record }) => {
+      return \`\${record.firstName} \${record.lastName}\`;
+    }),
+  },
+  seed: [],
+});
+`);
+  const schema = await loadDbSchema({ from: cwd });
+  const validator = schema.validator('users');
+
+  const invalid = validator.validate({
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    fullName: 'Wrong',
+    profile: {
+      slug: 'ada',
+      auditLabel: 'internal',
+    },
+    extra: true,
+  });
+
+  assert.equal(invalid.ok, false);
+  assert.deepEqual(
+    invalid.errors.map((diagnostic) => [diagnostic.code, diagnostic.field]),
+    [
+      ['SCHEMA_UNKNOWN_FIELD', 'extra'],
+      ['FIELD_READ_ONLY', 'profile.auditLabel'],
+      ['FIELD_READ_ONLY', 'fullName'],
+    ],
+  );
+
+  const stripped = schema.validator('users', { unknownFields: 'strip' }).assert({
+    firstName: 'Grace',
+    lastName: 'Hopper',
+    profile: {
+      slug: 'grace',
+      extraNested: 'ignored',
+    },
+    extraTopLevel: 'ignored',
+  });
+
+  assert.deepEqual(stripped, {
+    firstName: 'Grace',
+    lastName: 'Hopper',
+    nickname: 'Anonymous',
+    profile: {
+      slug: 'grace',
+    },
+  });
+
+  const patch = schema.validator('users', { mode: 'patch', unknownFields: 'strip' }).assert({
+    profile: {
+      slug: 'updated',
+      extraNested: 'ignored',
+    },
+  });
+  assert.deepEqual(patch, {
+    profile: {
+      slug: 'updated',
+    },
+  });
+
+  const ignored = schema.validator('users', { unknownFields: 'ignore' }).assert({
+    firstName: 'Alan',
+    lastName: 'Turing',
+    extraTopLevel: 'preserved',
+  });
+  assert.equal(ignored.extraTopLevel, 'preserved');
+
+  assert.throws(
+    () => validator.assert({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      fullName: 'Ada Lovelace',
+    }),
+    (error) => error.code === 'DB_SCHEMA_VALIDATION_FAILED'
+      && error.details.diagnostics.some((diagnostic) => diagnostic.code === 'FIELD_READ_ONLY'),
+  );
 });

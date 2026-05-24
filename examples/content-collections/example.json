@@ -1,0 +1,5 @@
+{
+  "title": "Content Collections",
+  "description": "Dependency-free docs and blog folders with frontmatter, raw MDX bodies, static stores, computed fields, and aggregate schema bundling.",
+  "tags": ["content", "mdx", "schema-mjs"]
+}

@@ -26,8 +26,10 @@ Usage:
   async-db types [--watch] [--out <file>]
   async-db schema [resource]
   async-db schema infer [resource] [--out <file>]
-  async-db schema unbundle <resource> [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
-  async-db schema bundle <resource> [--out <file>] [--force]
+  async-db schema unbundle [resource] [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
+  async-db schema unbundle --all [--schema-dir <dir>] [--force]
+  async-db schema bundle [resource] [--out <file>] [--force]
+  async-db schema bundle --all [--out <file>] [--force]
   async-db schema manifest [--out <file>]
   async-db schema validate
   async-db operations build [--out <file>] [--refs-out <file>]
@@ -81,8 +83,10 @@ export function printSchemaHelp() {
 Usage:
   async-db schema [resource]
   async-db schema infer [resource] [--out <file>]
-  async-db schema unbundle <resource> [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
-  async-db schema bundle <resource> [--out <file>] [--force]
+  async-db schema unbundle [resource] [--schema-out <file>] [--seed-out <file>] [--empty-seed] [--force]
+  async-db schema unbundle --all [--schema-dir <dir>] [--force]
+  async-db schema bundle [resource] [--out <file>] [--force]
+  async-db schema bundle --all [--out <file>] [--force]
   async-db schema manifest [--out <file>]
   async-db schema validate
 
@@ -90,8 +94,10 @@ Options:
   --out <file>        Write schema manifest, inferred schema, or bundled schema output to this path
   --schema-out <file> Write unbundled schema output to this path
   --seed-out <file>   Write unbundled seed output to this path
+  --schema-dir <dir>  Write aggregate unbundled schema files under this directory
   --empty-seed        Write an empty seed fixture when unbundling schema-only resources
   --force             Allow overwriting outputs or writing bundle output inside db/
+  --all               Skip the interactive target prompt and use all schemas
   --cwd <dir>     Project directory
   --config <file> Config file path
 `);

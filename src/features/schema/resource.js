@@ -1,14 +1,16 @@
 import { resourceConfigValue, routePathForResource, typeNameForResource } from '../../names.js';
 import { inferFieldsFromData, normalizeField } from './fields.js';
 import { relationsForResource } from './relations.js';
+import { normalizeFilesSource } from './source-definitions.js';
 
-export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath, schemaSource, rawData, rawSchema, config }) {
+export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath, schemaSource, rawData, rawSchema, config, includeSeed = true }) {
   const collectionConfig = resourceConfigValue(config.collections, name) ?? {};
   if (rawSchema) {
     const kind = rawSchema.kind ?? inferKindFromData(rawData) ?? 'collection';
     const idField = rawSchema.idField ?? collectionConfig.idField ?? 'id';
-    const schemaSeed = rawSchema.seed ?? emptySeedForKind(kind);
-    const seed = rawData !== undefined ? rawData : schemaSeed;
+    const schemaHasSeed = Object.prototype.hasOwnProperty.call(rawSchema, 'seed');
+    const schemaSeed = includeSeed && schemaHasSeed ? rawSchema.seed : emptySeedForKind(kind);
+    const seed = includeSeed && rawData !== undefined ? rawData : schemaSeed;
     const resolvers = resolversForFieldMap(rawSchema.fields ?? {});
     let fields = Object.fromEntries(
       Object.entries(rawSchema.fields ?? {}).map(([fieldName, field]) => [fieldName, normalizeField(field, fieldName)]),
@@ -18,6 +20,9 @@ export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath
     }
     const normalizedSeed = normalizeSeed(dataFormat === 'csv' ? coerceCsvSeedToSchema(seed, fields, kind) : seed, kind);
     const idResult = ensureCollectionSeedIds(normalizedSeed, kind, idField);
+    const normalizedSchemaSeed = includeSeed && schemaHasSeed
+      ? ensureCollectionSeedIds(normalizeSeed(schemaSeed, kind), kind, idField).seed
+      : undefined;
 
     return withComputedMetadata({
       name,
@@ -31,9 +36,12 @@ export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath
       dataHash,
       schemaPath,
       schemaSource: schemaSource ?? null,
+      schemaHasSeed,
+      schemaSeed: normalizedSchemaSeed,
       typeSource: 'schema',
       generatedIds: idResult.generated,
       resolvers,
+      source: normalizeFilesSource(rawSchema.source, { read: rawSchema.parser }),
     });
   }
 

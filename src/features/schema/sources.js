@@ -19,6 +19,89 @@ export async function listSourceFiles(sourceDirOrConfig) {
   }
 }
 
+export async function readRootSchemaFile(config) {
+  if (config.schema?.source === 'data') {
+    return {
+      sources: [],
+      diagnostics: [],
+      found: false,
+    };
+  }
+
+  const locator = config.schemaLocator;
+  if (locator && locator.mode !== 'project' && locator.mode !== 'root-schema') {
+    return {
+      sources: [],
+      diagnostics: [],
+      found: false,
+    };
+  }
+
+  const sourceFile = locator?.mode === 'root-schema'
+    ? locator.file
+    : path.join(config.cwd, 'db.schema.mjs');
+  let buffer;
+  try {
+    buffer = await readFile(sourceFile);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return {
+        sources: [],
+        diagnostics: [],
+        found: false,
+      };
+    }
+    return {
+      sources: [],
+      diagnostics: [sourceLoadDiagnostic(error, sourceFile, 'dbSchema', config, {
+        readerName: 'db:root-schema-mjs',
+      })],
+      found: true,
+    };
+  }
+
+  try {
+    const url = pathToFileURL(sourceFile);
+    url.searchParams.set('dbRootSchemaLoad', String(Date.now()));
+    const module = await import(url.href);
+    const exported = module.default ?? module.schema ?? {};
+    const hash = createHash('sha256').update(buffer).digest('hex');
+    return {
+      sources: rootSchemaSources(config, exported, sourceFile, hash),
+      diagnostics: [],
+      found: true,
+    };
+  } catch (error) {
+    return {
+      sources: [],
+      diagnostics: [sourceLoadDiagnostic(error, sourceFile, 'dbSchema', config, {
+        readerName: 'db:root-schema-mjs',
+      })],
+      found: true,
+    };
+  }
+}
+
+function rootSchemaSources(config, exported, sourceFile, hash) {
+  if (!exported || typeof exported !== 'object' || Array.isArray(exported)) {
+    return [];
+  }
+
+  const file = path.relative(config.cwd, sourceFile).split(path.sep).join('/') || path.basename(sourceFile);
+  return Object.entries(exported)
+    .filter(([, schema]) => schema && typeof schema === 'object' && !Array.isArray(schema))
+    .map(([name, schema]) => ({
+      kind: 'schema',
+      name,
+      file,
+      sourceFile,
+      format: 'root-mjs',
+      hash,
+      schema,
+      baseDir: path.dirname(sourceFile),
+    }));
+}
+
 async function listSourceFilesInDirectory(directory, prefix = '', ignoredDirs = []) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -328,6 +411,7 @@ function normalizeSourceReaderResult(result, context, reader) {
       hash: context.hash,
       data: rawSource.kind === 'data' ? rawSource.data : undefined,
       schema: rawSource.kind === 'schema' ? rawSource.schema : undefined,
+      baseDir: path.dirname(context.sourceFile),
     });
   }
 
@@ -360,7 +444,11 @@ function sourceKindAllowed(config, kind) {
 function resolveSourceResourceName(config, filename) {
   const file = sourceFileLabel(config, filename);
   const strategy = config.resources?.naming ?? 'basename';
-  const defaultName = resourceNameFromPath(file, { strategy });
+  const parsed = parseFixturePath(file);
+  const isIndexSchema = parsed.basename === 'index' && parsed.extension.startsWith('.schema.');
+  const defaultName = isIndexSchema && parsed.folder
+    ? resourceNameFromPath(`db/${parsed.folder}.json`, { strategy: 'basename' })
+    : resourceNameFromPath(file, { strategy });
   const defaultResource = { name: defaultName };
   const customizeResource = config.resources?.customizeResource;
 
@@ -368,7 +456,6 @@ function resolveSourceResourceName(config, filename) {
     return defaultName;
   }
 
-  const parsed = parseFixturePath(file);
   const customized = customizeResource({
     file,
     sourceFile: path.join(config.sourceDir, filename),

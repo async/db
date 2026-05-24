@@ -90,10 +90,88 @@ const settings = db.document('settings');
 
 await settings.set('/theme', 'dark');
 
-const value = settings.get('/theme');
+const value = await settings.get('/theme');
 ```
 
 Import generated `DbTypes` from `.db/types/index.ts` or from a committed output file when typed collection names and records should be available to TypeScript.
+
+## Schema Contract API
+
+Use `loadDbSchema({ from })` when app code needs the schema contract without
+opening runtime stores or reading source records. `from` can point at a project
+root, a `db/` folder, the root `db.schema.mjs`, or one resource schema file.
+
+```ts
+import { loadDbSchema, openDb } from '@async/db';
+
+const schema = await loadDbSchema({ from: './db.schema.mjs' });
+
+const validateUserInput = schema.validator('users', {
+  mode: 'create',
+  unknownFields: 'strip',
+});
+
+const input = validateUserInput.assert(await request.json());
+```
+
+Validators reject computed and read-only fields. They default unknown fields to
+`error`; use `strip`, `allow`, or `warn` when an endpoint has a different input
+contract. `mode: 'patch'` allows partial records and `mode: 'replace'` keeps
+required-field checks strict.
+
+Call computed field resolvers directly when server code wants the same field
+logic that REST and GraphQL use:
+
+```ts
+const userResolvers = schema.resolver('users', {
+  value: input,
+  context: {
+    locale: 'en-US',
+    nameFormatter,
+  },
+});
+
+const fullName = await userResolvers.fullName();
+```
+
+`schema.resolver('users.fullName')` returns one callable resolver. The resolver
+`this` value is a delegated context with `this.get(name)` and `this.has(name)`.
+User context values win over internal values; `this._internal` exposes the
+unoverridden internal view when a resolver needs it. A resolver call can also
+pass ad hoc arguments, such as `{ record: input }`, when the schema function is
+written to receive them.
+
+Pass a loaded schema to `openDb({ schema })` when one process wants to inspect
+or validate the contract first, then open the runtime database from the same
+schema locator:
+
+```ts
+const schema = await loadDbSchema({ from: './db.schema.mjs' });
+const db = await openDb({ schema });
+```
+
+`loadDbSchema()` is metadata-only by default and does not call content/data
+readers, runtime stores, or computed resolvers. `openDb()` defaults to runtime
+loading and reads the matching fixture/content sources.
+
+JavaScript schema files can describe folder content sources with the helper
+exported from `@async/db/schema`:
+
+```js
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'frontmatter' }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string(),
+  },
+});
+```
+
+Keep runtime store selection in `db.config.mjs`, for example
+`resources.docs.store = 'static'`.
 
 ## HTTP Client
 

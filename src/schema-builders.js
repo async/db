@@ -1,1 +1,1 @@
-export { collection, document, field } from './features/schema/builders.js';
+export { collection, document, field, files } from './features/schema/builders.js';

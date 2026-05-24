@@ -5,6 +5,90 @@ export type DbTypeMap = {
   documents: Record<string, unknown>;
 };
 
+export type DbSchemaLoadMode = 'schema' | 'data' | 'runtime';
+
+export type DbSchemaLocator = {
+  cwd: string;
+  sourceDir: string;
+  mode: 'project' | 'source-dir' | 'root-schema' | 'schema-file';
+  file: string | null;
+  baseDir: string;
+  resourceName: string | null;
+};
+
+export type DbSchemaValidatorMode = 'create' | 'replace' | 'patch';
+
+export type DbSchemaValidatorUnknownFields = 'error' | 'strip' | 'allow' | 'warn' | 'ignore';
+
+export type DbSchemaValidatorOptions = {
+  /** Validation shape. create allows an omitted collection id; patch allows missing required fields. */
+  mode?: DbSchemaValidatorMode;
+  /** How unknown input fields are handled. Defaults to "error" for schema validators. */
+  unknownFields?: DbSchemaValidatorUnknownFields;
+  /** Apply schema defaults in create mode. Defaults to true. */
+  applyDefaults?: boolean;
+  /** Human-readable source label used in diagnostics. */
+  source?: string;
+};
+
+export type DbSchemaValidationResult<TValue = unknown> = {
+  ok: boolean;
+  value: TValue;
+  diagnostics: Array<Record<string, unknown>>;
+  errors: Array<Record<string, unknown>>;
+  resource: string;
+  mode: DbSchemaValidatorMode;
+};
+
+export type DbSchemaValidator<TValue = Record<string, unknown>> = {
+  resource: string;
+  mode: DbSchemaValidatorMode;
+  unknownFields: Exclude<DbSchemaValidatorUnknownFields, 'ignore'>;
+  validate(value: unknown, options?: DbSchemaValidatorOptions): DbSchemaValidationResult<TValue>;
+  assert(value: unknown, options?: DbSchemaValidatorOptions): TValue;
+};
+
+export type DbSchemaResolverContext = Record<string, unknown> | Map<string, unknown>;
+
+export type DbSchemaResolverOptions = {
+  /** User-provided values exposed on resolver this. These override internal values with the same key. */
+  context?: DbSchemaResolverContext;
+  /** Shared cache exposed as this.cache and this.get("cache"). */
+  cache?: Map<string, unknown>;
+  /** Optional value exposed as this.value when no call-time record/value is provided. */
+  value?: unknown;
+  /** Optional db-like object exposed to resolver this. Runtime REST/GraphQL pass the live db. */
+  db?: unknown;
+  /** Optional service map exposed as this.services and individual this.get(name) entries. */
+  services?: Record<string, unknown>;
+};
+
+export type DbSchemaFieldResolver<TArgs = Record<string, unknown>, TValue = unknown> = ((args?: TArgs) => Promise<TValue>) & {
+  resolve?: (args?: TArgs) => Promise<TValue>;
+  resolveMany?: (args?: { records?: unknown[]; [key: string]: unknown } | unknown[]) => Promise<unknown>;
+};
+
+export type DbLoadedSchema = {
+  kind: 'DbSchema';
+  config: DbOptions;
+  loadMode: DbSchemaLoadMode;
+  locator: DbSchemaLocator | null;
+  rootSchema?: unknown;
+  resources: Map<string, Record<string, unknown>>;
+  diagnostics: Array<Record<string, unknown>>;
+  schema: Record<string, unknown>;
+  resource(name: string): Record<string, unknown>;
+  resourceNames(): string[];
+  validator<TValue = Record<string, unknown>>(name: string, options?: DbSchemaValidatorOptions): DbSchemaValidator<TValue>;
+  resolver<TArgs = Record<string, unknown>, TValue = unknown>(
+    selector: string,
+    options?: DbSchemaResolverOptions,
+  ): DbSchemaFieldResolver<TArgs, TValue> | Record<string, DbSchemaFieldResolver<TArgs, TValue>>;
+  validate<TValue = Record<string, unknown>>(name: string, value: unknown, options?: DbSchemaValidatorOptions): DbSchemaValidationResult<TValue>;
+  assert<TValue = Record<string, unknown>>(name: string, value: unknown, options?: DbSchemaValidatorOptions): TValue;
+  toJSON(): Record<string, unknown>;
+};
+
 export type DbGeneratedTypesOptions = {
   /** Generate TypeScript types during sync. */
   enabled?: boolean;
@@ -419,9 +503,28 @@ export type DbRestFormatDefinition = {
   renderManifest?: DbRestManifestFormatRenderer;
 };
 
+export type DbSchemaConfig = {
+  /** Which inputs define schemas. "auto" uses schema files when present and otherwise infers from data. */
+  source?: 'auto' | 'data' | 'schema';
+  /** Allow JSONC source files. */
+  allowJsonc?: boolean;
+  /** How schema-backed resources handle fields not declared by schema. */
+  unknownFields?: 'allow' | 'warn' | 'error';
+  /** Future migration policy for safe additive changes. */
+  additiveChanges?: 'auto' | 'manual';
+  /** Future migration policy for destructive changes. */
+  destructiveChanges?: 'manual';
+  /** Future migration policy for field type changes. */
+  typeChanges?: 'manual';
+};
+
 export type DbOptions = {
   /** Project root used to resolve relative config paths. Defaults to process.cwd(). */
   cwd?: string;
+  /** Package API locator for a project root, db folder, root schema file, or individual schema file. */
+  from?: string;
+  /** Schema loading mode. Defaults to "data" for current low-level loaders and "runtime" for openDb. */
+  load?: DbSchemaLoadMode;
   /** Explicit config file path. Defaults to db.config.mjs/js lookup from cwd. */
   configPath?: string;
   /** Fixture source folder. Defaults to "./db". */
@@ -440,25 +543,15 @@ export type DbOptions = {
   schemaManifest?: DbSchemaManifestOptions;
   /** Optional source readers for custom schema or data file formats. */
   sources?: DbSourcesOptions;
+  /** Values made available to computed field resolvers through this.services and this.get(name). */
+  services?: Record<string, unknown>;
   /** Run sync automatically when opening the package API. */
   syncOnOpen?: boolean;
   /** Keep valid resources available when one source file has diagnostics. */
   allowSourceErrors?: boolean;
   types?: DbGeneratedTypesOptions;
-  schema?: {
-    /** Which inputs define schemas. "auto" uses schema files when present and otherwise infers from data. */
-    source?: 'auto' | 'data' | 'schema';
-    /** Allow JSONC source files. */
-    allowJsonc?: boolean;
-    /** How schema-backed resources handle fields not declared by schema. */
-    unknownFields?: 'allow' | 'warn' | 'error';
-    /** Future migration policy for safe additive changes. */
-    additiveChanges?: 'auto' | 'manual';
-    /** Future migration policy for destructive changes. */
-    destructiveChanges?: 'manual';
-    /** Future migration policy for field type changes. */
-    typeChanges?: 'manual';
-  };
+  /** Schema and validation config. */
+  schema?: DbSchemaConfig;
   defaults?: {
     /** Apply schema defaults on create through package, REST, and GraphQL writes. */
     applyOnCreate?: boolean;
@@ -560,6 +653,11 @@ export type DbOptions = {
       seed?: false | 'fixtures';
     };
   };
+};
+
+export type DbOpenOptions = Omit<DbOptions, 'schema'> & {
+  /** Schema config, or a loaded schema object returned by loadDbSchema(). */
+  schema?: DbSchemaConfig | DbLoadedSchema;
 };
 
 export type DbCollection<RecordType> = {
@@ -791,7 +889,7 @@ export type DbServer = {
   url: string;
 };
 
-export function openDb<Types extends DbTypeMap = DbTypeMap>(options?: DbOptions): Promise<Db<Types>>;
+export function openDb<Types extends DbTypeMap = DbTypeMap>(options?: DbOpenOptions | string): Promise<Db<Types>>;
 export function createDbClient(options?: DbClientOptions): DbClient;
 export function createIndexedDbCacheStorage(options?: {
   name?: string;
@@ -802,8 +900,18 @@ export function createIndexedDbCacheStorage(options?: {
 export function createDbRequestHandler(db: Db, options?: DbRequestHandlerOptions): DbRequestHandler;
 export function createDbOperationHandler(db: Db, options?: DbOperationsOptions | { operations?: boolean | 'auto' | DbOperationsOptions }): DbOperationHandler;
 export function loadConfig(options?: DbOptions): Promise<DbOptions>;
+export function loadDbSchema(options?: DbOptions | string): Promise<DbLoadedSchema>;
+export function createDbSchema(project: unknown, config: DbOptions): DbLoadedSchema;
+export function createSchemaValidator<TValue = Record<string, unknown>>(
+  resource: Record<string, unknown>,
+  config: DbOptions,
+  options?: DbSchemaValidatorOptions,
+): DbSchemaValidator<TValue>;
+export function resolveSchemaLocator(options?: DbOptions | string): Promise<DbSchemaLocator>;
+export function normalizeSchemaLoadMode(value?: unknown): DbSchemaLoadMode;
+export function loadProjectSchema(config: DbOptions, options?: { load?: DbSchemaLoadMode }): Promise<unknown>;
 export function runDbDoctor(config: DbOptions): Promise<DbDoctorResult>;
-export function startDbServer(options?: DbOptions & { host?: string; port?: number }): Promise<DbServer>;
+export function startDbServer(options?: DbOpenOptions & { host?: string; port?: number }): Promise<DbServer>;
 export function syncDb(config: DbOptions, options?: { allowErrors?: boolean }): Promise<unknown>;
 export function generateTypes(config: DbOptions, options?: { outFile?: string }): Promise<{ content: string; outFiles: string[] }>;
 export function generateSchemaManifest(config: DbOptions, options?: { outFile?: string }): Promise<{ manifest: unknown; content: string; outFiles: string[] }>;
@@ -846,7 +954,6 @@ export function generateHonoStarter(
     allowWarnings?: boolean;
   },
 ): Promise<{ outDir: string; files: string[]; diagnostics: unknown[] }>;
-export function startDbServer(options?: DbOptions): Promise<{ server: unknown; db: Db; url: string }>;
 export function executeGraphql(
   db: Db,
   request: string | GraphqlRequest,

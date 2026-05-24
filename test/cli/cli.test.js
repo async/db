@@ -499,6 +499,482 @@ test('CLI schema bundle refuses active db output without force', async () => {
   );
 });
 
+test('CLI schema bundle without target keeps non-TTY error and suggests --all', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true }
+    }
+  }`);
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'schema',
+      'bundle',
+      '--cwd',
+      cwd,
+    ]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /SCHEMA_BUNDLE_REQUIRES_RESOURCE/);
+      assert.match(error.stderr, /--all/);
+      assert.match(error.stderr, /users/);
+      return true;
+    },
+  );
+});
+
+test('CLI schema unbundle without target keeps non-TTY error and suggests --all', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true }
+    }
+  }`);
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'schema',
+      'unbundle',
+      '--cwd',
+      cwd,
+    ]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /SCHEMA_UNBUNDLE_REQUIRES_RESOURCE/);
+      assert.match(error.stderr, /--all/);
+      assert.match(error.stderr, /users/);
+      return true;
+    },
+  );
+});
+
+test('CLI schema bundle --all writes root schema with inline resolver wrappers', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.mjs', `import { collection, field } from '@async/db/schema';
+
+export default collection({
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    firstName: field.string(),
+    lastName: field.string(),
+    fullName: field.computed(field.string(), ({ record }) => {
+      return \`\${record.firstName} \${record.lastName}\`;
+    }),
+  },
+  seed: [
+    { id: 'u_1', firstName: 'Ada', lastName: 'Lovelace' },
+  ],
+});
+`);
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--out',
+    './db.schema.mjs',
+  ]);
+  const rootSchema = await readFile(path.join(cwd, 'db.schema.mjs'), 'utf8');
+
+  assert.match(stdout, /Generated db\.schema\.mjs/);
+  assert.match(stderr, /SCHEMA_BUNDLE_IMPORTED_RESOLVER/);
+  assert.match(stderr, /SCHEMA_BUNDLE_ARROW_RESOLVER_WRAPPED/);
+  assert.match(rootSchema, /import usersSource from '\.\/db\/users\.schema\.mjs';/);
+  assert.match(rootSchema, /function users_fullName_resolver\(context\)/);
+  assert.match(rootSchema, /usersSource\.fields\.fullName\.resolve\.call\(this, context\)/);
+  assert.match(rootSchema, /firstName: field\.string\(\)/);
+  assert.match(rootSchema, /id: field\.string\(\{ required: true \}\)/);
+  assert.doesNotMatch(rootSchema, /field\.string\(\{\}\)/);
+  assert.doesNotMatch(rootSchema, /seed:/);
+});
+
+test('CLI schema bundle --all rebases folder collection source globs for root schema', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeConfig(cwd, `export default {
+  resources: {
+    docs: {
+      store: 'static',
+    },
+  },
+};
+`);
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'frontmatter' }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`, 'utf8');
+  await writeFile(path.join(cwd, 'db/docs/intro.mdx'), `---
+title: Intro
+---
+# Hello
+`, 'utf8');
+
+  const { stdout } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+  ]);
+  const rootSchema = await readFile(path.join(cwd, 'db.schema.mjs'), 'utf8');
+
+  assert.match(stdout, /Generated db\.schema\.mjs/);
+  assert.match(rootSchema, /source: files\("\.\/db\/docs\/\*\*\/\*\.mdx", \{ read: "frontmatter" \}\)/);
+  assert.doesNotMatch(rootSchema, /source: files\("\.\/\*\*\/\*\.mdx"/);
+
+  const synced = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'sync',
+    '--cwd',
+    cwd,
+  ]);
+  assert.match(synced.stdout, /Synced runtime store/);
+});
+
+test('CLI schema bundle --all unbundles embedded schema seed before writing root schema', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada" }
+    ]
+  }`);
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+  ]);
+  const seed = JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8'));
+  const rootSchema = await readFile(path.join(cwd, 'db.schema.mjs'), 'utf8');
+
+  assert.match(stdout, /Generated db\/users\.json/);
+  assert.match(stdout, /Generated db\.schema\.mjs/);
+  assert.match(stderr, /SCHEMA_BUNDLE_SEED_UNBUNDLED/);
+  assert.deepEqual(seed, [{ id: 'u_1', name: 'Ada' }]);
+  assert.doesNotMatch(rootSchema, /seed:/);
+});
+
+test('CLI schema bundle --all accepts an existing matching unbundled seed fixture', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    schema: {
+      source: 'schema',
+    },
+  };`);
+  await writeFixture(cwd, 'users.json', '[{"name":"Ada","id":"u_1"}]\n');
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada" }
+    ]
+  }`);
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+  ]);
+  const seed = JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8'));
+
+  assert.match(stdout, /Generated db\.schema\.mjs/);
+  assert.doesNotMatch(stderr, /SCHEMA_BUNDLE_SEED_UNBUNDLED/);
+  assert.deepEqual(seed, [{ name: 'Ada', id: 'u_1' }]);
+});
+
+test('CLI schema bundle --all refuses conflicting unbundled seed without force', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    schema: {
+      source: 'schema',
+    },
+  };`);
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada" }
+    ]
+  }`);
+  await writeFixture(cwd, 'users.json', '[{ "id": "u_2", "name": "Grace" }]\n');
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'schema',
+      'bundle',
+      '--all',
+      '--cwd',
+      cwd,
+    ]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /SCHEMA_BUNDLE_SEED_OUTPUT_EXISTS/);
+      return true;
+    },
+  );
+});
+
+test('CLI schema bundle --all force overwrites conflicting unbundled seed', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    schema: {
+      source: 'schema',
+    },
+  };`);
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada" }
+    ]
+  }`);
+  await writeFixture(cwd, 'users.json', '[{ "id": "u_2", "name": "Grace" }]\n');
+
+  await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--force',
+  ]);
+  const seed = JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8'));
+
+  assert.deepEqual(seed, [{ id: 'u_1', name: 'Ada' }]);
+});
+
+test('CLI schema bundle --all does not write seed when root output conflicts', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "name": { "type": "string", "required": true }
+    },
+    "seed": [
+      { "id": "u_1", "name": "Ada" }
+    ]
+  }`);
+  await writeFile(path.join(cwd, 'db.schema.mjs'), 'export default {};\n', 'utf8');
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'schema',
+      'bundle',
+      '--all',
+      '--cwd',
+      cwd,
+    ]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /SCHEMA_BUNDLE_ROOT_EXISTS/);
+      return true;
+    },
+  );
+
+  await assert.rejects(() => readFile(path.join(cwd, 'db/users.json'), 'utf8'), /ENOENT/);
+});
+
+test('CLI schema bundle --all does not write empty embedded schema seed fixtures', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true }
+    },
+    "seed": []
+  }`);
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+  ]);
+
+  assert.match(stdout, /Generated db\.schema\.mjs/);
+  assert.doesNotMatch(stdout, /Generated db\/users\.json/);
+  assert.doesNotMatch(stderr, /SCHEMA_BUNDLE_SEED_UNBUNDLED/);
+  await assert.rejects(() => readFile(path.join(cwd, 'db/users.json'), 'utf8'), /ENOENT/);
+});
+
+test('CLI schema bundle --all refuses to replace an existing root schema without force', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true }
+    }
+  }`);
+  await writeFile(path.join(cwd, 'db.schema.mjs'), 'export default {};\n', 'utf8');
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'schema',
+      'bundle',
+      '--all',
+      '--cwd',
+      cwd,
+    ]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /SCHEMA_BUNDLE_ROOT_EXISTS/);
+      return true;
+    },
+  );
+});
+
+test('CLI schema unbundle --all requires a root schema', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true }
+    }
+  }`);
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('src/cli.js'),
+      'schema',
+      'unbundle',
+      '--all',
+      '--cwd',
+      cwd,
+    ]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /SCHEMA_UNBUNDLE_ROOT_REQUIRED/);
+      return true;
+    },
+  );
+});
+
+test('CLI schema unbundle --all writes per-resource schema files from root schema', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'db.schema.mjs'), `
+import { collection, field } from '@async/db/schema';
+
+export default {
+  users: collection({
+    idField: 'id',
+    fields: {
+      id: field.string({ required: true }),
+      name: field.string({ required: true }),
+    },
+  }),
+};
+`, 'utf8');
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'unbundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--schema-dir',
+    './db',
+  ]);
+  const usersSchema = JSON.parse(await readFile(path.join(cwd, 'db/users.schema.jsonc'), 'utf8'));
+
+  assert.match(stdout, /Generated db\/users\.schema\.jsonc/);
+  assert.match(stderr, /SCHEMA_UNBUNDLE_SEED_NOT_MOVED/);
+  assert.equal(usersSchema.seed, undefined);
+  assert.equal(usersSchema.fields.name.type, 'string');
+});
+
+test('CLI schema unbundle --all keeps executable resolvers in per-resource mjs files', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'db.schema.mjs'), `
+import { collection, field } from '@async/db/schema';
+
+export default {
+  users: collection({
+    idField: 'id',
+    fields: {
+      id: field.string({ required: true }),
+      firstName: field.string(),
+      fullName: field.computed(field.string(), function users_fullName_resolver({ record }) {
+        return record.firstName;
+      }),
+    },
+  }),
+};
+`, 'utf8');
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'unbundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--schema-dir',
+    './db',
+  ]);
+  const usersSchema = await readFile(path.join(cwd, 'db/users.schema.mjs'), 'utf8');
+
+  assert.match(stdout, /Generated db\/users\.schema\.mjs/);
+  assert.match(stderr, /SCHEMA_UNBUNDLE_EXECUTABLE_REQUIRES_MJS/);
+  assert.match(usersSchema, /import rootSchema from '\.\.\/db\.schema\.mjs';/);
+  assert.match(usersSchema, /function users_fullName_resolver\(context\)/);
+  assert.match(usersSchema, /rootSchema\.users\.fields\.fullName\.resolve\.call\(this, context\)/);
+});
+
 test('CLI schema infer --out requires a single resource', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));

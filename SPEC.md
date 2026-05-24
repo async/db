@@ -170,6 +170,21 @@ outputs should live outside the active fixture directory by default, such as
 sources. Writing a bundle inside `db/` requires `--force`. Overwriting an existing
 different seed or bundle output also requires `--force`.
 
+`db.schema.mjs` at the project root is the canonical aggregate schema registry.
+When present, it is authoritative for explicit schema definitions and
+`db/**/*.schema.*` files are not auto-discovered as live schemas unless imported
+by the root module. `async-db schema bundle --all --out db.schema.mjs` creates a
+schema-only root registry without embedding seed/data fixtures. If a schema source
+has embedded seed and no separate data fixture is loaded, aggregate bundle first
+writes that seed to `db/<resource>.json` and leaves the root schema seed-free.
+`async-db schema unbundle --all --schema-dir db` spreads a root registry back to
+per-resource schema files and leaves seed/data fixtures untouched.
+When bundling folder collection markers into a root registry, source globs are
+rebased from the marker folder to the project root; for example,
+`db/blog/index.schema.mjs` with `source: files('./**/*.mdx', { read: 'frontmatter' })`
+becomes `source: files('./db/blog/**/*.mdx', { read: 'frontmatter' })` in
+`db.schema.mjs`.
+
 If the two disagree, the CLI reports the mismatch:
 
 ```txt
@@ -1255,6 +1270,58 @@ export default collection({
 });
 ```
 
+Support a root `db.schema.mjs` registry for one-file schema authoring:
+
+```js
+import { collection, field } from '@async/db/schema';
+
+export default {
+  users: collection({
+    idField: 'id',
+    fields: {
+      id: field.string({ required: true }),
+      firstName: field.string(),
+      lastName: field.string(),
+      fullName: field.computed(field.string(), function users_fullName_resolver({ record }) {
+        return `${record.firstName} ${record.lastName}`;
+      })
+    }
+  })
+};
+```
+
+`field.computed(type, fn)` is shorthand for `{ resolve: fn }`. Normal function
+resolvers are invoked with `this` bound to a delegated runtime resolver context.
+The context exposes `this.get(name)`, `this.has(name)`, direct property aliases,
+and `this._internal` for the unoverridden internal view. Internal values include
+`db`, `resource`, `field`, `fieldName`, `config`, `services`, `cache`, `value`,
+`record`, `records`, and `args`. App-provided context values win over internal
+values with the same key. Schema/type/manifest/doctor/bundle/unbundle/generate
+commands may import trusted schema modules for metadata, but must not call
+computed resolvers.
+
+The package API should expose `loadDbSchema({ from })` for metadata-only schema
+loading from a project root, `db/` folder, `db.schema.mjs`, or individual schema
+file. Loaded schemas expose `schema.validator(resource, options)` for endpoint
+input validation and `schema.resolver(resourceOrField, options)` for direct
+computed field execution. Validators reject computed/read-only fields, default
+unknown fields to `error`, and support `strip`, `allow`, `warn`, and patch/replace
+validation modes. `openDb({ schema })` accepts a loaded schema object and opens
+runtime stores from the same locator.
+
+Folder-backed content collections use `index.schema.mjs` as an explicit marker:
+
+```txt
+db/docs/index.schema.mjs
+db/docs/intro.mdx
+```
+
+The resource name comes from the containing folder. Folder collections require an
+explicit `source: files(pattern, { read })` declaration. Runtime store behavior
+belongs in `db.config.mjs` through `resources.<name>.store`; use `store: 'static'`
+there when file-backed content should be read-only. Core only parses frontmatter
+plus raw `.md` / `.mdx` body text. MDX compilation remains app-owned.
+
 Do not require TypeScript execution for schema files in v1. Use `.mjs` for executable schema definitions.
 
 Rules:
@@ -1276,7 +1343,9 @@ async-db types --out ./src/generated/db.types.ts
 async-db schema
 async-db schema validate
 async-db schema unbundle users
+async-db schema unbundle --all --schema-dir db
 async-db schema bundle users --out artifacts/users.bundle.schema.json
+async-db schema bundle --all --out db.schema.mjs
 async-db generate hono
 async-db generate hono --api rest,graphql --out ./server
 async-db generate hono --api none --app module
