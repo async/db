@@ -1,15 +1,17 @@
 # @async/db
 
-@async/db is the Async data workflow package for local fixtures, generated APIs, and production graduation.
+`@async/db` gives frontend teams a gradual path from mock JSON to real persistence. You can keep easy fixture files where they work, make some resources locally writable, and move others to SQLite, Postgres, or custom stores as they get serious. The app keeps talking to one data layer while persistence changes behind each resource.
 
 Use it to:
 
-- Put editable JSON, JSONC, or CSV fixtures in `db/` as the built-in prototype source mode.
-- Browse records in a lightweight built-in viewer.
-- Call local REST routes while the backend contract is still forming.
-- Generate TypeScript types from fixtures and schemas.
+- Start from editable JSON, JSONC, or CSV fixtures in `db/`.
+- Infer schema contracts and generate TypeScript types from fixtures and schemas.
+- Serve local REST routes and a lightweight viewer while the backend contract is still forming.
+- Upgrade persistence per resource without rewriting frontend data access.
+- Keep static fixtures, writable local JSON, SQLite, Postgres, KV/Redis-like stores, and custom stores behind the same app-facing resource model.
 - Emit schema metadata for admin, CMS, or form-building screens.
-- Start data-first, then graduate toward SQLite-backed APIs when stricter contracts and production storage pay for themselves.
+
+`@async/db` is not a universal key/value driver layer; storage is one boundary inside the fixture-to-contract workflow.
 
 ## File Map
 
