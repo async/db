@@ -1,4 +1,5 @@
-import { assertRecordMatchesResource } from '../../schema.js';
+import { dbError } from '../../errors.js';
+import { createSchemaValidator } from '../../schema.js';
 import { createRuntime } from '../storage/runtime.js';
 import { getPointer, setPointer } from './json-pointer.js';
 
@@ -21,12 +22,12 @@ export class DbDocument {
 
   async put(value) {
     return this.adapter().withResourceWrite(this.resource, async () => {
-      assertRecordMatchesResource(value, this.resource, this.config, {
+      const document = await assertRuntimeDocument(value, this.resource, this.config, {
         source: `${this.resource.name} document body`,
       });
-      await this.adapter().writeResource(this.resource, value);
+      await this.adapter().writeResource(this.resource, document);
       this.emit('put');
-      return value;
+      return document;
     });
   }
 
@@ -34,12 +35,12 @@ export class DbDocument {
     return this.adapter().withResourceWrite(this.resource, async () => {
       const document = await this.all();
       setPointer(document, pointer, value);
-      assertRecordMatchesResource(document, this.resource, this.config, {
+      const nextDocument = await assertRuntimeDocument(document, this.resource, this.config, {
         source: `${this.resource.name} document body`,
       });
-      await this.adapter().writeResource(this.resource, document);
+      await this.adapter().writeResource(this.resource, nextDocument);
       this.emit('set', { pointer });
-      return value;
+      return getPointer(nextDocument, pointer);
     });
   }
 
@@ -50,12 +51,12 @@ export class DbDocument {
         ...document,
         ...patch,
       };
-      assertRecordMatchesResource(nextDocument, this.resource, this.config, {
+      const validatedDocument = await assertRuntimeDocument(nextDocument, this.resource, this.config, {
         source: `${this.resource.name} document patch body`,
       });
-      await this.adapter().writeResource(this.resource, nextDocument);
+      await this.adapter().writeResource(this.resource, validatedDocument);
       this.emit('update');
-      return nextDocument;
+      return validatedDocument;
     });
   }
 
@@ -71,6 +72,35 @@ export class DbDocument {
       ...details,
     });
   }
+}
+
+function assertRuntimeDocument(document, resource, config, options = {}) {
+  const validator = createSchemaValidator(resource, config, {
+    mode: 'replace',
+    unknownFields: config.schema?.unknownFields ?? 'warn',
+    applyDefaults: false,
+  });
+  return validator.validateAsync(document, {
+    source: options.source,
+    applyDefaults: false,
+  }).then((result) => {
+    if (result.ok) {
+      return result.value;
+    }
+
+    throw dbError(
+      'DB_SCHEMA_VALIDATION_FAILED',
+      `${resource.name} record does not match its schema: ${result.errors[0].message}`,
+      {
+        status: 400,
+        hint: 'Update the record to match the schema field types, required fields, enum values, and constraints.',
+        details: {
+          resource: resource.name,
+          diagnostics: result.errors,
+        },
+      },
+    );
+  });
 }
 
 function normalizeDb(db, resource) {

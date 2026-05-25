@@ -130,6 +130,112 @@ export default collection({
 
 `.schema.mjs` files execute as trusted local project JavaScript.
 
+## Standard Schema Validators
+
+`.schema.mjs` files can also use any object that implements the Standard Schema
+v1 contract. @async/db imports your trusted schema module, recognizes
+`value['~standard'].version === 1`, and calls
+`value['~standard'].validate(...)` during schema helpers and runtime writes.
+The core package does not bundle a validator-library dependency. That means
+Zod, Valibot, ArkType, or a local validator can own parsing and validation
+while Async DB still applies its own lightweight metadata checks for defaults,
+read-only/computed fields, uniqueness, relations, generated metadata, REST, and
+GraphQL.
+
+```js
+import { collection, field } from '@async/db/schema';
+
+const UserSchema = {
+  '~standard': {
+    version: 1,
+    vendor: 'my-validator',
+    async validate(value) {
+      if (!value || typeof value !== 'object' || typeof value.email !== 'string') {
+        return { issues: [{ message: 'Email is required', path: ['email'] }] };
+      }
+      return {
+        value: {
+          ...value,
+          email: value.email.trim().toLowerCase(),
+        },
+      };
+    },
+    jsonSchema: {
+      output() {
+        return {
+          type: 'object',
+          required: ['email'],
+          properties: {
+            id: { type: 'string' },
+            email: { type: 'string' },
+          },
+        };
+      },
+    },
+  },
+};
+
+export default collection({
+  idField: 'id',
+  validator: UserSchema,
+  fields: {
+    email: field.string({
+      required: true,
+      unique: true,
+      description: 'Normalized login email.',
+    }),
+    displayName: field.computed(field.string(), ({ record }) => record.email),
+  },
+  seed: [],
+});
+```
+
+That object-first form keeps Async DB's simplified schema as the main shape and
+mixes Standard Schema in as the parser/validator through `validator`. The equivalent
+validator-first shorthand is useful when the external validator owns the field
+shape:
+
+```js
+export default collection(UserSchema, {
+  fields: {
+    email: field.meta({ unique: true }),
+    displayName: field.computed(field.string(), ({ record }) => record.email),
+  },
+});
+```
+
+Set `schema.standardSchema: true` in `db.config.mjs` when generated
+`.schema.mjs` files should prefer that validator-first form for resources that
+have a Standard Schema validator. Detection still works without the config flag;
+the flag only changes generated authoring output.
+
+If the validator exposes a Standard JSON Schema converter, @async/db uses that
+for generated field metadata and TypeScript output. `field.meta(...)` overlays
+Async DB metadata such as descriptions, defaults, uniqueness, relations,
+constraints, and manifest hints. `field.computed(...)` remains the resolver
+entrypoint.
+
+Package API, REST, and GraphQL writes await async Standard Schema validators and
+store the returned `value`. Synchronous helpers such as
+`schema.validator('users').assert(...)` work for sync validators; if a validator
+returns a Promise, use `validateAsync(...)` or `assertAsync(...)`. The sync path
+throws `DB_SCHEMA_ASYNC_VALIDATOR_REQUIRED` with that hint.
+
+Standard Schema issues become `STANDARD_SCHEMA_VALIDATION_FAILED` diagnostics
+with a normalized field path, vendor, issue path, message, and recovery hint.
+Validator and resolver functions stay in trusted local code and are never
+serialized into generated schema, manifests, viewer metadata, or TypeScript
+output.
+
+When a Standard Schema validator has no JSON Schema converter and no
+`field.meta(...)` overlays, generated TypeScript uses a conservative
+`[key: string]: unknown` fallback and the project diagnostics include
+`STANDARD_SCHEMA_FIELDS_UNKNOWN`. Add overlays or a converter when generated
+metadata needs to be richer.
+
+See [examples/standard-schema](../examples/standard-schema) for a runnable
+dependency-free example.
+
 ## Root Schema Registry
 
 Use `db.schema.mjs` at the project root when you want one canonical schema registry:
@@ -287,6 +393,9 @@ npm run db -- schema bundle users --out artifacts/users.bundle.schema.json
 npm run db -- schema unbundle users
 ```
 
+These single-resource JSON artifacts serialize Async DB metadata and seed data;
+they do not serialize executable validator or resolver functions.
+
 If you omit the resource in an interactive terminal, the CLI prompts for either
 `All schemas` or a specific resource. Use `--all` in scripts to skip the prompt.
 
@@ -307,11 +416,13 @@ example, `source: files('./**/*.mdx', { read: 'frontmatter' })` inside
 `source: files('./db/blog/**/*.mdx', { read: 'frontmatter' })` in
 `db.schema.mjs`, so the root registry can load the same content files.
 
-When aggregate bundling sees computed resolvers from existing `.schema.mjs`
-files, the generated root schema imports the original module and emits inline
-named wrapper functions to preserve behavior. Schema, manifest, type, doctor,
-bundle, unbundle, and generated starter commands import trusted schema modules
-for metadata but do not call computed resolvers.
+When aggregate bundling sees computed resolvers or Standard Schema validators
+from existing `.schema.mjs` files, the generated root schema imports the
+original module, references its validator, and emits inline named resolver
+wrappers to preserve behavior. Aggregate unbundle writes `.schema.mjs` files for
+resources with executable validators or resolvers. Schema, manifest, type,
+doctor, bundle, unbundle, and generated starter commands import trusted schema
+modules for metadata but do not call computed resolvers.
 
 ## Inference
 

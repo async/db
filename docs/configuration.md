@@ -38,6 +38,7 @@ See [db.config.example.mjs](../db.config.example.mjs) for a commented config wit
 | App-facing data route base | `/db` | `server.dataPath` |
 | Route exposure policy | Open | `server.expose` |
 | Unknown fields | Warn | `schema.unknownFields` |
+| Standard Schema-first output | Off | `schema.standardSchema` |
 | Schema defaults | Create and safe hydration | `defaults` |
 | Schema-only mock records | Off | `seed.generateFromSchema` |
 | Local latency | `30-100ms` | `mock.delay` |
@@ -81,6 +82,7 @@ export default defineConfig({
   },
 
   schema: {
+    standardSchema: false,
     unknownFields: 'warn',
   },
 
@@ -238,6 +240,28 @@ export default defineConfig({
 ```
 
 Keep the default `warn` while fixture shape is still changing.
+
+## Standard Schema Output
+
+@async/db detects Standard Schema validators by shape without installing a
+validator dependency. Set `schema.standardSchema: true` when generated
+`.schema.mjs` files should prefer the validator-first authoring form for
+resources that have a Standard Schema validator:
+
+```js
+import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  schema: {
+    standardSchema: true,
+  },
+});
+```
+
+With that option, aggregate bundle/unbundle output can emit
+`collection(UserSchema, { fields })` or `document(SettingsSchema, { fields })`
+for Standard Schema-backed resources. Resources without a validator keep the
+normal Async DB-first shape.
 
 ## Schema Defaults
 

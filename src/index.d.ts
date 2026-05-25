@@ -45,7 +45,9 @@ export type DbSchemaValidator<TValue = Record<string, unknown>> = {
   mode: DbSchemaValidatorMode;
   unknownFields: Exclude<DbSchemaValidatorUnknownFields, 'ignore'>;
   validate(value: unknown, options?: DbSchemaValidatorOptions): DbSchemaValidationResult<TValue>;
+  validateAsync(value: unknown, options?: DbSchemaValidatorOptions): Promise<DbSchemaValidationResult<TValue>>;
   assert(value: unknown, options?: DbSchemaValidatorOptions): TValue;
+  assertAsync(value: unknown, options?: DbSchemaValidatorOptions): Promise<TValue>;
 };
 
 export type DbSchemaResolverContext = Record<string, unknown> | Map<string, unknown>;
@@ -85,7 +87,9 @@ export type DbLoadedSchema = {
     options?: DbSchemaResolverOptions,
   ): DbSchemaFieldResolver<TArgs, TValue> | Record<string, DbSchemaFieldResolver<TArgs, TValue>>;
   validate<TValue = Record<string, unknown>>(name: string, value: unknown, options?: DbSchemaValidatorOptions): DbSchemaValidationResult<TValue>;
+  validateAsync<TValue = Record<string, unknown>>(name: string, value: unknown, options?: DbSchemaValidatorOptions): Promise<DbSchemaValidationResult<TValue>>;
   assert<TValue = Record<string, unknown>>(name: string, value: unknown, options?: DbSchemaValidatorOptions): TValue;
+  assertAsync<TValue = Record<string, unknown>>(name: string, value: unknown, options?: DbSchemaValidatorOptions): Promise<TValue>;
   toJSON(): Record<string, unknown>;
 };
 
@@ -508,6 +512,8 @@ export type DbSchemaConfig = {
   source?: 'auto' | 'data' | 'schema';
   /** Allow JSONC source files. */
   allowJsonc?: boolean;
+  /** Prefer Standard Schema-first generated .schema.mjs output for resources with validators. */
+  standardSchema?: boolean;
   /** How schema-backed resources handle fields not declared by schema. */
   unknownFields?: 'allow' | 'warn' | 'error';
   /** Future migration policy for safe additive changes. */

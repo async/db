@@ -24,6 +24,15 @@ export type FieldOptions<DefaultValue> = {
   pattern?: string;
 };
 
+export type FieldMetaOptions = FieldOptions<unknown> & {
+  type?: FieldDefinition['type'];
+  values?: readonly (string | number | boolean)[];
+  fields?: Record<string, FieldDefinition>;
+  items?: FieldDefinition;
+  additionalProperties?: boolean;
+  [key: string]: unknown;
+};
+
 export type RelationDefinition = {
   /** Output name used by REST expand, such as "author" for authorId. */
   name?: string;
@@ -46,6 +55,47 @@ export type ResourceDefinition = {
   fields: Record<string, FieldDefinition>;
   seed?: unknown;
 };
+
+export type StandardSchemaIssue = {
+  message?: string;
+  path?: readonly unknown[];
+  [key: string]: unknown;
+};
+
+export type StandardSchemaResult<Value = unknown> = {
+  value?: Value;
+  issues?: readonly StandardSchemaIssue[];
+};
+
+export type StandardSchemaV1<Input = unknown, Output = unknown> = {
+  '~standard': {
+    version: 1;
+    vendor?: string;
+    validate(value: Input): StandardSchemaResult<Output> | Promise<StandardSchemaResult<Output>>;
+    jsonSchema?: {
+      output?: (options?: Record<string, unknown>) => unknown;
+    };
+    [key: string]: unknown;
+  };
+};
+
+export type StandardSchemaResourceOptions = Omit<ResourceDefinition, 'fields'> & {
+  fields?: Record<string, FieldDefinition>;
+};
+
+export type StandardSchemaMixedResourceDefinition<Input = unknown, Output = unknown> =
+  StandardSchemaResourceOptions & {
+    /** Preferred object-first validator hook. */
+    validator: StandardSchemaV1<Input, Output>;
+    /** Compatibility alias for older examples. Prefer validator. */
+    standardSchema?: StandardSchemaV1<Input, Output>;
+  };
+
+export type StandardSchemaLegacyMixedResourceDefinition<Input = unknown, Output = unknown> =
+  StandardSchemaResourceOptions & {
+    /** Compatibility alias. Prefer validator. */
+    standardSchema: StandardSchemaV1<Input, Output>;
+  };
 
 export type FilesSourceDefinition = {
   kind: 'files';
@@ -102,7 +152,27 @@ export type ComputedFieldResolver<RecordValue = Record<string, unknown>, Value =
 };
 
 export function collection(definition: ResourceDefinition): ResourceDefinition & { kind: 'collection' };
+export function collection<Input = unknown, Output = unknown>(
+  definition: StandardSchemaMixedResourceDefinition<Input, Output>,
+): StandardSchemaMixedResourceDefinition<Input, Output> & { kind: 'collection' };
+export function collection<Input = unknown, Output = unknown>(
+  definition: StandardSchemaLegacyMixedResourceDefinition<Input, Output>,
+): StandardSchemaLegacyMixedResourceDefinition<Input, Output> & { kind: 'collection' };
+export function collection<Input = unknown, Output = unknown>(
+  definition: StandardSchemaV1<Input, Output>,
+  options?: StandardSchemaResourceOptions,
+): StandardSchemaResourceOptions & { kind: 'collection'; validator: StandardSchemaV1<Input, Output> };
 export function document(definition: ResourceDefinition): ResourceDefinition & { kind: 'document' };
+export function document<Input = unknown, Output = unknown>(
+  definition: StandardSchemaMixedResourceDefinition<Input, Output>,
+): StandardSchemaMixedResourceDefinition<Input, Output> & { kind: 'document' };
+export function document<Input = unknown, Output = unknown>(
+  definition: StandardSchemaLegacyMixedResourceDefinition<Input, Output>,
+): StandardSchemaLegacyMixedResourceDefinition<Input, Output> & { kind: 'document' };
+export function document<Input = unknown, Output = unknown>(
+  definition: StandardSchemaV1<Input, Output>,
+  options?: StandardSchemaResourceOptions,
+): StandardSchemaResourceOptions & { kind: 'document'; validator: StandardSchemaV1<Input, Output> };
 export function files(patterns: string | readonly string[], options?: { read?: FilesSourceDefinition['read'] }): FilesSourceDefinition;
 
 export const field: {
@@ -117,6 +187,7 @@ export const field: {
   object(fields?: Record<string, FieldDefinition>, options?: ObjectFieldOptions): FieldDefinition;
   array(items?: FieldDefinition, options?: FieldOptions<unknown[]>): FieldDefinition;
   json(options?: FieldOptions<unknown>): FieldDefinition;
+  meta(options?: FieldMetaOptions): FieldDefinition;
   nullable(definition: FieldDefinition, options?: Omit<FieldOptions<unknown>, 'nullable'>): FieldDefinition;
   computed(definition: FieldDefinition, resolver?: ComputedFieldResolver['resolve'] | ComputedFieldResolver): FieldDefinition;
 };

@@ -102,6 +102,7 @@ export async function loadProjectSchema(config, options = {}) {
     if (loadMode !== 'schema') {
       diagnostics.push(...validateResourceSeed(resource, config));
     }
+    diagnostics.push(...(resource.diagnostics ?? []));
     resources.push(resource);
   }
 

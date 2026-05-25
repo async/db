@@ -1,15 +1,11 @@
-export function collection(definition) {
-  return {
-    ...definition,
-    kind: 'collection',
-  };
+import { isStandardSchema } from './standard-schema.js';
+
+export function collection(definition, options = undefined) {
+  return resourceDefinition('collection', definition, options);
 }
 
-export function document(definition) {
-  return {
-    ...definition,
-    kind: 'document',
-  };
+export function document(definition, options = undefined) {
+  return resourceDefinition('document', definition, options);
 }
 
 export function files(patterns, options = {}) {
@@ -77,6 +73,14 @@ export const field = {
     return makeField('unknown', options);
   },
 
+  meta(options = {}) {
+    const { type = 'unknown', ...metadata } = options;
+    return makeField(type, {
+      ...metadata,
+      metadataOnly: true,
+    });
+  },
+
   nullable(definition, options = {}) {
     return {
       ...definition,
@@ -99,6 +103,21 @@ export const field = {
     };
   },
 };
+
+function resourceDefinition(kind, definition, options) {
+  if (isStandardSchema(definition)) {
+    return {
+      ...(options ?? {}),
+      kind,
+      validator: definition,
+    };
+  }
+
+  return {
+    ...definition,
+    kind,
+  };
+}
 
 function isFieldMap(value) {
   if (!value || Array.isArray(value) || typeof value !== 'object') {

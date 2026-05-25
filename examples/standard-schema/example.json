@@ -1,0 +1,5 @@
+{
+  "title": "Standard Schema",
+  "description": "Use any Standard Schema-compatible validator as the resource contract, then layer Async DB metadata and computed fields on top.",
+  "tags": ["schema", "validation", "computed"]
+}

@@ -3,6 +3,7 @@ import { dbError, listChoices } from '../../errors.js';
 import { resolveResource } from '../../names.js';
 import { loadProjectSchema } from './project.js';
 import { callFieldResolver, valueFromResolveManyResult } from './resolvers.js';
+import { isPromiseLike, standardSchemaIssueDiagnostics } from './standard-schema.js';
 import { validateRecordAgainstResource } from './validation.js';
 
 export async function loadDbSchema(options = {}) {
@@ -62,6 +63,14 @@ export function createDbSchema(project, config) {
 
     assert(name, value, options = {}) {
       return this.validator(name, options).assert(value);
+    },
+
+    validateAsync(name, value, options = {}) {
+      return this.validator(name, options).validateAsync(value);
+    },
+
+    assertAsync(name, value, options = {}) {
+      return this.validator(name, options).assertAsync(value);
     },
 
     toJSON() {
@@ -144,6 +153,18 @@ export function createSchemaValidator(resource, config, options = {}) {
   const unknownFields = normalizeValidatorUnknownFields(options.unknownFields);
 
   function validate(value, validateOptions = {}) {
+    const result = validateInternal(value, validateOptions);
+    if (isPromiseLike(result)) {
+      throw asyncValidatorRequiredError(resource);
+    }
+    return result;
+  }
+
+  async function validateAsync(value, validateOptions = {}) {
+    return validateInternal(value, validateOptions, { allowAsync: true });
+  }
+
+  function validateInternal(value, validateOptions = {}, internalOptions = {}) {
     const activeMode = normalizeValidationMode(validateOptions.mode ?? mode);
     const activeUnknownFields = normalizeValidatorUnknownFields(validateOptions.unknownFields ?? unknownFields);
     const source = validateOptions.source ?? options.source ?? `${resource.name} ${activeMode} input`;
@@ -152,21 +173,48 @@ export function createSchemaValidator(resource, config, options = {}) {
       mode: activeMode,
       applyDefaults: validateOptions.applyDefaults ?? options.applyDefaults,
     });
+    const standardResult = validateWithStandardSchema(resource, withDefaults);
+    if (isPromiseLike(standardResult)) {
+      if (!internalOptions.allowAsync) {
+        throw asyncValidatorRequiredError(resource);
+      }
+      return standardResult.then((resolvedStandardResult) => finishValidation(resolvedStandardResult, {
+        activeMode,
+        activeUnknownFields,
+        source,
+      }));
+    }
+
+    return finishValidation(standardResult, {
+      activeMode,
+      activeUnknownFields,
+      source,
+    });
+  }
+
+  function finishValidation(standardResult, context) {
+    const { activeMode, activeUnknownFields, source } = context;
+    const standardValue = standardResult.value;
     const sanitized = activeUnknownFields === 'strip'
-      ? stripUnknownFields(withDefaults, resource.fields ?? {})
-      : withDefaults;
+      ? stripUnknownResourceFields(standardValue, resource)
+      : standardValue;
     const validationConfig = {
       ...config,
       schema: {
         ...config.schema,
-        unknownFields: activeUnknownFields === 'strip' ? 'allow' : activeUnknownFields,
+        unknownFields: activeUnknownFields === 'strip' || resource.fieldsAuthoritative === false
+          ? 'allow'
+          : activeUnknownFields,
       },
     };
     const validationResource = validationResourceForMode(resource, sanitized, activeMode);
-    const diagnostics = validateRecordAgainstResource(sanitized, validationResource, validationConfig, {
-      source,
-      requireFields: activeMode !== 'patch',
-    });
+    const diagnostics = [
+      ...standardResult.diagnostics,
+      ...validateRecordAgainstResource(sanitized, validationResource, validationConfig, {
+        source,
+        requireFields: activeMode !== 'patch',
+      }),
+    ];
     const errors = diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
 
     return {
@@ -184,6 +232,7 @@ export function createSchemaValidator(resource, config, options = {}) {
     mode,
     unknownFields,
     validate,
+    validateAsync,
     assert(value, assertOptions = {}) {
       const result = validate(value, assertOptions);
       if (result.ok) {
@@ -204,7 +253,67 @@ export function createSchemaValidator(resource, config, options = {}) {
         },
       );
     },
+    async assertAsync(value, assertOptions = {}) {
+      const result = await validateAsync(value, assertOptions);
+      if (result.ok) {
+        return result.value;
+      }
+
+      throw dbError(
+        'DB_SCHEMA_VALIDATION_FAILED',
+        `${resource.name} input does not match its schema: ${result.errors[0].message}`,
+        {
+          status: 400,
+          hint: 'Update the input to match the schema field types, required fields, enum values, constraints, and read-only field rules.',
+          details: {
+            resource: resource.name,
+            mode: result.mode,
+            diagnostics: result.diagnostics,
+          },
+        },
+      );
+    },
   };
+}
+
+function validateWithStandardSchema(resource, value) {
+  const standardSchema = resource.validators?.standard;
+  const validate = standardSchema?.['~standard']?.validate;
+  if (typeof validate !== 'function') {
+    return {
+      value,
+      diagnostics: [],
+    };
+  }
+
+  const result = validate(value);
+  if (isPromiseLike(result)) {
+    return result.then((resolved) => standardSchemaValidationResult(standardSchema, resource, value, resolved));
+  }
+
+  return standardSchemaValidationResult(standardSchema, resource, value, result);
+}
+
+function standardSchemaValidationResult(standardSchema, resource, inputValue, result) {
+  const issues = Array.isArray(result?.issues) ? result.issues : [];
+  return {
+    value: Object.prototype.hasOwnProperty.call(result ?? {}, 'value') ? result.value : inputValue,
+    diagnostics: standardSchemaIssueDiagnostics(standardSchema, issues, resource),
+  };
+}
+
+function asyncValidatorRequiredError(resource) {
+  return dbError(
+    'DB_SCHEMA_ASYNC_VALIDATOR_REQUIRED',
+    `${resource.name} uses an async Standard Schema validator, but this helper is synchronous.`,
+    {
+      status: 400,
+      hint: 'Use validateAsync(...) or assertAsync(...) for resources backed by async Standard Schema validators.',
+      details: {
+        resource: resource.name,
+      },
+    },
+  );
 }
 
 function parseResolverSelector(selector) {
@@ -378,6 +487,14 @@ function applyValidationDefaults(value, resource, options) {
   }
 
   return next;
+}
+
+function stripUnknownResourceFields(value, resource) {
+  if (resource.fieldsAuthoritative === false) {
+    return value;
+  }
+
+  return stripUnknownFields(value, resource.fields ?? {});
 }
 
 function stripUnknownFields(value, fields) {

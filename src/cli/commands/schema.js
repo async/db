@@ -287,7 +287,7 @@ async function runSchemaUnbundleAll(config, project, args) {
   });
 
   for (const resource of project.resources) {
-    const executable = resource.source || resourceHasResolvers(resource);
+    const executable = resourceHasExecutableSchema(resource);
     const outFile = resource.source
       ? path.join(schemaDir, resource.name, 'index.schema.mjs')
       : path.join(schemaDir, `${resource.name}.schema.${executable ? 'mjs' : 'jsonc'}`);
@@ -295,7 +295,7 @@ async function runSchemaUnbundleAll(config, project, args) {
       ? renderUnbundledSchemaModule(config, resource, outFile)
       : `${JSON.stringify(schemaSourceForResource(resource), null, 2)}\n`;
 
-    if (resourceHasResolvers(resource)) {
+    if (resourceHasExecutableFunctions(resource)) {
       printDiagnostic(executableUnbundleDiagnostic(config, resource, outFile));
     }
 
@@ -367,11 +367,16 @@ function renderRootSchemaBundle(config, project, outFile) {
   const imports = new Map();
   const diagnostics = [];
   for (const resource of project.resources) {
-    if (!resourceHasResolvers(resource) || !resource.schemaPath?.endsWith('.schema.mjs')) {
+    if (!resource.schemaPath?.endsWith('.schema.mjs') || !resourceHasExecutableFunctions(resource)) {
       continue;
     }
-    const alias = imports.get(resource.schemaPath) ?? importAliasForResource(resource.name, imports);
-    imports.set(resource.schemaPath, alias);
+    ensureResourceImport(resource, imports);
+    if (resourceHasStandardValidator(resource)) {
+      diagnostics.push(importedValidatorDiagnostic(config, resource));
+    }
+    if (!resourceHasResolvers(resource)) {
+      continue;
+    }
     for (const [fieldName, resolver] of Object.entries(resource.resolvers?.fields ?? {})) {
       for (const resolverKind of ['resolve', 'resolveMany']) {
         if (!resolver[resolverKind]) {
@@ -407,7 +412,15 @@ function renderRootSchemaBundle(config, project, outFile) {
 
 function renderRootSchemaResource(config, resource, imports) {
   const helper = resource.kind === 'document' ? 'document' : 'collection';
-  const lines = [`  ${propertyName(resource.name)}: ${helper}({`];
+  const validator = resourceHasStandardValidator(resource)
+    ? validatorAccess(resource, imports)
+    : undefined;
+  const standardSchemaFirst = shouldEmitStandardSchemaFirst(config, resource) && validator;
+  const lines = [
+    standardSchemaFirst
+      ? `  ${propertyName(resource.name)}: ${helper}(${validator}, {`
+      : `  ${propertyName(resource.name)}: ${helper}({`,
+  ];
   if (resource.description) {
     lines.push(`    description: ${JSON.stringify(resource.description)},`);
   }
@@ -416,6 +429,9 @@ function renderRootSchemaResource(config, resource, imports) {
   }
   if (resource.source) {
     lines.push(`    source: ${renderSourceExpression(rootSchemaSourceGlob(config, resource))},`);
+  }
+  if (validator && !standardSchemaFirst) {
+    lines.push(`    validator: ${validator},`);
   }
   lines.push('    fields: {');
   for (const [fieldName, field] of Object.entries(resource.fields ?? {})) {
@@ -614,11 +630,12 @@ function renderOptions(options) {
 function renderUnbundledSchemaModule(config, resource, outFile) {
   const imports = new Map();
   const rootSchemaPath = projectRootSchemaPath(config);
-  if (resourceHasResolvers(resource)) {
+  if (resourceHasExecutableFunctions(resource)) {
     imports.set(rootSchemaPath, 'rootSchema');
   }
 
   return renderSchemaModule(resource, {
+    config,
     imports,
     outFile,
     rootSchemaAlias: imports.get(rootSchemaPath),
@@ -633,9 +650,15 @@ function renderSchemaModule(resource, options = {}) {
   for (const [sourceFile, alias] of options.imports ?? []) {
     lines.push(`import ${alias} from '${moduleSpecifier(options.outFile, sourceFile)}';`);
   }
+  const validator = resourceHasStandardValidator(resource)
+    ? validatorAccess(resource, options.imports ?? new Map(), options)
+    : undefined;
+  const standardSchemaFirst = shouldEmitStandardSchemaFirst(options.config, resource) && validator;
   lines.push(
     '',
-    `export default ${helper}({`,
+    standardSchemaFirst
+      ? `export default ${helper}(${validator}, {`
+      : `export default ${helper}({`,
   );
   if (resource.description) {
     lines.push(`  description: ${JSON.stringify(resource.description)},`);
@@ -645,6 +668,9 @@ function renderSchemaModule(resource, options = {}) {
   }
   if (resource.kind === 'collection') {
     lines.push(`  idField: ${JSON.stringify(resource.idField)},`);
+  }
+  if (validator && !standardSchemaFirst) {
+    lines.push(`  validator: ${validator},`);
   }
   lines.push('  fields: {');
   for (const [fieldName, field] of Object.entries(resource.fields ?? {})) {
@@ -703,6 +729,23 @@ function importedResolverDiagnostic(config, resource, fieldName, resolverKind) {
   };
 }
 
+function importedValidatorDiagnostic(config, resource) {
+  const relative = path.relative(config.cwd, resource.schemaPath);
+  return {
+    code: 'SCHEMA_BUNDLE_IMPORTED_VALIDATOR',
+    severity: 'warn',
+    resource: resource.name,
+    file: relative,
+    message: `SCHEMA_BUNDLE_IMPORTED_VALIDATOR: ${resource.name} uses a Standard Schema validator from ${relative}. The root schema will import the original module and reference its validator to preserve behavior.`,
+    hint: 'This is safe and non-destructive. Keep the original .schema.mjs module available, or move the validator definition into db.schema.mjs manually.',
+    details: {
+      command: 'schema bundle --all',
+      resource: resource.name,
+      strategy: 'import-original-module-validator-reference',
+    },
+  };
+}
+
 function bundleSeedUnbundledDiagnostic(config, resource, outFile) {
   const relative = path.relative(config.cwd, outFile);
   return {
@@ -743,19 +786,25 @@ function arrowResolverDiagnostic(config, resource, fieldName, resolverKind) {
 
 function executableUnbundleDiagnostic(config, resource, outFile) {
   const relative = path.relative(config.cwd, outFile);
+  const reasons = executableSchemaFunctionReasons(resource);
+  const label = reasons.includes('computed-resolver') && reasons.includes('standard-validator')
+    ? 'computed resolvers and Standard Schema validators'
+    : reasons.includes('standard-validator')
+      ? 'Standard Schema validators'
+      : 'executable resolver functions';
   return {
     code: 'SCHEMA_UNBUNDLE_EXECUTABLE_REQUIRES_MJS',
     severity: 'warn',
     resource: resource.name,
     file: relative,
-    message: `SCHEMA_UNBUNDLE_EXECUTABLE_REQUIRES_MJS: ${resource.name} contains executable resolver functions, so schema unbundle --all will write ${relative} instead of JSONC.`,
-    hint: 'Keep the .mjs output so resolver behavior is preserved through inline wrappers.',
+    message: `SCHEMA_UNBUNDLE_EXECUTABLE_REQUIRES_MJS: ${resource.name} contains ${label}, so schema unbundle --all will write ${relative} instead of JSONC.`,
+    hint: 'Keep the .mjs output so executable schema behavior is preserved through imports and inline wrappers.',
     details: {
       command: 'schema unbundle --all',
       resource: resource.name,
       file: relative,
       outputFormat: 'mjs',
-      reason: 'computed-resolver',
+      reason: reasons.length === 1 ? reasons[0] : reasons,
     },
   };
 }
@@ -789,6 +838,39 @@ function resourceHasResolvers(resource) {
   return Object.keys(resource.resolvers?.fields ?? {}).length > 0;
 }
 
+function resourceHasStandardValidator(resource) {
+  return Boolean(resource.validators?.standard);
+}
+
+function shouldEmitStandardSchemaFirst(config, resource) {
+  return Boolean(config?.schema?.standardSchema && resourceHasStandardValidator(resource));
+}
+
+function resourceHasExecutableFunctions(resource) {
+  return resourceHasResolvers(resource) || resourceHasStandardValidator(resource);
+}
+
+function resourceHasExecutableSchema(resource) {
+  return Boolean(resource.source) || resourceHasExecutableFunctions(resource);
+}
+
+function executableSchemaFunctionReasons(resource) {
+  const reasons = [];
+  if (resourceHasResolvers(resource)) {
+    reasons.push('computed-resolver');
+  }
+  if (resourceHasStandardValidator(resource)) {
+    reasons.push('standard-validator');
+  }
+  return reasons;
+}
+
+function ensureResourceImport(resource, imports) {
+  const alias = imports.get(resource.schemaPath) ?? importAliasForResource(resource.name, imports);
+  imports.set(resource.schemaPath, alias);
+  return alias;
+}
+
 function resolverFieldAccess(resource, fieldName, imports, options = {}) {
   if (options.rootSchemaAlias) {
     return memberExpression(memberExpression(memberExpression(options.rootSchemaAlias, resource.name), 'fields'), fieldName);
@@ -799,6 +881,16 @@ function resolverFieldAccess(resource, fieldName, imports, options = {}) {
     return undefined;
   }
   return memberExpression(memberExpression(alias, 'fields'), fieldName);
+}
+
+function validatorAccess(resource, imports, options = {}) {
+  const base = options.rootSchemaAlias
+    ? memberExpression(options.rootSchemaAlias, resource.name)
+    : imports.get(resource.schemaPath);
+  if (!base) {
+    return undefined;
+  }
+  return memberExpression(base, resource.validatorSource ?? 'validator');
 }
 
 function resolverFunctionName(resourceName, fieldName, resolverKind) {

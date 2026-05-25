@@ -1,5 +1,5 @@
 import { dbError } from '../../errors.js';
-import { assertRecordMatchesResource, validateUniqueCollectionFields } from '../../schema.js';
+import { createSchemaValidator, validateUniqueCollectionFields } from '../../schema.js';
 import { applyDefaultsToRecord } from '../../sync.js';
 import { createRuntime } from '../storage/runtime.js';
 
@@ -37,9 +37,11 @@ export class DbCollection {
         nextRecord[this.resource.idField] = id;
       }
 
-      assertRecordMatchesResource(nextRecord, this.resource, this.config, {
+      const validatedRecord = await assertRuntimeRecord(nextRecord, this.resource, this.config, {
+        mode: 'create',
         source: `${this.resource.name} create body`,
       });
+      id = validatedRecord[this.resource.idField];
 
       if (records.some((existing) => idMatches(existing?.[this.resource.idField], id))) {
         throw dbError(
@@ -57,11 +59,11 @@ export class DbCollection {
         );
       }
 
-      assertUniqueCollectionRecords([...records, nextRecord], this.resource);
-      const nextRecords = [...records, nextRecord];
+      assertUniqueCollectionRecords([...records, validatedRecord], this.resource);
+      const nextRecords = [...records, validatedRecord];
       await this.adapter().writeResource(this.resource, nextRecords);
       this.emit('create', { id });
-      return nextRecord;
+      return validatedRecord;
     });
   }
 
@@ -80,8 +82,8 @@ export class DbCollection {
         [this.resource.idField]: existingId,
       };
       const nextRecords = [...records];
-      nextRecords[index] = nextRecord;
-      assertRecordMatchesResource(nextRecords[index], this.resource, this.config, {
+      nextRecords[index] = await assertRuntimeRecord(nextRecord, this.resource, this.config, {
+        mode: 'replace',
         source: `${this.resource.name} patch body`,
       });
       assertUniqueCollectionRecords(nextRecords, this.resource);
@@ -120,6 +122,35 @@ export class DbCollection {
       ...details,
     });
   }
+}
+
+function assertRuntimeRecord(record, resource, config, options = {}) {
+  const validator = createSchemaValidator(resource, config, {
+    mode: options.mode,
+    unknownFields: config.schema?.unknownFields ?? 'warn',
+    applyDefaults: false,
+  });
+  return validator.validateAsync(record, {
+    source: options.source,
+    applyDefaults: false,
+  }).then((result) => {
+    if (result.ok) {
+      return result.value;
+    }
+
+    throw dbError(
+      'DB_SCHEMA_VALIDATION_FAILED',
+      `${resource.name} record does not match its schema: ${result.errors[0].message}`,
+      {
+        status: 400,
+        hint: 'Update the record to match the schema field types, required fields, enum values, and constraints.',
+        details: {
+          resource: resource.name,
+          diagnostics: result.errors,
+        },
+      },
+    );
+  });
 }
 
 function normalizeDb(db, resource) {

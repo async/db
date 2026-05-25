@@ -2,6 +2,7 @@ import { resourceConfigValue, routePathForResource, typeNameForResource } from '
 import { inferFieldsFromData, normalizeField } from './fields.js';
 import { relationsForResource } from './relations.js';
 import { normalizeFilesSource } from './source-definitions.js';
+import { mergeStandardSchemaFields, standardJsonSchemaFields } from './standard-schema.js';
 
 export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath, schemaSource, rawData, rawSchema, config, includeSeed = true }) {
   const collectionConfig = resourceConfigValue(config.collections, name) ?? {};
@@ -11,9 +12,20 @@ export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath
     const schemaHasSeed = Object.prototype.hasOwnProperty.call(rawSchema, 'seed');
     const schemaSeed = includeSeed && schemaHasSeed ? rawSchema.seed : emptySeedForKind(kind);
     const seed = includeSeed && rawData !== undefined ? rawData : schemaSeed;
-    const resolvers = resolversForFieldMap(rawSchema.fields ?? {});
+    const standardSchema = rawSchema.validator ?? rawSchema.standardSchema;
+    const standardSchemaSource = rawSchema.validator ? 'validator' : rawSchema.standardSchema ? 'standardSchema' : undefined;
+    const standardFields = standardSchema
+      ? standardJsonSchemaFields(standardSchema, name)
+      : { fields: {}, authoritative: true, diagnostics: [] };
+    const rawFields = standardSchema
+      ? mergeStandardSchemaFields(standardFields.fields, rawSchema.fields ?? {})
+      : rawSchema.fields ?? {};
+    const standardDiagnostics = standardSchema && Object.keys(rawFields).length === 0
+      ? standardFields.diagnostics
+      : [];
+    const resolvers = resolversForFieldMap(rawFields);
     let fields = Object.fromEntries(
-      Object.entries(rawSchema.fields ?? {}).map(([fieldName, field]) => [fieldName, normalizeField(field, fieldName)]),
+      Object.entries(rawFields).map(([fieldName, field]) => [fieldName, normalizeField(field, fieldName)]),
     );
     if (kind === 'collection') {
       fields = ensureCollectionIdField(fields, idField);
@@ -41,6 +53,11 @@ export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath
       typeSource: 'schema',
       generatedIds: idResult.generated,
       resolvers,
+      validators: standardSchema ? { standard: standardSchema } : {},
+      validatorSource: standardSchemaSource,
+      fieldsAuthoritative: standardSchema ? standardFields.authoritative : true,
+      typeFallback: standardSchema && Object.keys(rawFields).length === 0 ? 'record' : undefined,
+      diagnostics: standardDiagnostics,
       source: normalizeFilesSource(rawSchema.source, { read: rawSchema.parser }),
     });
   }
@@ -67,6 +84,8 @@ export function buildResource({ name, dataPath, dataFormat, dataHash, schemaPath
     typeSource: 'data',
     generatedIds: idResult.generated,
     resolvers: { fields: {} },
+    validators: {},
+    fieldsAuthoritative: true,
   });
 }
 

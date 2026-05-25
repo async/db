@@ -32,6 +32,7 @@ test('examples launcher can discover repo examples and render an index page', as
     'schema-first',
     'schema-manifest',
     'schema-ui',
+    'standard-schema',
   ]);
   assert.equal(examples.find((example) => example.name === 'relations').title, 'Relations');
   assert.deepEqual(examples.find((example) => example.name === 'rest-client').tags, ['client', 'rest', 'batching']);
@@ -61,6 +62,7 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /schema-first/);
   assert.match(html, /Schema Manifest/);
   assert.match(html, /Schema UI/);
+  assert.match(html, /Standard Schema/);
 
   const schemaUiHook = await readFile(path.resolve('examples/schema-ui/serve-example.mjs'), 'utf8');
   assert.match(schemaUiHook, /startExampleServer/);
@@ -110,6 +112,7 @@ test('new onboarding examples sync expected resources', async () => {
     relations: ['posts', 'users'],
     'schema-manifest': ['projects', 'users'],
     'schema-ui': ['pages', 'users'],
+    'standard-schema': ['settings', 'users'],
   };
 
   for (const [name, resources] of Object.entries(expected)) {
@@ -219,6 +222,42 @@ test('new onboarding examples sync expected resources', async () => {
 
   const bundledSync = await syncDb(await loadConfig({ cwd: contentCwd }));
   assert.deepEqual(Object.keys(bundledSync.schema.resources), ['authors', 'blog', 'docs', 'site']);
+});
+
+test('standard schema example validates writes and keeps computed metadata', async () => {
+  const cwd = await copyExampleProject('standard-schema');
+  const result = await syncDb(await loadConfig({ cwd }));
+  const db = await openDb({ cwd, syncOnOpen: false });
+  await db.runtime.hydrate();
+
+  const created = await db.collection('users').create({
+    id: 'u_2',
+    email: ' GRACE@EXAMPLE.COM ',
+    firstName: 'Grace',
+    lastName: 'Hopper',
+  });
+  const graphql = await executeGraphql(db, {
+    query: `{
+      users {
+        id
+        email
+        displayName
+      }
+    }`,
+  });
+
+  assert.equal(created.email, 'grace@example.com');
+  assert.equal(result.schema.resources.users.fields.displayName.computed, true);
+  assert.equal('validators' in result.schema.resources.users, false);
+  assert.match(
+    result.diagnostics.map((diagnostic) => diagnostic.code).join('\n'),
+    /STANDARD_SCHEMA_FIELDS_UNKNOWN/,
+  );
+  assert.deepEqual(graphql.data.users.find((record) => record.id === 'u_2'), {
+    id: 'u_2',
+    email: 'grace@example.com',
+    displayName: 'Grace Hopper',
+  });
 });
 
 test('computed fields example resolves different computed field patterns', async () => {

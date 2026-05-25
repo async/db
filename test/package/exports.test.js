@@ -98,11 +98,29 @@ test('public declarations expose schema loader and validator API', async () => {
   assert.match(declarations, /export type DbSchemaValidatorUnknownFields = 'error' \| 'strip' \| 'allow' \| 'warn' \| 'ignore';/);
   assert.match(declarations, /export type DbSchemaResolverOptions = \{/);
   assert.match(declarations, /export type DbLoadedSchema = \{/);
+  assert.match(declarations, /standardSchema\?: boolean;/);
   assert.match(declarations, /validator<TValue = Record<string, unknown>>\(name: string, options\?: DbSchemaValidatorOptions\): DbSchemaValidator<TValue>;/);
   assert.match(declarations, /resolver<TArgs = Record<string, unknown>, TValue = unknown>\(\s+selector: string,\s+options\?: DbSchemaResolverOptions,\s+\): DbSchemaFieldResolver<TArgs, TValue> \| Record<string, DbSchemaFieldResolver<TArgs, TValue>>;/);
   assert.match(declarations, /export type DbOpenOptions = Omit<DbOptions, 'schema'> & \{/);
   assert.match(declarations, /export function openDb<Types extends DbTypeMap = DbTypeMap>\(options\?: DbOpenOptions \| string\): Promise<Db<Types>>;/);
   assert.match(declarations, /export function loadDbSchema\(options\?: DbOptions \| string\): Promise<DbLoadedSchema>;/);
+});
+
+test('public declarations expose standard schema authoring helpers', async () => {
+  const declarations = await readFile(path.resolve('src/index.d.ts'), 'utf8');
+  const schemaDeclarations = await readFile(path.resolve('src/schema.d.ts'), 'utf8');
+
+  assert.match(declarations, /validateAsync\(value: unknown, options\?: DbSchemaValidatorOptions\): Promise<DbSchemaValidationResult<TValue>>;/);
+  assert.match(declarations, /assertAsync\(value: unknown, options\?: DbSchemaValidatorOptions\): Promise<TValue>;/);
+  assert.match(declarations, /validateAsync<TValue = Record<string, unknown>>\(name: string, value: unknown, options\?: DbSchemaValidatorOptions\): Promise<DbSchemaValidationResult<TValue>>;/);
+  assert.match(schemaDeclarations, /export type StandardSchemaV1<Input = unknown, Output = unknown> = \{/);
+  assert.match(schemaDeclarations, /export type StandardSchemaMixedResourceDefinition<Input = unknown, Output = unknown> =/);
+  assert.match(schemaDeclarations, /validator: StandardSchemaV1<Input, Output>;/);
+  assert.match(schemaDeclarations, /export type StandardSchemaLegacyMixedResourceDefinition<Input = unknown, Output = unknown> =/);
+  assert.match(schemaDeclarations, /definition: StandardSchemaV1<Input, Output>,\s+options\?: StandardSchemaResourceOptions,/);
+  assert.match(schemaDeclarations, /validator: StandardSchemaV1<Input, Output>/);
+  assert.match(schemaDeclarations, /definition: StandardSchemaMixedResourceDefinition<Input, Output>,/);
+  assert.match(schemaDeclarations, /meta\(options\?: FieldMetaOptions\): FieldDefinition;/);
 });
 
 test('public Hono declarations keep resource and operation hook contexts distinct', async () => {

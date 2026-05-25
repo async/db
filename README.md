@@ -48,6 +48,7 @@ Other useful paths:
 - [`examples/computed-fields`](./examples/computed-fields): computed field patterns across several schema-backed models.
 - [`examples/rest-client`](./examples/rest-client): calling @async/db from app or test code.
 - [`examples/schema-manifest`](./examples/schema-manifest): schema metadata for admin/CMS UI.
+- [`examples/standard-schema`](./examples/standard-schema): Standard Schema validators with Async DB metadata overlays.
 - [`examples/hono-auth`](./examples/hono-auth): optional Hono auth and write hooks.
 
 See [Which Example Should I Start With?](#which-example-should-i-start-with) for the full examples map.
@@ -199,6 +200,22 @@ npm run db -- schema validate
 In mixed mode, schema files define the contract and data files provide seed records. Unknown fields warn by default; configure `schema.unknownFields: 'error'` when drift should fail.
 
 Schema defaults fill omitted fields on create and safe additive runtime hydration. Updates, patches, and document puts preserve omitted fields; include a field in the write body when you want to change it.
+
+Executable `.schema.mjs` files can also accept Standard Schema-compatible validators:
+
+```js
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  validator: UserSchema,
+  fields: {
+    email: field.string({ required: true, unique: true }),
+    displayName: field.computed(field.string(), ({ record }) => record.email),
+  },
+});
+```
+
+The validator owns runtime parsing through `~standard.validate`; Async DB overlays keep generated metadata, relations, defaults, and computed resolvers. Async validators run in package, REST, and GraphQL writes. Sync schema helpers throw `DB_SCHEMA_ASYNC_VALIDATOR_REQUIRED` when the validator returns a Promise; use `validateAsync()` or `assertAsync()` for that path.
 
 See [docs/concepts.md](./docs/concepts.md) and [docs/fixtures-and-schemas.md](./docs/fixtures-and-schemas.md).
 
@@ -393,6 +410,7 @@ The examples are a learning path. Run any example with `node ./src/cli.js sync -
 | CSV as the source of truth | [`examples/csv`](./examples/csv) | CSV inference, source hashes, mirror refreshes |
 | Admin/CMS-style field metadata | [`examples/schema-manifest`](./examples/schema-manifest) | `outputs.schemaManifest` and manifest customization |
 | Schema JSON to simple CMS UI templates | [`examples/schema-ui`](./examples/schema-ui) | `serve.mjs` SSR view/editor HTML from manifest + mirror (`node ./examples/schema-ui/serve.mjs`); `/templates` route keeps static placeholders |
+| Standard Schema validators | [`examples/standard-schema`](./examples/standard-schema) | Dependency-free Standard Schema validation, `field.meta(...)` overlays, async write validation, computed fields, and conservative type fallback |
 | Diagnostics for schema/data drift | [`examples/diagnostics`](./examples/diagnostics) | Warnings surfaced without breaking unrelated resources |
 | Several advanced features together | [`examples/advanced`](./examples/advanced) | `.schema.mjs`, mixed mode, defaults, nested objects |
 | Hono auth and write hooks | [`examples/hono-auth`](./examples/hono-auth) | Optional Hono integration with auth lifecycle hooks |

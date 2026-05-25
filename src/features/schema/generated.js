@@ -20,7 +20,7 @@ function serializeResource(resource) {
     routePath: resource.routePath,
     idField: resource.kind === 'collection' ? resource.idField : undefined,
     description: resource.description,
-    fields: resource.fields,
+    fields: Object.keys(resource.fields ?? {}).length > 0 ? resource.fields : undefined,
     relations: resource.relations,
     seed: resource.seed,
     source: {

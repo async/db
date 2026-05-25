@@ -42,9 +42,14 @@ export function renderTypes(resources, config) {
     }
 
     lines.push(`export type ${resource.typeName} = {`);
-    for (const [fieldName, field] of Object.entries(resource.fields)) {
-      const fieldLines = renderField(fieldName, field, resource, config, 1);
-      lines.push(...fieldLines);
+    const fieldEntries = Object.entries(resource.fields ?? {});
+    if (fieldEntries.length === 0 && resource.typeFallback === 'record') {
+      lines.push('  [key: string]: unknown;');
+    } else {
+      for (const [fieldName, field] of fieldEntries) {
+        const fieldLines = renderField(fieldName, field, resource, config, 1);
+        lines.push(...fieldLines);
+      }
     }
     lines.push('};', '');
   }

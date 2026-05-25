@@ -3,7 +3,9 @@ import { execFile, spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { openDb } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 const execFileAsync = promisify(execFile);
@@ -599,6 +601,123 @@ export default collection({
   assert.doesNotMatch(rootSchema, /seed:/);
 });
 
+test('CLI schema bundle --all preserves Standard Schema validators by importing source modules', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', '[]');
+  await writeFixture(cwd, 'users.schema.mjs', `import { collection, field } from '@async/db/schema';
+
+const UserSchema = {
+  '~standard': {
+    version: 1,
+    vendor: 'bundle-validator-fixture',
+    validate(value) {
+      if (!value || typeof value !== 'object' || typeof value.email !== 'string' || !value.email.includes('@')) {
+        return { issues: [{ message: 'Email must include @', path: ['email'] }] };
+      }
+      return {
+        value: {
+          ...value,
+          email: value.email.trim().toLowerCase(),
+        },
+      };
+    },
+  },
+};
+
+export default collection({
+  idField: 'id',
+  validator: UserSchema,
+  fields: {
+    id: field.string({ required: true }),
+    email: field.string({ required: true }),
+  },
+});
+`);
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--out',
+    './db.schema.mjs',
+  ]);
+  const rootSchema = await readFile(path.join(cwd, 'db.schema.mjs'), 'utf8');
+  const db = await openDb({ cwd });
+  const user = await db.collection('users').create({
+    id: 'u_1',
+    email: ' ADA@EXAMPLE.COM ',
+  });
+
+  assert.match(stdout, /Generated db\.schema\.mjs/);
+  assert.match(stderr, /SCHEMA_BUNDLE_IMPORTED_VALIDATOR/);
+  assert.match(rootSchema, /import usersSource from '\.\/db\/users\.schema\.mjs';/);
+  assert.match(rootSchema, /validator: usersSource\.validator,/);
+  assert.doesNotMatch(rootSchema, /standardSchema/);
+  assert.equal(user.email, 'ada@example.com');
+});
+
+test('CLI schema bundle --all can emit Standard Schema-first resources when configured', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+  schema: {
+    standardSchema: true,
+  },
+};
+`);
+  await writeFixture(cwd, 'users.json', '[]');
+  await writeFixture(cwd, 'users.schema.mjs', `import { collection, field } from '@async/db/schema';
+
+const UserSchema = {
+  '~standard': {
+    version: 1,
+    vendor: 'bundle-standard-first-fixture',
+    validate(value) {
+      return {
+        value: {
+          ...value,
+          email: value.email.trim().toLowerCase(),
+        },
+      };
+    },
+  },
+};
+
+export default collection({
+  idField: 'id',
+  validator: UserSchema,
+  fields: {
+    id: field.string({ required: true }),
+    email: field.string({ required: true }),
+  },
+});
+`);
+
+  await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'bundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--out',
+    './db.schema.mjs',
+  ]);
+  const rootSchema = await readFile(path.join(cwd, 'db.schema.mjs'), 'utf8');
+  const db = await openDb({ cwd });
+  const user = await db.collection('users').create({
+    id: 'u_1',
+    email: ' ADA@EXAMPLE.COM ',
+  });
+
+  assert.match(rootSchema, /users: collection\(usersSource\.validator, \{/);
+  assert.doesNotMatch(rootSchema, /validator: usersSource\.validator,/);
+  assert.doesNotMatch(rootSchema, /standardSchema/);
+  assert.equal(user.email, 'ada@example.com');
+});
+
 test('CLI schema bundle --all rebases folder collection source globs for root schema', async () => {
   const cwd = await makeProject();
   await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
@@ -973,6 +1092,139 @@ export default {
   assert.match(usersSchema, /import rootSchema from '\.\.\/db\.schema\.mjs';/);
   assert.match(usersSchema, /function users_fullName_resolver\(context\)/);
   assert.match(usersSchema, /rootSchema\.users\.fields\.fullName\.resolve\.call\(this, context\)/);
+});
+
+test('CLI schema unbundle --all keeps Standard Schema validators in per-resource mjs files', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'db.schema.mjs'), `
+import { collection, field } from '@async/db/schema';
+
+const UserSchema = {
+  '~standard': {
+    version: 1,
+    vendor: 'unbundle-validator-fixture',
+    validate(value) {
+      if (!value || typeof value !== 'object' || typeof value.email !== 'string' || !value.email.includes('@')) {
+        return { issues: [{ message: 'Email must include @', path: ['email'] }] };
+      }
+      return {
+        value: {
+          ...value,
+          email: value.email.trim().toLowerCase(),
+        },
+      };
+    },
+  },
+};
+
+export default {
+  users: collection({
+    idField: 'id',
+    validator: UserSchema,
+    fields: {
+      id: field.string({ required: true }),
+      email: field.string({ required: true }),
+    },
+  }),
+};
+`, 'utf8');
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'unbundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--schema-dir',
+    './db',
+  ]);
+  const usersSchemaPath = path.join(cwd, 'db/users.schema.mjs');
+  const usersSchema = await readFile(usersSchemaPath, 'utf8');
+  const url = pathToFileURL(usersSchemaPath);
+  url.searchParams.set('cacheBust', String(Date.now()));
+  const module = await import(url.href);
+  const valid = module.default.validator['~standard'].validate({
+    id: 'u_1',
+    email: ' ADA@EXAMPLE.COM ',
+  });
+
+  assert.match(stdout, /Generated db\/users\.schema\.mjs/);
+  assert.match(stderr, /SCHEMA_UNBUNDLE_EXECUTABLE_REQUIRES_MJS/);
+  assert.match(usersSchema, /import rootSchema from '\.\.\/db\.schema\.mjs';/);
+  assert.match(usersSchema, /validator: rootSchema\.users\.validator,/);
+  assert.doesNotMatch(usersSchema, /standardSchema/);
+  assert.deepEqual(valid.value, {
+    id: 'u_1',
+    email: 'ada@example.com',
+  });
+});
+
+test('CLI schema unbundle --all can emit Standard Schema-first resources when configured', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+  schema: {
+    standardSchema: true,
+  },
+};
+`);
+  await writeFile(path.join(cwd, 'db.schema.mjs'), `
+import { collection, field } from '@async/db/schema';
+
+const UserSchema = {
+  '~standard': {
+    version: 1,
+    vendor: 'unbundle-standard-first-fixture',
+    validate(value) {
+      return {
+        value: {
+          ...value,
+          email: value.email.trim().toLowerCase(),
+        },
+      };
+    },
+  },
+};
+
+export default {
+  users: collection({
+    idField: 'id',
+    validator: UserSchema,
+    fields: {
+      id: field.string({ required: true }),
+      email: field.string({ required: true }),
+    },
+  }),
+};
+`, 'utf8');
+
+  await execFileAsync(process.execPath, [
+    path.resolve('src/cli.js'),
+    'schema',
+    'unbundle',
+    '--all',
+    '--cwd',
+    cwd,
+    '--schema-dir',
+    './db',
+  ]);
+  const usersSchemaPath = path.join(cwd, 'db/users.schema.mjs');
+  const usersSchema = await readFile(usersSchemaPath, 'utf8');
+  const url = pathToFileURL(usersSchemaPath);
+  url.searchParams.set('cacheBust', String(Date.now()));
+  const module = await import(url.href);
+  const valid = module.default.validator['~standard'].validate({
+    id: 'u_1',
+    email: ' ADA@EXAMPLE.COM ',
+  });
+
+  assert.match(usersSchema, /export default collection\(rootSchema\.users\.validator, \{/);
+  assert.doesNotMatch(usersSchema, /validator: rootSchema\.users\.validator,/);
+  assert.doesNotMatch(usersSchema, /standardSchema/);
+  assert.deepEqual(valid.value, {
+    id: 'u_1',
+    email: 'ada@example.com',
+  });
 });
 
 test('CLI schema infer --out requires a single resource', async () => {

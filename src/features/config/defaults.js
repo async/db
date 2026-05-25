@@ -36,6 +36,7 @@ export const DEFAULT_CONFIG = {
   schema: {
     source: 'auto',
     allowJsonc: true,
+    standardSchema: false,
     unknownFields: 'warn',
     additiveChanges: 'auto',
     destructiveChanges: 'manual',
