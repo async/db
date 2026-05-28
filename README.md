@@ -55,13 +55,16 @@ See [Which Example Should I Start With?](#which-example-should-i-start-with) for
 
 ## Install
 
-Until the package is published, install it from GitHub in the app or package that will use it. Pin a reviewed commit SHA or release tag instead of the moving default branch:
+Install the published package in the app or package that will use it:
+
+```bash
+npm install @async/db
+```
+
+Add package scripts for the CLI commands you want to run often:
 
 ```json
 {
-  "devDependencies": {
-    "@async/db": "github:async-framework/async-db#<reviewed-commit-sha-or-tag>"
-  },
   "scripts": {
     "db": "async-db",
     "db:sync": "async-db sync",
@@ -71,10 +74,14 @@ Until the package is published, install it from GitHub in the app or package tha
 }
 ```
 
-Replace the placeholder with the commit SHA or tag you reviewed. After package publication, prefer the published semver version. Then run:
+If you need an unreleased fix, pin a reviewed GitHub commit or release tag instead of the moving default branch:
 
-```bash
-npm install
+```json
+{
+  "devDependencies": {
+    "@async/db": "github:async-framework/async-db#<reviewed-commit-sha-or-tag>"
+  }
+}
 ```
 
 The package import name is `@async/db`; helpers are available from `@async/db/config`, `@async/db/schema`, and `@async/db/client`. The root package exports runtime helpers such as `openDb()` and schema contract helpers such as `loadDbSchema()`.

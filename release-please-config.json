@@ -1,0 +1,10 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "@async/db",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false
+    }
+  }
+}

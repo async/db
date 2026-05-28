@@ -4,13 +4,16 @@ This guide takes a project from one fixture file to a local API, viewer, generat
 
 ## Install
 
-Until @async/db is published, install it from GitHub with a pinned, reviewed commit SHA or release tag:
+Install @async/db from npm:
+
+```bash
+npm install @async/db
+```
+
+Add package scripts for the CLI commands you want to run often:
 
 ```json
 {
-  "devDependencies": {
-    "@async/db": "github:async-framework/async-db#<reviewed-commit-sha-or-tag>"
-  },
   "scripts": {
     "db": "async-db",
     "db:sync": "async-db sync",
@@ -20,10 +23,14 @@ Until @async/db is published, install it from GitHub with a pinned, reviewed com
 }
 ```
 
-Replace the placeholder with the commit SHA or tag you reviewed. After package publication, prefer the published semver version. Then run:
+If you need an unreleased fix, pin a reviewed GitHub commit or release tag instead of the moving default branch:
 
-```bash
-npm install
+```json
+{
+  "devDependencies": {
+    "@async/db": "github:async-framework/async-db#<reviewed-commit-sha-or-tag>"
+  }
+}
 ```
 
 The scripts use the local `node_modules/.bin/async-db` binary, so each project controls its own @async/db version.

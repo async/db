@@ -15,15 +15,21 @@ Generated Hono/SQLite standalone apps may require newer Node versions because SQ
 Run these before handing off changes:
 
 ```bash
-npm run check
-npm test
-npm pack --dry-run
+npm run release:check
 ```
 
 If the default npm cache has ownership or permission issues on this machine, use a temp cache for the pack check:
 
 ```bash
-npm --cache /private/tmp/db-npm-cache pack --dry-run
+npm --cache /private/tmp/async-db-npm-cache pack --dry-run
+```
+
+`release:check` expands to:
+
+```bash
+npm run check
+npm test
+npm pack --dry-run
 ```
 
 ## Useful Smoke Commands
@@ -100,3 +106,53 @@ The first check confirms the README stayed compact. The second highlights same-p
 - Keep `CHANGELOG.md` focused on release history, not docs planning notes.
 - Keep root `SPEC.md` as the product and acceptance source of truth.
 - Keep implementation ownership and source maps in [Architecture](./architecture.md) and `AGENTS.md`, not duplicated across every doc page.
+
+## Release Automation
+
+Release pull requests and npm publication are handled by `.github/workflows/release.yml`.
+
+- Every push to `main` runs Release Please.
+- After `0.1.0`, Release Please opens or updates a release PR with the next version, `package.json`, `.release-please-manifest.json`, and `CHANGELOG.md`.
+- Merging a release PR creates the GitHub release.
+- When a Release Please release is created, the same workflow checks out the release commit, runs `npm run release:check`, packs the package, publishes `@async/db` to npm, and uploads the tarball to the GitHub release.
+- The first `0.1.0` release is seeded in `.release-please-manifest.json`; publish it by pushing the existing `v0.1.0` tag, or by running the `Release` workflow manually with `v0.1.0` after the tag exists.
+
+The release workflow uses npm Trusted Publishing through GitHub Actions OIDC. Before the first automated publish, configure npm for:
+
+```txt
+package: @async/db
+owner/repo: async-framework/async-db
+workflow: release.yml
+environment: none
+```
+
+Keep the package public through `publishConfig.access: "public"` and the workflow publish command:
+
+```bash
+npm publish --access public
+```
+
+If Trusted Publishing is not configured yet, the release workflow can create the release PR and GitHub release, but npm publish will fail until npm trusts this repository and workflow.
+
+## First Release
+
+The first public package version is already recorded as `0.1.0` in `package.json`, `CHANGELOG.md`, and `.release-please-manifest.json`. After npm Trusted Publishing is configured:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The tag publish path validates that the tag matches `package.json`, runs `npm run release:check`, publishes the tarball, creates the GitHub release if needed, and uploads the tarball as a release asset.
+
+## Manual Release Checks
+
+Use local scripts for preflight and emergency manual publish work:
+
+```bash
+npm run release:check
+npm run release:pack
+npm run release:publish
+```
+
+Prefer the GitHub workflow for normal releases so npm provenance is tied to the release commit.

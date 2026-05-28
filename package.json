@@ -74,9 +74,15 @@
     "README.md",
     "SPEC.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "check": "node ./scripts/check-syntax.js",
     "test": "node ./scripts/run-tests.js",
+    "release:check": "npm run check && npm test && npm pack --dry-run",
+    "release:pack": "npm pack",
+    "release:publish": "npm publish --access public",
     "examples": "node ./scripts/serve-examples.js",
     "view:examples": "node ./scripts/serve-examples.js",
     "db": "node ./src/cli.js"

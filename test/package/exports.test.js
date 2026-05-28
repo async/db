@@ -42,6 +42,41 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.deepEqual(packageJson.bin, {
     'async-db': './src/cli.js',
   });
+  assert.deepEqual(packageJson.publishConfig, {
+    access: 'public',
+  });
+  assert.equal(packageJson.scripts['release:check'], 'npm run check && npm test && npm pack --dry-run');
+  assert.equal(packageJson.scripts['release:pack'], 'npm pack');
+  assert.equal(packageJson.scripts['release:publish'], 'npm publish --access public');
+});
+
+test('release automation creates release PRs and publishes npm from pinned actions', async () => {
+  const workflow = await readFile(path.resolve('.github/workflows/release.yml'), 'utf8');
+  const releaseConfig = JSON.parse(await readFile(path.resolve('release-please-config.json'), 'utf8'));
+  const releaseManifest = JSON.parse(await readFile(path.resolve('.release-please-manifest.json'), 'utf8'));
+
+  assert.match(workflow, /name: Release/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /tags:\n\s+- "v\*\.\*\.\*"/);
+  assert.match(workflow, /googleapis\/release-please-action@[0-9a-f]{40} # v4\.[0-9]+\.[0-9]+/);
+  assert.match(workflow, /config-file: release-please-config\.json/);
+  assert.match(workflow, /manifest-file: \.release-please-manifest\.json/);
+  assert.match(workflow, /Publish existing tag/);
+  assert.match(workflow, /Validate package version matches tag/);
+  assert.match(workflow, /actions\/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6\.0\.2/);
+  assert.match(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6/);
+  assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /npm publish --access public/);
+  assert.match(workflow, /npm run release:check/);
+  assert.deepEqual(releaseConfig.packages['.'], {
+    'release-type': 'node',
+    'package-name': '@async/db',
+    'changelog-path': 'CHANGELOG.md',
+    'include-component-in-tag': false,
+  });
+  assert.deepEqual(releaseManifest, {
+    '.': '0.1.0',
+  });
 });
 
 test('public GraphQL declarations expose operation names and structured errors', async () => {

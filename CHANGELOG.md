@@ -1,13 +1,29 @@
 # Changelog
 
-This project does not have versioned releases yet. Until releases start, this file
-tracks the repository history by feature area from the first commit onward.
+## [0.1.0](https://github.com/async-framework/async-db/releases/tag/v0.1.0) - 2026-05-28
+
+First public release of `@async/db`.
+
+### Added
+
+- Data-first JSON, JSONC, and CSV fixture loading from `db/`, with schema inference, generated TypeScript types, and a writable `.db/state` runtime mirror.
+- `async-db` CLI commands for sync, type generation, schema inspection, schema validation, doctor checks, local serving, viewer manifests, operations contracts, and Hono/SQLite starter generation.
+- Package APIs for opening databases, loading schema metadata, validating schema-backed writes, serving dependency-free REST and GraphQL routes, and calling local APIs through the HTTP client.
+- Optional Vite, Hono, SQLite, Postgres, KV, and Redis-style integration surfaces without mandatory runtime dependencies.
+- Built-in local viewer at `/__db`, viewer manifests, REST format negotiation, request tracing, CSV import, registered operations, and opt-in browser cache support.
+- Runnable examples for data-first fixtures, schema-backed fixtures, REST clients, relations, schema manifests, schema UI, Hono auth, content collections, computed fields, CSV, diagnostics, and Standard Schema validators.
+- Release automation for future version bumps, changelog updates, GitHub releases, and npm publishing.
+
+### Notes
+
+- `@async/db` is local development and test infrastructure. Do not expose `async-db serve` as a production database or auth boundary.
+- The first npm package is published under the scoped package name `@async/db`; the CLI binary remains `async-db`.
 
 Dates are commit dates from the git history. Changelog-only maintenance commits
 are omitted. Commit links point at the canonical GitHub repository:
 <https://github.com/async-framework/async-db>.
 
-## Feature History
+## Pre-Release Feature History
 
 ### Project Foundation
 
