@@ -131,6 +131,36 @@ test('fork configs accept public outputs aliases for state and type files', asyn
   assert.equal(fork.types.commitOutFile, path.join(cwd, 'fork-generated/db.types.ts'));
 });
 
+test('template configs are the canonical fixture-fork config surface', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    forks: {
+      free: {
+        dbDir: './db.forks/free',
+      },
+    },
+    templates: {
+      free: {
+        dbDir: './db.templates/free',
+        outputs: {
+          stateDir: './template-state',
+          types: './template-generated/runtime.types.ts',
+          committedTypes: './template-generated/db.types.ts',
+        },
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const template = config.templates.free;
+
+  assert.equal(template.sourceDir, path.join(cwd, 'db.templates/free'));
+  assert.equal(template.stateDir, path.join(cwd, 'template-state'));
+  assert.equal(template.outputs.types, path.join(cwd, 'template-generated/runtime.types.ts'));
+  assert.equal(template.outputs.committedTypes, path.join(cwd, 'template-generated/db.types.ts'));
+  assert.equal(config.forks.free, template);
+});
+
 test('server dataPath can be disabled', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {

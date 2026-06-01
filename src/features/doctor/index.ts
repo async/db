@@ -90,6 +90,7 @@ type DoctorConfig = {
   stores?: Record<string, StoreConfig> & {
     default?: string;
   };
+  templates?: Record<string, ForkConfig>;
   forks?: Record<string, ForkConfig>;
   [key: string]: unknown;
 };
@@ -144,8 +145,8 @@ async function doctorForkFindings(config: DoctorConfig): Promise<DoctorFinding[]
         code: 'FORK_SOURCE_MISSING',
         severity: 'error',
         source: 'doctor',
-        message: `db fork "${forkName}" source folder does not exist: ${forkConfig.sourceDir}`,
-        hint: `Create db.forks/${forkName}/ or update forks["${forkName}"] in db.config.mjs.`,
+        message: `fixture template "${forkName}" source folder does not exist: ${forkConfig.sourceDir}`,
+        hint: `Create db.templates/${forkName}/ or update templates["${forkName}"] in db.config.mjs.`,
         details: {
           fork: forkName,
           sourceDir: forkConfig.sourceDir,

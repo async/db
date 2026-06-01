@@ -129,6 +129,19 @@ export type DbOutputOptions = {
 
 export type DbForkOutputOptions = Pick<DbOutputOptions, 'stateDir' | 'types' | 'committedTypes'>;
 
+export type DbTemplateOptions = string | {
+  /** Template fixture source folder. Defaults to "./db.forks/<name>" for compatibility; set dbDir for new "./db.templates" layouts. */
+  dbDir?: string;
+  /** Backwards-compatible source folder alias. If set, it wins over dbDir. */
+  sourceDir?: string;
+  /** Template output aliases for state and generated type files. */
+  outputs?: DbForkOutputOptions;
+  /** Backwards-compatible alias for outputs.stateDir. Defaults to "./.db/forks/<name>". */
+  stateDir?: string;
+  /** Template-specific generated type options. Output paths are aliases for outputs.types and outputs.committedTypes. */
+  types?: DbGeneratedTypesOptions;
+};
+
 export type DbSchemaManifestFieldContext = {
   field: Record<string, unknown>;
   fieldName: string;
@@ -642,19 +655,10 @@ export type DbOptions = {
       message?: string;
     } | null;
   };
-  /** Named database forks, usually stored under ./db.forks/<name>. */
-  forks?: string[] | Record<string, string | {
-    /** Fork fixture source folder. Defaults to "./db.forks/<name>". */
-    dbDir?: string;
-    /** Backwards-compatible source folder alias. If set, it wins over dbDir. */
-    sourceDir?: string;
-    /** Fork output aliases for state and generated type files. */
-    outputs?: DbForkOutputOptions;
-    /** Backwards-compatible alias for outputs.stateDir. Defaults to "./.db/forks/<name>". */
-    stateDir?: string;
-    /** Fork-specific generated type options. Output paths are aliases for outputs.types and outputs.committedTypes. */
-    types?: DbGeneratedTypesOptions;
-  }>;
+  /** Fixture templates for alternate fixture shapes served by dev/client fork routes. */
+  templates?: string[] | Record<string, DbTemplateOptions | true | null | undefined>;
+  /** Backwards-compatible alias for templates. Prefer templates so config does not collide with runtime db.fork(). */
+  forks?: string[] | Record<string, DbTemplateOptions | true | null | undefined>;
   generate?: {
     hono?: {
       /** Backwards-compatible alias for outputs.honoStarterDir. */

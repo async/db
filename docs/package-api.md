@@ -357,7 +357,7 @@ const users = await db.rest.get('/users');
 const legacyUsers = await fork('legacy-demo').rest.get('/users');
 ```
 
-The helper is also attached to the default client as `db.fork('legacy-demo')`.
+The helper is also attached to the default HTTP client as `db.fork('legacy-demo')`. That client helper targets configured fixture templates served at `/__db/forks/:name/...`; it is separate from the runtime API's logical `openDb().fork()` database primitive.
 
 ## Package Exports
 
