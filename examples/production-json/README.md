@@ -60,9 +60,39 @@ Feature flags and app settings are control-plane resources: small, low-write, ea
 
 The app should still evaluate sensitive targeting, auth, rate limits, and policy in app-owned code. The JSON store keeps the reviewed flag definitions; registered operations keep browser calls stable if a resource later graduates to SQLite, Postgres, Redis, or a custom store.
 
+## Graduating One Resource
+
+Keep `appSettings` and `featureFlags` on JSON when they remain small and low-write. If a new `orders` resource outgrows JSON, add a database store and move only that resource:
+
+```js
+import { defineConfig } from '@async/db/config';
+import { postgresStore } from '@async/db/postgres';
+import { pool } from './src/server/postgres-client.js';
+
+export default defineConfig({
+  stores: {
+    default: 'json',
+    appDb: postgresStore({ client: pool }),
+  },
+  resources: {
+    appSettings: { store: 'json' },
+    featureFlags: { store: 'json' },
+    orders: { store: 'appDb' },
+  },
+  operations: {
+    enabled: true,
+    acceptRefs: 'ref',
+    sourceDir: './db/operations',
+  },
+});
+```
+
+Operation templates that read `appSettings`, `featureFlags`, or `orders` stay behind the same `client.query(ref, variables)` call shape. The resource store changes; the browser contract does not.
+
 ## Features To Notice
 
 - [Production JSON Database](../../docs/json-production.md)
+- [Resource Graduation And Mixed Stores](../../docs/store-graduation.md)
 - [Registered REST operations](../../docs/server-and-viewer.md#registered-rest-operations)
 - [Operation-only exposure](../../docs/configuration.md#server-exposure)
 - [Generated operation refs](../../docs/generated-files.md#operation-registry-output)

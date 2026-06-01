@@ -15,6 +15,7 @@ This folder is the durable markdown manual for @async/db. The root [README](../R
 - [Generated Files](./generated-files.md): `.db/`, state, generated TypeScript, committed generated outputs, schema manifests, and cleanup rules.
 - [Configuration](./configuration.md): `db.config.mjs`, fixture folders, resource naming, strictness, registered operations, mock delay/errors, server options, and forks.
 - [Production JSON Database](./json-production.md): scoped production use for `@async/db/json`, hard limits, operation boundaries, and mixed-store graduation.
+- [Resource Graduation And Mixed Stores](./store-graduation.md): move one resource from JSON to SQLite/Postgres/custom stores while preserving app-facing operations.
 - [Schema UI example](../examples/schema-ui/README.md): manifest-driven CMS HTML with **`serve.mjs`** SSR from live mirror rows (`node ./examples/schema-ui/serve.mjs`).
 
 ## Serve And Integrate

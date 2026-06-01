@@ -165,7 +165,7 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 
 The built-in JSON store is production-appropriate only for file-suitable resources: app settings, feature flags, content, templates, plan definitions, policy rules, seed data, and other small low-write data that can safely live with a single writer. Keep high-write user data, chat/messages, analytics/events, ledgers, inventory counters, multi-writer data, and compliance-heavy transactional records in SQLite, Postgres, or another app-owned store.
 
-@async/db is not an auth layer, an ORM, a hosted database service, or a broad JSON Schema compatibility project. For production-facing APIs, put app traffic behind registered operations, app-owned auth/authorization, rate limits, and observability. See [Production JSON Database](./docs/json-production.md) and [Prototype To Production REST Guide](./docs/prototype-to-production.md).
+@async/db is not an auth layer, an ORM, a hosted database service, or a broad JSON Schema compatibility project. For production-facing APIs, put app traffic behind registered operations, app-owned auth/authorization, rate limits, and observability. See [Production JSON Database](./docs/json-production.md), [Resource Graduation And Mixed Stores](./docs/store-graduation.md), and [Prototype To Production REST Guide](./docs/prototype-to-production.md).
 
 ## Add Schema When It Pays For It
 
