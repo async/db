@@ -1,6 +1,5 @@
 import path from 'node:path';
-import { readFileSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { loadConfig } from '../../config.js';
 import { dbError, listChoices } from '../../errors.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../../names.js';
@@ -10,6 +9,25 @@ import { syncDb } from '../../sync.js';
 import { createRuntime } from '../storage/runtime.js';
 import { DbCollection } from './collection.js';
 import { DbDocument } from './document.js';
+import {
+  assertValidScopedName,
+  assertValidSnapshotId,
+  branchRegistryPath,
+  cloneConfigResources,
+  configRecord,
+  type DbScope,
+  forkRegistryPath,
+  loadPersistedMigrationLocks,
+  type MigrationLock,
+  migrationLocksPathForScope,
+  normalizeScopedConfig,
+  readJsonFile,
+  routingPathForScope,
+  scopedConfig,
+  snapshotDirForScope,
+  snapshotId,
+  writeJsonFile,
+} from './scope-state.js';
 
 type DbConfig = {
   cwd: string;
@@ -53,12 +71,6 @@ type OpenDbOptions = Record<string, unknown> & {
 
 type RuntimeFacade = ReturnType<typeof createRuntime>;
 
-type DbScope = {
-  fork: string | null;
-  branch: string;
-  rootStateDir: string;
-};
-
 type ForkCreateOptions = {
   from?: string;
   kind?: string;
@@ -93,13 +105,6 @@ type MigrationVerifyOptions = {
 type ResourceMigrateOptions = {
   from: string;
   to: string;
-};
-
-type MigrationLock = {
-  name: string;
-  resources: string[];
-  mode: 'read-only';
-  startedAt: string;
 };
 
 type MigrationCopy = {
@@ -206,21 +211,13 @@ export class Db {
   private migrationCopies: Map<string, MigrationCopy>;
 
   constructor(config: DbConfig, resources: DbResource[], diagnostics: unknown[] = [], scope?: DbScope) {
-    this.config = {
-      ...config,
-      resources: cloneConfigResources(config.resources),
-    };
+    const scoped = normalizeScopedConfig(config, scope);
+    this.config = scoped.config as DbConfig;
     this.resources = new Map(resources.map((resource) => [resource.name, resource]));
     assertNoResourceAliasCollisions(this.resources);
     this.diagnostics = diagnostics;
     this.schemaVersion = Date.now();
-    this.scope = scope ?? this.config.__asyncDbScope ?? {
-      fork: null,
-      branch: 'main',
-      rootStateDir: config.stateDir,
-    };
-    this.config.__asyncDbScope = this.scope;
-    applyPersistedRouting(this.config, this.scope);
+    this.scope = scoped.scope;
     this.runtime = createRuntime(this.config, resources);
     this.events = this.runtime.events;
     this.migrationLocks = loadPersistedMigrationLocks(this.scope);
@@ -448,9 +445,7 @@ export class Db {
   private async createSnapshot(options: SnapshotCreateOptions = {}): Promise<SnapshotResult> {
     const resources = options.resources ?? this.resourceNames();
     const id = snapshotId(options.label);
-    const snapshotDir = this.scope.fork
-      ? path.join(this.scope.rootStateDir, 'forks', this.scope.fork, 'snapshots', id)
-      : path.join(this.scope.rootStateDir, 'snapshots', id);
+    const snapshotDir = snapshotDirForScope(this.scope, id);
     const resourcesDir = path.join(snapshotDir, 'resources');
     await mkdir(resourcesDir, { recursive: true });
 
@@ -481,9 +476,7 @@ export class Db {
 
   private async restoreSnapshot(id: string, options: SnapshotRestoreOptions = {}): Promise<void> {
     assertValidSnapshotId(id);
-    const snapshotDir = this.scope.fork
-      ? path.join(this.scope.rootStateDir, 'forks', this.scope.fork, 'snapshots', id)
-      : path.join(this.scope.rootStateDir, 'snapshots', id);
+    const snapshotDir = snapshotDirForScope(this.scope, id);
     const manifest = await readJsonFile(path.join(snapshotDir, 'manifest.json'), null);
     if (!manifest) {
       throw dbError(
@@ -656,65 +649,6 @@ export function stateFileForDebug(db: Db, resourceName: string): string {
   return path.join(db.config.stateDir, 'state', `${resourceName}.json`);
 }
 
-function scopedConfig(config: DbConfig, scope: DbScope): DbConfig {
-  const stateDir = scope.fork
-    ? path.join(scope.rootStateDir, 'forks', scope.fork, 'branches', scope.branch)
-    : scope.rootStateDir;
-  return {
-    ...config,
-    stateDir,
-    __asyncDbScope: scope,
-  };
-}
-
-function branchMetaDirForScope(scope: DbScope): string {
-  return scope.fork
-    ? path.join(scope.rootStateDir, 'forks', scope.fork, 'branches', scope.branch, 'meta')
-    : path.join(scope.rootStateDir, 'meta');
-}
-
-function routingPathForScope(scope: DbScope): string {
-  return path.join(branchMetaDirForScope(scope), 'routing.json');
-}
-
-function migrationLocksPathForScope(scope: DbScope): string {
-  return path.join(branchMetaDirForScope(scope), 'migration-locks.json');
-}
-
-function applyPersistedRouting(config: DbConfig, scope: DbScope): void {
-  const routes = readJsonFileSync(routingPathForScope(scope), {} as Record<string, string>);
-  if (Object.keys(routes).length === 0) {
-    return;
-  }
-  const resourcesConfig = cloneConfigResources(config.resources) ?? {};
-  for (const [resourceName, storeName] of Object.entries(routes)) {
-    const existing = configRecord(resourcesConfig[resourceName]);
-    resourcesConfig[resourceName] = {
-      ...existing,
-      store: storeName,
-    };
-  }
-  config.resources = resourcesConfig;
-}
-
-function loadPersistedMigrationLocks(scope: DbScope): Map<string, MigrationLock> {
-  const state = readJsonFileSync(migrationLocksPathForScope(scope), { locks: {} });
-  const locks = new Map<string, MigrationLock>();
-  for (const [name, value] of Object.entries(configRecord(state.locks))) {
-    const lock = configRecord(value);
-    if (!Array.isArray(lock.resources)) {
-      continue;
-    }
-    locks.set(name, {
-      name,
-      resources: lock.resources.map(String),
-      mode: lock.mode === 'read-only' ? 'read-only' : 'read-only',
-      startedAt: typeof lock.startedAt === 'string' ? lock.startedAt : '',
-    });
-  }
-  return locks;
-}
-
 async function copyResources(source: Db, target: Db, resourceNames: string[]): Promise<void> {
   for (const resourceName of resourceNames) {
     const resource = source.resourceForName(resourceName);
@@ -747,113 +681,6 @@ function cloneJson<T>(value: T): T {
     return value;
   }
   return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function forkRegistryPath(rootStateDir: string): string {
-  return path.join(rootStateDir, 'forks', 'registry.json');
-}
-
-function branchRegistryPath(rootStateDir: string, fork: string): string {
-  return path.join(rootStateDir, 'forks', fork, 'branches', 'registry.json');
-}
-
-async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
-  try {
-    return JSON.parse(await readFile(filePath, 'utf8')) as T;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return fallback;
-    }
-    throw error;
-  }
-}
-
-function readJsonFileSync<T>(filePath: string, fallback: T): T {
-  try {
-    return JSON.parse(readFileSync(filePath, 'utf8')) as T;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return fallback;
-    }
-    throw error;
-  }
-}
-
-async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-}
-
-function snapshotId(label?: string): string {
-  const safeLabel = label
-    ? `_${slugPart(label)}`
-    : '';
-  return `snap_${new Date().toISOString().replace(/[-:.TZ]/g, '')}${safeLabel}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function assertValidSnapshotId(id: string): void {
-  if (/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(id)) {
-    return;
-  }
-  throw dbError(
-    'DB_SNAPSHOT_ID_INVALID',
-    `Invalid snapshot id "${id}".`,
-    {
-      status: 400,
-      hint: 'Use a snapshot id with letters, numbers, dots, underscores, or hyphens.',
-      details: {
-        snapshot: id,
-      },
-    },
-  );
-}
-
-function assertValidScopedName(name: string, kind: string): void {
-  if (/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(String(name ?? ''))) {
-    return;
-  }
-  throw dbError(
-    'DB_SCOPE_NAME_INVALID',
-    `Invalid ${kind} name "${name}".`,
-    {
-      status: 400,
-      hint: 'Use a folder-style name with letters, numbers, underscores, or hyphens.',
-      details: {
-        kind,
-        name,
-      },
-    },
-  );
-}
-
-function slugPart(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48);
-}
-
-function configRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
-
-function cloneConfigResources(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return undefined;
-  }
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>)
-      .map(([name, config]) => [name, cloneConfigValue(config)]),
-  );
-}
-
-function cloneConfigValue(value: unknown): unknown {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? { ...(value as Record<string, unknown>) }
-    : value;
 }
 
 function countValue(value: unknown): number {
