@@ -48,7 +48,7 @@ test('consumer projects can import package APIs through the @async/db package', 
   await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, loadDbSchema, openDb } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
-import { jsonStoreCapabilities, readJsonState, writeJsonState } from '@async/db/json';
+import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, recordFiles, s3Storage, writeJsonState } from '@async/db/json';
 import { sqliteStore } from '@async/db/sqlite';
 import { postgresStore } from '@async/db/postgres';
 import { kvStore } from '@async/db/kv';
@@ -63,6 +63,10 @@ if (typeof createIndexedDbCacheStorage !== 'function') throw new Error('missing 
 if (typeof createClientIndexedDbCacheStorage !== 'function') throw new Error('missing client indexeddb cache API');
 if (typeof defineConfig !== 'function') throw new Error('missing config API');
 if (jsonStoreCapabilities.persistence !== 'local-file') throw new Error('missing json store capabilities');
+if (typeof jsonStore !== 'function') throw new Error('missing json store helper');
+if (typeof fileStorage !== 'function') throw new Error('missing json file storage helper');
+if (typeof s3Storage !== 'function') throw new Error('missing json s3 storage helper');
+if (typeof recordFiles !== 'function') throw new Error('missing json record files helper');
 if (typeof readJsonState !== 'function') throw new Error('missing json read helper');
 if (typeof writeJsonState !== 'function') throw new Error('missing json write helper');
 if (typeof sqliteStore !== 'function') throw new Error('missing sqlite store API');
@@ -125,9 +129,13 @@ import { createDbClient, type DbClient } from '@async/db/client';
 import { defineConfig, type DbConfig } from '@async/db/config';
 import {
   atomicWriteJson,
+  fileStorage,
+  jsonStore,
   jsonStatePathForResource,
   jsonStoreCapabilities,
   readJsonState,
+  recordFiles,
+  s3Storage,
   withJsonStateWrite,
   writeJsonState,
   type JsonStoreCapabilities,
@@ -144,6 +152,15 @@ const config = defineConfig({
   outputs: {
     types: './.db/types/index.d.ts',
     committedTypes: './src/generated/db.types.d.ts',
+  },
+  stores: {
+    json: jsonStore({
+      storage: fileStorage('./.db/state'),
+      durability: 'versioned',
+      resources: {
+        pages: recordFiles({ key: 'slug' }),
+      },
+    }),
   },
 }) satisfies DbConfig;
 
@@ -167,11 +184,20 @@ const contentSchema = collection({
 
 const dbPromise: Promise<Db<DbTypes>> = openDb<DbTypes>(options);
 void dbPromise.then(async (db) => {
+  const tenant = await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
+  const preview = tenant.branch('preview');
+  await tenant.branches.create('preview', { from: 'main', kind: 'preview' });
+  await preview.snapshots.create({ resources: ['users'] });
+  await preview.migrations.start('users-to-json', { resources: ['users'], mode: 'read-only' });
+  await preview.migrations.finish('users-to-json');
   const users = await db.collection('users').all();
   const first: User | undefined = users[0];
+  await db.collection('users').replaceAll(users);
   const settings = await db.document('settings').get();
   const requestHandler = createDbRequestHandler(db);
   const operationHandler = createDbOperationHandler(db);
+  void db.fork('tenant_acme').branch('main').query('users.get', { id: 'u_1' });
+  void db.resources.migrate('users', { from: 'json', to: 'json' });
   await db.close();
   void requestHandler;
   void operationHandler;
@@ -193,6 +219,12 @@ void readJsonState(jsonStatePath, {});
 void writeJsonState(jsonStatePath, {});
 void atomicWriteJson(jsonStatePath, {});
 void withJsonStateWrite(jsonStatePath, async () => undefined);
+void jsonStore();
+void s3Storage({
+  bucket: 'app-json-db',
+  prefix: 'prod',
+  encryption: { mode: 'sse-kms', keyId: 'alias/app-json-db' },
+});
 void jsonCapabilities;
 void sqliteStore({ file: ':memory:' });
 void postgresStore({ client: { query: async () => ({ rows: [] }) } });

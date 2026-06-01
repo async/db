@@ -39,6 +39,7 @@ type RuntimeFacade = {
 type DbLike = {
   config: RuntimeConfig;
   runtime: RuntimeFacade;
+  assertResourceWritable?: (resourceName: string) => void;
 };
 
 type ValidationResult = {
@@ -80,6 +81,7 @@ export class DbCollection {
   }
 
   async create(record: RuntimeRecord): Promise<RuntimeRecord> {
+    this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
       const nextRecord = this.config.defaults?.applyOnCreate === false
@@ -123,6 +125,7 @@ export class DbCollection {
   }
 
   async update(id: unknown, patch: RuntimeRecord): Promise<RuntimeRecord | null> {
+    this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
       const index = records.findIndex((record) => idMatches(record?.[this.resource.idField], id));
@@ -153,6 +156,7 @@ export class DbCollection {
   }
 
   async delete(id: unknown): Promise<boolean> {
+    this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
       const nextRecords = records.filter((record) => !idMatches(record?.[this.resource.idField], id));
@@ -162,6 +166,23 @@ export class DbCollection {
         this.emit('delete', { id });
       }
       return deleted;
+    });
+  }
+
+  async replaceAll(records: RuntimeRecord[]): Promise<RuntimeRecord[]> {
+    this.db.assertResourceWritable?.(this.resource.name);
+    return this.adapter().withResourceWrite(this.resource, async () => {
+      const validatedRecords = [];
+      for (const [index, record] of records.entries()) {
+        validatedRecords.push(await assertRuntimeRecord(record, this.resource, this.config, {
+          mode: 'replace',
+          source: `${this.resource.name}[${index}] replaceAll body`,
+        }));
+      }
+      assertUniqueCollectionRecords(validatedRecords, this.resource);
+      await this.adapter().writeResource?.(this.resource, validatedRecords);
+      this.emit('replaceAll');
+      return validatedRecords;
     });
   }
 

@@ -683,6 +683,7 @@ export type DbCollection<RecordType> = {
   update(id: string, patch: Partial<RecordType>): Promise<RecordType | null>;
   patch(id: string, patch: Partial<RecordType>): Promise<RecordType | null>;
   delete(id: string): Promise<boolean>;
+  replaceAll(records: RecordType[]): Promise<RecordType[]>;
 };
 
 export type DbDocument<DocumentType> = {
@@ -694,10 +695,91 @@ export type DbDocument<DocumentType> = {
   update(patch: Partial<DocumentType>): Promise<DocumentType>;
 };
 
+export type DbForkCreateOptions = {
+  from?: string;
+  kind?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type DbBranchCreateOptions = {
+  from?: string;
+  kind?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type DbSnapshotCreateOptions = {
+  label?: string;
+  resources?: string[];
+};
+
+export type DbSnapshotRestoreOptions = {
+  resources?: string[];
+};
+
+export type DbSnapshotResult = {
+  id: string;
+  label?: string;
+  fork: string | null;
+  branch: string;
+  resources: string[];
+  path: string;
+};
+
+export type DbMigrationStartOptions = {
+  resources: string[];
+  mode?: 'read-only';
+};
+
+export type DbMigrationLock = {
+  name: string;
+  resources: string[];
+  mode: 'read-only';
+  startedAt: string;
+};
+
+export type DbMigrationVerifyOptions = {
+  resources: string[];
+  checks?: Array<'count' | 'schema' | 'checksum'>;
+};
+
+export type DbResourceMigrateOptions = {
+  from: string;
+  to: string;
+};
+
+export type DbResourceRegistry = Map<string, unknown> & {
+  migrate(resource: string, options: DbResourceMigrateOptions): Promise<void>;
+};
+
 export type Db<Types extends DbTypeMap = DbTypeMap> = {
   events: DbRuntimeEvents;
+  resources: DbResourceRegistry;
+  forks: {
+    create(name: string, options?: DbForkCreateOptions): Promise<Db<Types>>;
+    list(): Promise<Array<Record<string, unknown>>>;
+    delete(name: string): Promise<boolean>;
+  };
+  branches: {
+    create(name: string, options?: DbBranchCreateOptions): Promise<Db<Types>>;
+  };
+  snapshots: {
+    create(options?: DbSnapshotCreateOptions): Promise<DbSnapshotResult>;
+    restore(id: string, options?: DbSnapshotRestoreOptions): Promise<void>;
+  };
+  migrations: {
+    start(name: string, options: DbMigrationStartOptions): Promise<DbMigrationLock>;
+    verify(name: string, options: DbMigrationVerifyOptions): Promise<void>;
+    finish(name: string): Promise<void>;
+  };
+  routing: {
+    set(routes: Record<string, string>): Promise<Record<string, string>>;
+  };
+  fork(name: string): Db<Types>;
+  branch(name: string): Db<Types>;
   collection<Name extends keyof Types['collections'] & string>(name: Name): DbCollection<Types['collections'][Name]>;
   document<Name extends keyof Types['documents'] & string>(name: Name): DbDocument<Types['documents'][Name]>;
+  operation(ref: string, variables?: Record<string, unknown>): Promise<unknown>;
+  query(ref: string, variables?: Record<string, unknown>): Promise<unknown>;
   resourceNames(): string[];
   close(): Promise<void>;
 };

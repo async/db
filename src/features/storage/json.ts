@@ -11,6 +11,11 @@ type RuntimeConfig = {
   defaults?: {
     applyOnSafeMigration?: boolean;
   };
+  __asyncDbScope?: {
+    fork?: string | null;
+    branch?: string;
+    rootStateDir?: string;
+  };
   [key: string]: unknown;
 };
 
@@ -27,6 +32,31 @@ type ResourceWriteOperation<T> = () => T | Promise<T>;
 
 const writeQueues = new Map<string, Promise<unknown>>();
 
+type FileStorageOptions = {
+  kind: 'file';
+  root: string;
+};
+
+type S3StorageOptions = {
+  kind: 's3';
+  bucket: string;
+  prefix?: string;
+  client?: unknown;
+  encryption?: unknown;
+};
+
+type RecordFilesLayout = {
+  mode: 'record-files';
+  key: string;
+};
+
+type JsonStoreOptions = {
+  storage?: FileStorageOptions | S3StorageOptions;
+  durability?: 'current' | 'versioned' | string;
+  encryption?: unknown;
+  resources?: Record<string, RecordFilesLayout>;
+};
+
 export const jsonRuntimeCapabilities = {
   writable: true,
   persistence: 'local-file',
@@ -36,6 +66,63 @@ export const jsonRuntimeCapabilities = {
   production: 'small-local',
 };
 
+export function fileStorage(root: string): FileStorageOptions {
+  return {
+    kind: 'file',
+    root,
+  };
+}
+
+export function s3Storage(options: Omit<S3StorageOptions, 'kind'>): S3StorageOptions {
+  return {
+    kind: 's3',
+    ...options,
+  };
+}
+
+export function recordFiles(options: { key: string }): RecordFilesLayout {
+  return {
+    mode: 'record-files',
+    key: options.key,
+  };
+}
+
+export function jsonStore(options: JsonStoreOptions = {}) {
+  return ({ config, storeName }: { config: RuntimeConfig; resources: RuntimeResource[]; storeName: string }) => {
+    const storage = options.storage ?? fileStorage(config.stateDir);
+    if (storage.kind !== 'file') {
+      return unsupportedObjectStorageAdapter(storeName, storage, options);
+    }
+    const fileBackend = storage;
+
+    function statePath(resource: RuntimeResource): string {
+      return jsonStoreStatePath(config, fileBackend, resource.name);
+    }
+
+    return {
+      name: storeName,
+      capabilities: {
+        ...jsonRuntimeCapabilities,
+        durability: options.durability ?? 'current',
+        encryption: options.encryption ?? null,
+        layout: {
+          resources: options.resources ?? {},
+        },
+      },
+      statePath,
+      readResource(resource: RuntimeResource, fallback: unknown) {
+        return readJsonState(statePath(resource), fallback);
+      },
+      writeResource(resource: RuntimeResource, value: unknown) {
+        return writeJsonState(statePath(resource), value);
+      },
+      withResourceWrite<T>(resource: RuntimeResource, operation: ResourceWriteOperation<T>) {
+        return withJsonStateWrite(statePath(resource), operation);
+      },
+    };
+  };
+}
+
 export function createJsonRuntimeAdapter(config: RuntimeConfig) {
   return {
     name: 'json',
@@ -44,8 +131,8 @@ export function createJsonRuntimeAdapter(config: RuntimeConfig) {
       return statePathForResource(config, resource.name);
     },
     async hydrate(resources: RuntimeResource[]) {
-      await mkdir(path.join(config.stateDir, 'state'), { recursive: true });
-      const sourceMetadataPath = path.join(config.stateDir, 'state', '.sources.json');
+      await mkdir(jsonResourceStateDir(config), { recursive: true });
+      const sourceMetadataPath = path.join(jsonResourceStateDir(config), '.sources.json');
       const sourceMetadata = await readJsonState(sourceMetadataPath, { resources: {} });
       sourceMetadata.resources ??= {};
 
@@ -70,7 +157,60 @@ export function statePathForResource(config: RuntimeConfig, resourceName: string
   const name = typeof resourceName === 'string'
     ? resourceName
     : (resourceName as { name?: string }).name;
-  return path.join(config.stateDir, 'state', `${name}.json`);
+  return path.join(jsonResourceStateDir(config), `${name}.json`);
+}
+
+function jsonResourceStateDir(config: RuntimeConfig): string {
+  return config.__asyncDbScope?.fork
+    ? path.join(config.stateDir, 'resources')
+    : path.join(config.stateDir, 'state');
+}
+
+function jsonStoreStatePath(config: RuntimeConfig, storage: FileStorageOptions, resourceName: string): string {
+  const root = path.isAbsolute(storage.root)
+    ? storage.root
+    : path.resolve(config.cwd, storage.root);
+  const scope = config.__asyncDbScope;
+  if (scope?.fork) {
+    return path.join(root, 'forks', scope.fork, 'branches', scope.branch ?? 'main', 'resources', `${resourceName}.json`);
+  }
+  return path.join(root, 'resources', `${resourceName}.json`);
+}
+
+function unsupportedObjectStorageAdapter(storeName: string, storage: S3StorageOptions, options: JsonStoreOptions) {
+  const error = () => dbError(
+    'JSON_STORAGE_BACKEND_UNAVAILABLE',
+    `JSON store "${storeName}" cannot use "${storage.kind}" storage in this runtime yet.`,
+    {
+      status: 500,
+      hint: 'Use fileStorage() for the built-in runtime today, or provide a custom object-storage adapter that implements read/write semantics.',
+      details: {
+        store: storeName,
+        storage: storage.kind,
+      },
+    },
+  );
+  return {
+    name: storeName,
+    capabilities: {
+      ...jsonRuntimeCapabilities,
+      persistence: 'object-storage',
+      durability: options.durability ?? 'versioned',
+      encryption: storage.encryption ?? options.encryption ?? null,
+      layout: {
+        resources: options.resources ?? {},
+      },
+    },
+    readResource() {
+      throw error();
+    },
+    writeResource() {
+      throw error();
+    },
+    withResourceWrite<T>(_resource: RuntimeResource, operation: ResourceWriteOperation<T>) {
+      throw error();
+    },
+  };
 }
 
 export async function readJsonState<T>(filePath: string, fallback: T): Promise<T> {

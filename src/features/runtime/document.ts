@@ -33,6 +33,7 @@ type RuntimeFacade = {
 type DbLike = {
   config: RuntimeConfig;
   runtime: RuntimeFacade;
+  assertResourceWritable?: (resourceName: string) => void;
 };
 
 type ValidationResult = {
@@ -64,6 +65,7 @@ export class DbDocument {
   }
 
   async put(value: unknown): Promise<unknown> {
+    this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const document = await assertRuntimeDocument(value, this.resource, this.config, {
         source: `${this.resource.name} document body`,
@@ -75,6 +77,7 @@ export class DbDocument {
   }
 
   async set(pointer: string, value: unknown): Promise<unknown> {
+    this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const document = await this.all() as Record<string, unknown>;
       setPointer(document, pointer, value);
@@ -88,6 +91,7 @@ export class DbDocument {
   }
 
   async update(patch: Record<string, unknown>): Promise<unknown> {
+    this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const document = await this.all() as Record<string, unknown>;
       const nextDocument = {
