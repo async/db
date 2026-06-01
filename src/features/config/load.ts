@@ -1,9 +1,9 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { dbError } from '../../errors.js';
 import { resolveFrom } from '../../fs-utils.js';
 import { DEFAULT_CONFIG } from './defaults.js';
-import { normalizeForks } from './forks.js';
 import { normalizeSchemaLoadMode, resolveSchemaLocator, type SchemaLoadMode } from '../schema/locator.js';
 
 type ConfigRecord = Record<string, any>;
@@ -53,6 +53,8 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Confi
 
   rejectUnsupportedRuntimeConfig(userConfig);
   rejectUnsupportedRuntimeConfig(inlineOptions);
+  rejectRemovedFixtureForkConfig(userConfig);
+  rejectRemovedFixtureForkConfig(inlineOptions);
 
   const merged = mergeDeep(mergeDeep(structuredClone(DEFAULT_CONFIG), userConfig), inlineOptions) as ConfigRecord;
   normalizeOutputAliases(merged, userConfig, inlineOptions);
@@ -117,38 +119,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Confi
   }
   merged.outputs.honoStarterDir = merged.generate?.hono?.outDir ?? null;
 
-  merged.templates = normalizeForks(
-    merged as Parameters<typeof normalizeForks>[0],
-    templateConfigInput(merged.templates, merged.forks) as Parameters<typeof normalizeForks>[1],
-  );
-  merged.forks = merged.templates;
-
   return merged;
-}
-
-function templateConfigInput(templates: unknown, legacyForks: unknown): unknown {
-  const hasTemplates = hasConfigEntries(templates);
-  const hasLegacyForks = hasConfigEntries(legacyForks);
-  if (isPlainObject(templates) && isPlainObject(legacyForks)) {
-    return {
-      ...legacyForks,
-      ...templates,
-    };
-  }
-  if (hasTemplates) {
-    return templates;
-  }
-  if (hasLegacyForks) {
-    return legacyForks;
-  }
-  return {};
-}
-
-function hasConfigEntries(value: unknown): boolean {
-  if (Array.isArray(value)) {
-    return value.length > 0;
-  }
-  return isPlainObject(value) && Object.keys(value).length > 0;
 }
 
 function normalizeOutputAliases(config: ConfigRecord, userConfig: ConfigRecord, inlineOptions: ConfigRecord): void {
@@ -305,6 +276,29 @@ function setPath(config: ConfigRecord, pathParts: ConfigPath, value: unknown): v
   }
 
   current[last] = value;
+}
+
+function rejectRemovedFixtureForkConfig(config: unknown): void {
+  if (!isPlainObject(config)) {
+    return;
+  }
+
+  for (const key of ['forks', 'templates']) {
+    if (!hasOwnConfigValue(config, key)) {
+      continue;
+    }
+
+    throw dbError(
+      'CONFIG_LEGACY_FIXTURE_FORKS_REMOVED',
+      `Unsupported config "${key}". Fixture-folder forks were removed so forks only mean runtime logical databases.`,
+      {
+        hint: 'Use runtime forks with db.forks.create(), db.fork(name), branches, and snapshots. Keep alternate seed data in normal fixture folders or app-owned import scripts.',
+        details: {
+          configKey: key,
+        },
+      },
+    );
+  }
 }
 
 function rejectUnsupportedRuntimeConfig(config: unknown): void {

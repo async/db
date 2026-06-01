@@ -51,23 +51,19 @@ forks/tenant_acme/branches/published/resources/pages.json
 
 The app filters draft records and writes the public result into the `published` branch.
 
-## Pattern 2: One JSON File Per Record
+## Pattern 2: App-Owned Static JSON Outputs
 
-Use record files when static hosting, S3/R2 reads, or page-level cache invalidation matter:
+When static hosting, S3/R2 reads, or page-level cache invalidation matter, keep that materialization in app code instead of configuring the JSON store layout:
 
 ```js
-import { jsonStore, fileStorage, recordFiles } from '@async/db/json';
+const published = await db.fork(tenantId).branch('published').collection('pages').all();
 
-jsonStore({
-  storage: fileStorage('./.db/state'),
-  durability: 'versioned',
-  resources: {
-    pages: recordFiles({ key: 'slug' }),
-  },
-});
+for (const page of published) {
+  await writePublicJson(`pages/${page.slug}.json`, page);
+}
 ```
 
-The `recordFiles()` layout is generic. It does not know what `published` means.
+The package owns resource reads/writes and branch isolation. The app owns any extra files it wants to publish for CDN or public API access.
 
 ## Pattern 3: JSON Files With SQLite Metadata Index
 

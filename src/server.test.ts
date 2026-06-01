@@ -630,13 +630,6 @@ test('request handler derives standalone dev-tool routes from configured server 
       name: 'Main Ada',
     },
   ]));
-  await mkdir(path.join(cwd, 'db.forks/legacy-demo'), { recursive: true });
-  await writeFile(path.join(cwd, 'db.forks/legacy-demo/users.json'), `${JSON.stringify([
-    {
-      id: 'u_legacy',
-      fullName: 'Legacy Ada',
-    },
-  ])}\n`, 'utf8');
   await writeConfig(cwd, `export default {
     server: {
       apiBase: '/_db',
@@ -652,7 +645,6 @@ test('request handler derives standalone dev-tool routes from configured server 
         },
       },
     },
-    forks: ['legacy-demo'],
   };`);
 
   const db = await openDb({ cwd, allowSourceErrors: true });
@@ -664,12 +656,6 @@ test('request handler derives standalone dev-tool routes from configured server 
   const imported = makeResponse();
   const events = makeResponse();
   const log = makeResponse();
-  const forkUsers = makeResponse();
-  const forkBatch = makeResponse();
-  const forkSchema = makeResponse();
-  const forkManifest = makeResponse();
-  const forkManifestYaml = makeResponse();
-  const forkGraphql = makeResponse();
   const rootUsers = makeResponse();
   const rootGraphql = makeResponse();
 
@@ -684,16 +670,6 @@ test('request handler derives standalone dev-tool routes from configured server 
   }), imported), true);
   assert.equal(await handler(makeRequest('GET', '/_db/events'), events), true);
   assert.equal(await handler(makeRequest('GET', '/_db/log'), log), true);
-  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/rest/users'), forkUsers), true);
-  assert.equal(await handler(makeRequest('POST', '/_db/forks/legacy-demo/batch', [
-    { method: 'GET', path: '/users' },
-  ]), forkBatch), true);
-  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/schema'), forkSchema), true);
-  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/manifest'), forkManifest), true);
-  assert.equal(await handler(makeRequest('GET', '/_db/forks/legacy-demo/manifest.yaml'), forkManifestYaml), true);
-  assert.equal(await handler(makeRequest('POST', '/_db/forks/legacy-demo/graphql', {
-    query: '{ users { id fullName } }',
-  }), forkGraphql), true);
   assert.equal(await handler(makeRequest('GET', '/users'), rootUsers), true);
   assert.equal(await handler(makeRequest('POST', '/graphql', {
     query: '{ users { id } }',
@@ -716,22 +692,11 @@ test('request handler derives standalone dev-tool routes from configured server 
   assert.match(events.body, /event: db/);
   assert.equal(log.status, 200);
   assert.match(log.headers['content-type'], /text\/event-stream/);
-  assert.deepEqual(forkUsers.json(), [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
-  assert.equal(forkBatch.json()[0].body[0].id, 'u_legacy');
-  assert.equal(forkSchema.json().resources.users.fields.fullName.type, 'string');
-  assert.equal(forkManifest.json().api.manifest, '/_db/forks/legacy-demo/manifest');
-  assert.equal(forkManifest.json().api.manifestJson, '/_db/forks/legacy-demo/manifest.json');
-  assert.equal(forkManifest.json().api.manifestMarkdown, '/_db/forks/legacy-demo/manifest.md');
-  assert.equal(forkManifest.json().api.resources.users.list, '/_db/forks/legacy-demo/rest/users');
-  assert.equal(forkManifestYaml.status, 200);
-  assert.match(forkManifestYaml.headers['content-type'], /application\/yaml/);
-  assert.match(forkManifestYaml.body, /db\.viewerManifest/);
-  assert.deepEqual(forkGraphql.json().data.users, [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
   assert.deepEqual(rootUsers.json(), [{ id: 'u_main', name: 'Main Ada' }]);
   assert.deepEqual(rootGraphql.json().data.users, [{ id: 'u_main' }]);
 });
 
-test('request handler routes configured fork REST, batch, schema, and GraphQL requests', async () => {
+test('request handler does not expose legacy fixture fork routes', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
     {
@@ -746,52 +711,19 @@ test('request handler routes configured fork REST, batch, schema, and GraphQL re
       fullName: 'Legacy Ada',
     },
   ])}\n`, 'utf8');
-  await writeConfig(cwd, `export default {
-    forks: ['legacy-demo'],
-  };`);
 
   const db = await openDb({ cwd, allowSourceErrors: true });
   const handler = createDbRequestHandler(db);
   const mainUsers = makeResponse();
   const forkUsers = makeResponse();
-  const forkBatch = makeResponse();
-  const forkSchema = makeResponse();
-  const forkManifest = makeResponse();
-  const forkGraphql = makeResponse();
 
   assert.equal(await handler(makeRequest('GET', '/users'), mainUsers), true);
   assert.equal(await handler(makeRequest('GET', '/__db/forks/legacy-demo/rest/users'), forkUsers), true);
-  assert.equal(await handler(makeRequest('POST', '/__db/forks/legacy-demo/batch', [
-    { method: 'GET', path: '/users' },
-  ]), forkBatch), true);
-  assert.equal(await handler(makeRequest('GET', '/__db/forks/legacy-demo/schema'), forkSchema), true);
-  assert.equal(await handler(makeRequest('GET', '/__db/forks/legacy-demo/manifest'), forkManifest), true);
-  assert.equal(await handler(makeRequest('POST', '/__db/forks/legacy-demo/graphql', {
-    query: '{ users { id fullName } }',
-  }), forkGraphql), true);
 
   assert.deepEqual(mainUsers.json(), [{ id: 'u_main', name: 'Main Ada' }]);
-  assert.deepEqual(forkUsers.json(), [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
-  assert.equal(forkBatch.json()[0].body[0].id, 'u_legacy');
-  assert.equal(forkSchema.json().resources.users.fields.fullName.type, 'string');
-  assert.equal(forkManifest.json().api.manifest, '/__db/forks/legacy-demo/manifest');
-  assert.equal(forkManifest.json().api.manifestJson, '/__db/forks/legacy-demo/manifest.json');
-  assert.equal(forkManifest.json().api.manifestMarkdown, '/__db/forks/legacy-demo/manifest.md');
-  assert.equal(forkManifest.json().api.resources.users.list, '/__db/forks/legacy-demo/rest/users');
-  assert.deepEqual(forkGraphql.json().data.users, [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
-});
-
-test('request handler returns a structured 404 for unknown forks', async () => {
-  const cwd = await makeProject();
-  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
-
-  const db = await openDb({ cwd, allowSourceErrors: true });
-  const handler = createDbRequestHandler(db);
-  const response = makeResponse();
-
-  assert.equal(await handler(makeRequest('GET', '/__db/forks/missing/rest/users'), response), true);
-  assert.equal(response.status, 404);
-  assert.equal(response.json().error.code, 'FORK_NOT_FOUND');
+  assert.equal(forkUsers.status, 404);
+  assert.notEqual(forkUsers.json().error.code, 'FORK_NOT_FOUND');
+  assert.notDeepEqual(forkUsers.json(), [{ id: 'u_legacy', fullName: 'Legacy Ada' }]);
 });
 
 test('request handler executes registered operations while blocking raw REST when configured', async () => {

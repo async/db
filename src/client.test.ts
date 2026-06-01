@@ -269,81 +269,15 @@ test('client can target scoped REST base paths for Vite dev APIs', async () => {
   ]);
 });
 
-test('client fork option derives scoped REST, batch, and GraphQL paths', async () => {
-  const calls = withMockFetch([
-    {
-      status: 200,
-      headers: {},
-      body: [{ id: 'u_legacy' }],
-    },
-    [
-      {
-        status: 200,
-        headers: {},
-        body: [{ id: 'u_legacy' }],
-      },
-    ],
-    {
-      data: {
-        users: [{ id: 'u_legacy' }],
-      },
-    },
-  ]);
-
-  const client = createDbClient({
-    baseUrl: 'http://db.local',
-    fork: 'legacy-demo',
-  });
-
-  await client.rest.get('/users');
-  await client.rest.batch([{ method: 'GET', path: '/users' }]);
-  await client.graphql('{ users { id } }');
-
-  assert.equal(calls[0].url, 'http://db.local/__db/forks/legacy-demo/rest/users');
-  assert.equal(calls[1].url, 'http://db.local/__db/forks/legacy-demo/batch');
-  assert.equal(calls[2].url, 'http://db.local/__db/forks/legacy-demo/graphql');
-});
-
-test('client apiBase option customizes default fork paths', async () => {
-  const calls = withMockFetch([
-    {
-      status: 200,
-      headers: {},
-      body: [{ id: 'u_legacy' }],
-    },
-    [
-      {
-        status: 200,
-        headers: {},
-        body: [{ id: 'u_legacy' }],
-      },
-    ],
-    {
-      data: {
-        users: [{ id: 'u_legacy' }],
-      },
-    },
-  ]);
-
-  const client = createDbClient({
-    baseUrl: 'http://db.local',
-    apiBase: '/_db',
-    fork: 'legacy-demo',
-  });
-
-  await client.rest.get('/users');
-  await client.rest.batch([{ method: 'GET', path: '/users' }]);
-  await client.graphql('{ users { id } }');
-
-  assert.equal(calls[0].url, 'http://db.local/_db/forks/legacy-demo/rest/users');
-  assert.equal(calls[1].url, 'http://db.local/_db/forks/legacy-demo/batch');
-  assert.equal(calls[2].url, 'http://db.local/_db/forks/legacy-demo/graphql');
-});
-
-test('client fork option rejects unsafe fork names', () => {
+test('client rejects removed fixture fork option', () => {
   assert.throws(
-    () => createDbClient({ fork: '../legacy-demo' }),
-    /Invalid db fork name/,
+    () => createDbClient({ fork: 'legacy-demo' } as never),
+    (error: any) => {
+      assert.equal(error.code, 'CLIENT_FORK_OPTION_REMOVED');
+      assert.match(error.message, /fork option/);
+      assert.match(error.hint, /runtime db\.fork/);
+      return true;
+    },
   );
 });
 

@@ -335,30 +335,6 @@ code should call. It defaults to `hashOperation(template)` unless the operation
 source provides an explicit `ref`. Server acceptance is controlled separately
 with `operations.acceptRefs`.
 
-## Fork Client
-
-```ts
-import { createDbClient } from '@async/db/client';
-
-const legacyDb = createDbClient({
-  baseUrl: 'http://127.0.0.1:7331',
-  fork: 'legacy-demo',
-});
-
-const users = await legacyDb.rest.get('/users');
-```
-
-In Vite apps using `dbPlugin()`, the virtual client exposes the same helper:
-
-```ts
-import db, { fork } from 'virtual:db/client';
-
-const users = await db.rest.get('/users');
-const legacyUsers = await fork('legacy-demo').rest.get('/users');
-```
-
-The helper is also attached to the default HTTP client as `db.fork('legacy-demo')`. That client helper targets configured fixture templates served at `/__db/forks/:name/...`; it is separate from the runtime API's logical `openDb().fork()` database primitive.
-
 ## Package Exports
 
 | Export | Use |

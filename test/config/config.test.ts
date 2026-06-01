@@ -101,64 +101,42 @@ test('public outputs config wins over legacy output keys', async () => {
   assert.equal(config.generate.hono.outDir, path.join(cwd, 'generated/hono'));
 });
 
-test('fork configs accept public outputs aliases for state and type files', async () => {
+test('loadConfig rejects removed fixture fork config', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    forks: {
-      legacy: {
-        stateDir: './legacy-state',
-        outputs: {
-          stateDir: './fork-state',
-          types: './fork-generated/runtime.types.ts',
-          committedTypes: './fork-generated/db.types.ts',
-        },
-        types: {
-          outFile: './legacy/types.ts',
-          commitOutFile: './legacy/commit-types.ts',
-        },
-      },
-    },
+    forks: ['legacy-demo'],
   };`);
 
-  const config = await loadConfig({ cwd });
-  const fork = config.forks.legacy;
-
-  assert.equal(fork.outputs.stateDir, path.join(cwd, 'fork-state'));
-  assert.equal(fork.outputs.types, path.join(cwd, 'fork-generated/runtime.types.ts'));
-  assert.equal(fork.outputs.committedTypes, path.join(cwd, 'fork-generated/db.types.ts'));
-  assert.equal(fork.stateDir, path.join(cwd, 'fork-state'));
-  assert.equal(fork.types.outFile, path.join(cwd, 'fork-generated/runtime.types.ts'));
-  assert.equal(fork.types.commitOutFile, path.join(cwd, 'fork-generated/db.types.ts'));
+  await assert.rejects(
+    () => loadConfig({ cwd }),
+    (error: any) => {
+      assert.equal(error.code, 'CONFIG_LEGACY_FIXTURE_FORKS_REMOVED');
+      assert.match(error.message, /forks/);
+      assert.match(error.hint, /db\.forks\.create/);
+      return true;
+    },
+  );
 });
 
-test('template configs are the canonical fixture-fork config surface', async () => {
+test('loadConfig rejects removed fixture template config', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
-    forks: {
-      free: {
-        dbDir: './db.forks/free',
-      },
-    },
     templates: {
       free: {
         dbDir: './db.templates/free',
-        outputs: {
-          stateDir: './template-state',
-          types: './template-generated/runtime.types.ts',
-          committedTypes: './template-generated/db.types.ts',
-        },
       },
     },
   };`);
 
-  const config = await loadConfig({ cwd });
-  const template = config.templates.free;
-
-  assert.equal(template.sourceDir, path.join(cwd, 'db.templates/free'));
-  assert.equal(template.stateDir, path.join(cwd, 'template-state'));
-  assert.equal(template.outputs.types, path.join(cwd, 'template-generated/runtime.types.ts'));
-  assert.equal(template.outputs.committedTypes, path.join(cwd, 'template-generated/db.types.ts'));
-  assert.equal(config.forks.free, template);
+  await assert.rejects(
+    () => loadConfig({ cwd }),
+    (error: any) => {
+      assert.equal(error.code, 'CONFIG_LEGACY_FIXTURE_FORKS_REMOVED');
+      assert.match(error.message, /templates/);
+      assert.match(error.hint, /Use runtime forks/);
+      return true;
+    },
+  );
 });
 
 test('server dataPath can be disabled', async () => {

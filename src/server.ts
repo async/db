@@ -4,7 +4,6 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { openDb } from './db.js';
 import { serializeError } from './errors.js';
-import { loadForkDb } from './features/config/forks.js';
 import { defaultHttpFeatureRegistry } from './features/http/registry.js';
 import { assertOperationStrictModeReady } from './features/operations/readiness.js';
 import { runMockBehavior } from './mock.js';
@@ -264,37 +263,6 @@ async function handleRequest(
   trace: RequestTrace | null = null,
 ): Promise<boolean> {
   const url = new URL(request.url ?? '/', 'http://db.local');
-  const forkName = tracePhaseSync(trace, 'route-match', () => forkNameForRequest(url, routes), {
-    family: 'fork',
-  });
-  if (forkName) {
-    trace?.markHandled(response);
-    trace?.setRoute({ route: 'fork', fork: forkName });
-    try {
-      const forkDb = await tracePhase(trace, 'fork-load', () => loadForkDb(db as never, forkName, openDb), {
-        fork: forkName,
-      }) as ServerDb;
-      const forkRoutes = resolveRequestRoutes(forkDb.config, {
-        ...routes,
-        apiBase: forkApiBase(routes, forkName),
-        rootRoutes: false,
-        restBasePath: `${forkApiBase(routes, forkName)}/rest`,
-        graphqlPath: `${forkApiBase(routes, forkName)}/graphql`,
-        manifestPath: `${forkApiBase(routes, forkName)}/manifest`,
-        manifestJsonPath: `${forkApiBase(routes, forkName)}/manifest.json`,
-        manifestHtmlPath: `${forkApiBase(routes, forkName)}/manifest.html`,
-        manifestMarkdownPath: `${forkApiBase(routes, forkName)}/manifest.md`,
-      });
-      return tracePhase(trace, 'fork-dispatch', () => handleRequest(forkDb, request, response, events, forkRoutes, trace), {
-        fork: forkName,
-      });
-    } catch (error) {
-      trace?.setError(error as ErrorWithStatus);
-      sendJson(response, error.status ?? 500, serializeError(error, 'SERVER_ERROR'));
-      return true;
-    }
-  }
-
   if (request.method === 'GET' && url.pathname === routes.eventsPath) {
     trace?.markHandled(response);
     trace?.setRoute({ route: 'events', operation: 'subscribe' });
@@ -625,20 +593,6 @@ function resolveRequestRoutes(config: ServerConfig, options: RequestRoutesOption
     eventsPath: `${apiBase}/events`,
     logPath: `${apiBase}/log`,
   };
-}
-
-function forkNameForRequest(url: URL, routes: RequestRoutes): string | null {
-  const prefix = `${routes.apiBase || ''}/forks/` || '/forks/';
-  if (!url.pathname.startsWith(prefix)) {
-    return null;
-  }
-
-  const [rawName] = url.pathname.slice(prefix.length).split('/');
-  return rawName ? decodeURIComponent(rawName) : null;
-}
-
-function forkApiBase(routes: RequestRoutes, forkName: string): string {
-  return joinPaths(routes.apiBase || '', `/forks/${encodeURIComponent(forkName)}`);
 }
 
 function operationRefForRequest(url: URL, routes: RequestRoutes): string | null {

@@ -48,11 +48,13 @@ test('consumer projects can import package APIs through the @async/db package', 
   await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, loadDbSchema, openDb } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
-import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, recordFiles, s3Storage, writeJsonState } from '@async/db/json';
+import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
 import { sqliteStore } from '@async/db/sqlite';
 import { postgresStore } from '@async/db/postgres';
 import { kvStore } from '@async/db/kv';
 import { redisStore } from '@async/db/redis';
+
+const jsonModule = await import('@async/db/json');
 
 if (typeof openDb !== 'function') throw new Error('missing package API');
 if (typeof loadDbSchema !== 'function') throw new Error('missing schema API');
@@ -66,7 +68,7 @@ if (jsonStoreCapabilities.persistence !== 'local-file') throw new Error('missing
 if (typeof jsonStore !== 'function') throw new Error('missing json store helper');
 if (typeof fileStorage !== 'function') throw new Error('missing json file storage helper');
 if (typeof s3Storage !== 'function') throw new Error('missing json s3 storage helper');
-if (typeof recordFiles !== 'function') throw new Error('missing json record files helper');
+if ('recordFiles' in jsonModule) throw new Error('json record files helper should not be exported');
 if (typeof readJsonState !== 'function') throw new Error('missing json read helper');
 if (typeof writeJsonState !== 'function') throw new Error('missing json write helper');
 if (typeof sqliteStore !== 'function') throw new Error('missing sqlite store API');
@@ -134,7 +136,6 @@ import {
   jsonStatePathForResource,
   jsonStoreCapabilities,
   readJsonState,
-  recordFiles,
   s3Storage,
   withJsonStateWrite,
   writeJsonState,
@@ -157,9 +158,6 @@ const config = defineConfig({
     json: jsonStore({
       storage: fileStorage('./.db/state'),
       durability: 'versioned',
-      resources: {
-        pages: recordFiles({ key: 'slug' }),
-      },
     }),
   },
 }) satisfies DbConfig;
@@ -283,6 +281,7 @@ test('npm dry-run tarball excludes source TypeScript files', async () => {
   assert(files.includes('dist/index.d.ts'));
   assert.equal(files.some((file) => file.startsWith('src/')), false);
   assert.equal(files.some((file) => file.endsWith('.ts') && !file.endsWith('.d.ts')), false);
+  assert.equal(files.some((file) => file.startsWith('dist/features/config/forks.')), false);
 });
 
 test('published declarations do not include migration suppressions', async () => {

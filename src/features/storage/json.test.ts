@@ -9,7 +9,6 @@ import {
   fileStorage,
   jsonStore,
   readJsonState,
-  recordFiles,
   s3Storage,
   withJsonStateWrite,
 } from './json.js';
@@ -86,9 +85,6 @@ test('jsonStore file storage writes resources under fork branch storage', async 
   const storeFactory = jsonStore({
     storage: fileStorage(dir),
     durability: 'versioned',
-    resources: {
-      pages: recordFiles({ key: 'slug' }),
-    },
   });
   const store = storeFactory({
     config: {
@@ -121,10 +117,7 @@ test('jsonStore file storage writes resources under fork branch storage', async 
 ]
 `,
   );
-  assert.deepEqual(store.capabilities.layout.resources.pages, {
-    mode: 'record-files',
-    key: 'slug',
-  });
+  assert.equal(store.capabilities.layout, 'resource-files');
 });
 
 test('s3Storage returns an object storage descriptor without bundling an SDK', () => {
