@@ -13,6 +13,7 @@
 - dependency-light in the core package
 - useful before the real database or backend contract is settled
 - a stable API/data layer while selected resources graduate to SQLite, Postgres, or custom stores
+- a way to isolate data in forks, branches, snapshots, and resource-by-resource migrations
 
 @async/db is not:
 
@@ -24,6 +25,8 @@
 - a replacement for application-owned validation in production services
 
 The JSON store is appropriate in production only for small, low-write, file-suitable resources such as settings, feature flags, content, templates, policy rules, and seed data. Use SQLite, Postgres, or another app-owned store for high-write records, transactional data, analytics/events, chat/messages, ledgers, inventory counters, multi-instance writes, and compliance-heavy data.
+
+Forks and branches are generic database lifecycle primitives. App code can use them for tenants, CMS draft/publish workflows, feature-flag previews, settings rollback, prompt experiments, debug snapshots, and forked test environments. @async/db does not know what "paid", "published", or "approved" means; those decisions belong to the app.
 
 ## Data-First
 

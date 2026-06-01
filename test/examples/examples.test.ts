@@ -43,11 +43,13 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.deepEqual(names, [
     'advanced',
     'basic',
+    'cms-json-publish',
     'computed-fields',
     'content-collections',
     'csv',
     'data-first',
     'diagnostics',
+    'free-plan-upgrade',
     'hono-auth',
     'production-json',
     'relations',
@@ -75,9 +77,11 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /Open viewer/);
   assert.match(html, /advanced/);
   assert.match(html, /Content Collections/);
+  assert.match(html, /CMS JSON Publish/);
   assert.match(html, /Computed Fields/);
   assert.match(html, /csv/);
   assert.match(html, /diagnostics/);
+  assert.match(html, /Free Plan Upgrade/);
   assert.match(html, /Hono Auth/);
   assert.match(html, /Production JSON/);
   assert.match(html, /REST Client/);
@@ -439,6 +443,8 @@ test('new onboarding examples sync expected resources', async () => {
     'hono-auth': ['pages', 'users'],
     'content-collections': ['authors', 'blog', 'docs', 'site'],
     'computed-fields': ['orders', 'posts', 'products', 'users'],
+    'cms-json-publish': ['navigation', 'pages'],
+    'free-plan-upgrade': ['appSettings', 'projects'],
     'production-json': ['appSettings', 'featureFlags'],
     'rest-client': ['settings', 'users'],
     relations: ['posts', 'users'],
@@ -453,6 +459,12 @@ test('new onboarding examples sync expected resources', async () => {
 
     assert.deepEqual(Object.keys(result.schema.resources), resources, `${name} resources`);
   }
+
+  const cmsCwd = await copyExampleProject('cms-json-publish');
+  await execFileAsync(process.execPath, ['src/cms.mjs'], { cwd: cmsCwd });
+
+  const upgradeCwd = await copyExampleProject('free-plan-upgrade');
+  await execFileAsync(process.execPath, ['src/upgrade-tenant-to-paid.mjs'], { cwd: upgradeCwd });
 
   const productionJsonCwd = await copyExampleProject('production-json');
   const productionJsonConfig = await loadConfig({ cwd: productionJsonCwd });

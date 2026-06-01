@@ -1,0 +1,5 @@
+{
+  "title": "CMS JSON Publish",
+  "description": "App-owned CMS helper that uses branches to publish public JSON.",
+  "tags": ["cms", "forks", "branches", "json"]
+}

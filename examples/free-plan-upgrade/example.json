@@ -1,0 +1,5 @@
+{
+  "title": "Free Plan Upgrade",
+  "description": "App-owned upgrade flow that moves one tenant resource from JSON to another store.",
+  "tags": ["forks", "migration", "json", "postgres"]
+}

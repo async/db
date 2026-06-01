@@ -95,6 +95,45 @@ await settings.set('/theme', 'dark');
 const value = await settings.get('/theme');
 ```
 
+Fork and branch usage:
+
+```ts
+await db.forks.create('tenant_acme', {
+  from: 'main',
+  kind: 'tenant',
+  metadata: {
+    plan: 'free',
+  },
+});
+
+const tenant = db.fork('tenant_acme').branch('main');
+const snapshot = await tenant.snapshots.create({
+  label: 'before-projects-migration',
+  resources: ['projects'],
+});
+
+await tenant.migrations.start('projects-to-postgres', {
+  resources: ['projects'],
+  mode: 'read-only',
+});
+await tenant.resources.migrate('projects', {
+  from: 'json',
+  to: 'postgres',
+});
+await tenant.migrations.verify('projects-to-postgres', {
+  resources: ['projects'],
+  checks: ['count', 'checksum'],
+});
+await tenant.routing.set({
+  projects: 'postgres',
+});
+await tenant.migrations.finish('projects-to-postgres');
+
+void snapshot;
+```
+
+These are low-level database lifecycle APIs. App code decides whether a fork is a tenant, preview, debug copy, demo, or test environment.
+
 Import generated `DbTypes` from `.db/types/index.d.ts` or from a committed output file when typed collection names and records should be available to TypeScript.
 
 ## Schema Contract API
