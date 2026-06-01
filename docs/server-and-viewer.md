@@ -465,9 +465,9 @@ Unsupported in v1:
 
 If an app commits generated files under frontend source folders, Vite may still reload when those files genuinely change. Only ignore generated files that the browser does not need to hot reload.
 
-## Advanced: Fork Routes
+## Advanced: Fixture Template Routes
 
-Fork-scoped routes are derived automatically:
+Template-scoped routes are derived automatically from `templates` config. The path keeps `/forks/` for compatibility with existing dev clients:
 
 ```txt
 GET  /__db/forks/legacy-demo/rest/users
@@ -478,4 +478,4 @@ GET  /__db/forks/legacy-demo/schema
 
 These routes also follow `server.apiBase`.
 
-See [Configuration](./configuration.md) for fork setup and [Package API](./package-api.md) for client usage.
+See [Configuration](./configuration.md) for template setup and [Package API](./package-api.md) for client usage.

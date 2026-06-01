@@ -76,7 +76,7 @@ export default defineConfig({
   // Local server settings.
   server: {
     // Dev-tool route base for the viewer, schema, batch, import, events, log,
-    // and fork routes. Defaults to '/__db'.
+    // and fixture-template routes. Defaults to '/__db'.
     apiBase: '/__db',
     // App-facing REST data route alias. Defaults to '/db'; set false to only
     // use scoped REST under /__db/rest and standalone root REST routes.
@@ -125,7 +125,7 @@ export default defineConfig({
     errors: null,
   },
 
-  // Optional database forks for temporary legacy fixture shapes.
-  // Each name maps to ./db.forks/<name> unless you use object form.
-  forks: [],
+  // Optional fixture templates for temporary alternate fixture shapes.
+  // Runtime logical forks use openDb().fork() and db.forks.create() instead.
+  templates: {},
 });

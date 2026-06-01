@@ -117,9 +117,38 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Confi
   }
   merged.outputs.honoStarterDir = merged.generate?.hono?.outDir ?? null;
 
-  merged.forks = normalizeForks(merged as Parameters<typeof normalizeForks>[0], merged.forks);
+  merged.templates = normalizeForks(
+    merged as Parameters<typeof normalizeForks>[0],
+    templateConfigInput(merged.templates, merged.forks) as Parameters<typeof normalizeForks>[1],
+  );
+  merged.forks = merged.templates;
 
   return merged;
+}
+
+function templateConfigInput(templates: unknown, legacyForks: unknown): unknown {
+  const hasTemplates = hasConfigEntries(templates);
+  const hasLegacyForks = hasConfigEntries(legacyForks);
+  if (isPlainObject(templates) && isPlainObject(legacyForks)) {
+    return {
+      ...legacyForks,
+      ...templates,
+    };
+  }
+  if (hasTemplates) {
+    return templates;
+  }
+  if (hasLegacyForks) {
+    return legacyForks;
+  }
+  return {};
+}
+
+function hasConfigEntries(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  return isPlainObject(value) && Object.keys(value).length > 0;
 }
 
 function normalizeOutputAliases(config: ConfigRecord, userConfig: ConfigRecord, inlineOptions: ConfigRecord): void {

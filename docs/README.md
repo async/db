@@ -13,7 +13,7 @@ This folder is the durable markdown manual for @async/db. The root [README](../R
 - [Fixtures And Schemas](./fixtures-and-schemas.md): JSON, JSONC, CSV, schema files, `.schema.js`, Standard Schema validators, computed fields, source readers, nested folders, inference, and validation.
 - [TypeScript Schema Sources](./typescript-schema-sources.md): JavaScript ESM schemas and TypeScript-authored schemas compiled to supported runtime files.
 - [Generated Files](./generated-files.md): `.db/`, state, generated TypeScript, committed generated outputs, schema manifests, and cleanup rules.
-- [Configuration](./configuration.md): `db.config.mjs`, fixture folders, resource naming, strictness, registered operations, mock delay/errors, server options, and forks.
+- [Configuration](./configuration.md): `db.config.mjs`, fixture folders, resource naming, strictness, registered operations, mock delay/errors, server options, and fixture templates.
 - [Production JSON Database](./json-production.md): scoped production use for `@async/db/json`, hard limits, operation boundaries, and mixed-store graduation.
 - [Resource Graduation And Mixed Stores](./store-graduation.md): move one resource from JSON to SQLite/Postgres/custom stores while preserving app-facing operations.
 - [Fork And Branch Workflows](./fork-branch-workflows.md): tenants, debug copies, snapshots, branches, and resource migrations as app-owned workflows.
