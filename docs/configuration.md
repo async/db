@@ -29,7 +29,7 @@ See [db.config.example.mjs](../db.config.example.mjs) for a commented config wit
 | Nested resource names | Fixture basename | `resources.naming` or `resources.customizeResource` |
 | Runtime store behavior | JSON files under `.db/state` | `stores.default` or `resources.<name>.store` |
 | Index intent metadata | Off | `resources.<name>.indexes` |
-| Generated output paths | `.db`, `.db/types/index.ts` | `outputs` |
+| Generated output paths | `.db`, `.db/types/index.d.ts` | `outputs` |
 | Importable generated types | Off | `outputs.committedTypes` |
 | Importable schema manifest | Off | `outputs.schemaManifest` |
 | Importable viewer manifest | Off | `outputs.viewerManifest` |
@@ -58,8 +58,8 @@ export default defineConfig({
 
   outputs: {
     stateDir: './.db',
-    types: './.db/types/index.ts',
-    committedTypes: './src/generated/db.types.ts',
+    types: './.db/types/index.d.ts',
+    committedTypes: './src/generated/db.types.d.ts',
     schemaManifest: './src/generated/db.schema.json',
     viewerManifest: './src/generated/db.viewer.json',
     operationRegistry: './src/generated/db.operations.json',
@@ -241,11 +241,27 @@ export default defineConfig({
 
 Keep the default `warn` while fixture shape is still changing.
 
+## Schema JavaScript Modules
+
+`.schema.js` files are loaded as ESM. If the project root is not already `"type": "module"`, @async/db creates `db/package.json` with `"type": "module"` before loading schema files inside the fixture folder. Aggregate unbundle uses the same rule: it prefers generated `.schema.js` files under `db/`, then falls back to `.schema.mjs` when the marker is disabled or a custom output folder cannot be loaded as ESM.
+
+Disable that marker when you manage fixture-folder package metadata yourself:
+
+```js
+import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  schema: {
+    autoModulePackageJson: false,
+  },
+});
+```
+
 ## Standard Schema Output
 
 @async/db detects Standard Schema validators by shape without installing a
 validator dependency. Set `schema.standardSchema: true` when generated
-`.schema.mjs` files should prefer the validator-first authoring form for
+executable schema files should prefer the validator-first authoring form for
 resources that have a Standard Schema validator:
 
 ```js
@@ -492,6 +508,20 @@ instead of generating client refs that could point at the wrong operation.
 If `outputs.operationRegistry` is missing or invalid at runtime, registered operation
 execution returns `OPERATION_REGISTRY_LOAD_FAILED`; rebuild the registry or fix
 the configured path before treating operation misses as missing refs.
+
+## Production Doctor Checks
+
+`async-db doctor --production` adds production-readiness findings for
+JSON-backed resources. It keeps ordinary local prototype checks quiet by
+default, then warns when production JSON resources do not have explicit schema
+files and emits review guidance for keeping JSON-backed production resources
+small, low-write, single-writer, and backed up.
+
+Use strict production checks in CI when those warnings should fail:
+
+```bash
+async-db check --strict --production
+```
 
 For CI review, `async-db operations contract` prints a deterministic
 client-exposed contract with `generatedAt` removed. Commit the approved refs or

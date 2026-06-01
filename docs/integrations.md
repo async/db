@@ -92,7 +92,7 @@ export default defineConfig({
         // Only include committed generated files here when browser code
         // does not import them at runtime.
         'src/generated/db.schema.json',
-        'src/generated/db.types.ts',
+        'src/generated/db.types.d.ts',
       ],
     },
   },

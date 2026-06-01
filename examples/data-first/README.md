@@ -15,8 +15,8 @@ Use this when you have fixture data before you have a contract. db infers collec
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/data-first
-node ./src/cli.js serve --cwd ./examples/data-first
+npm run db -- sync --cwd ./examples/data-first
+npm run db -- serve --cwd ./examples/data-first
 ```
 
 Open the viewer:

@@ -96,7 +96,7 @@ export type DbLoadedSchema = {
 export type DbGeneratedTypesOptions = {
   /** Generate TypeScript types during sync. */
   enabled?: boolean;
-  /** Backwards-compatible alias for outputs.types. Defaults to "./.db/types/index.ts". */
+  /** Backwards-compatible alias for outputs.types. Defaults to "./.db/types/index.d.ts". */
   outFile?: string | null;
   /** Backwards-compatible alias for outputs.committedTypes. */
   commitOutFile?: string | null;
@@ -111,7 +111,7 @@ export type DbGeneratedTypesOptions = {
 export type DbOutputOptions = {
   /** Generated runtime output folder. Defaults to "./.db". */
   stateDir?: string;
-  /** Gitignored generated TypeScript type output. Defaults to "./.db/types/index.ts". */
+  /** Gitignored generated TypeScript type output. Defaults to "./.db/types/index.d.ts". */
   types?: string | null;
   /** Optional committed TypeScript type copy for app/CI imports. */
   committedTypes?: string | null;
@@ -229,6 +229,11 @@ export type DbRuntimeCapabilities = {
 export type DbRuntimeAdapter = {
   name: string;
   capabilities?: DbRuntimeCapabilities;
+};
+
+export type DbDoctorOptions = {
+  /** Include production-readiness diagnostics for JSON-backed resources. */
+  production?: boolean;
 };
 
 export type DbRuntimeAdapterFactory =
@@ -452,7 +457,7 @@ export type DbSourceReader = {
 };
 
 export type DbSourcesOptions = {
-  /** Custom source readers. They run before built-in JSON, JSONC, CSV, and .schema.mjs readers. */
+  /** Custom source readers. They run before built-in JSON, JSONC, CSV, and executable schema readers. */
   readers?: DbSourceReader[];
   /** How db handles writes back to source fixtures. Defaults to "preserve". */
   writePolicy?: 'preserve' | 'allow';
@@ -512,6 +517,8 @@ export type DbSchemaConfig = {
   source?: 'auto' | 'data' | 'schema';
   /** Allow JSONC source files. */
   allowJsonc?: boolean;
+  /** Create db/package.json with "type": "module" for .schema.js files when the project root is not already ESM. */
+  autoModulePackageJson?: boolean;
   /** Prefer Standard Schema-first generated .schema.mjs output for resources with validators. */
   standardSchema?: boolean;
   /** How schema-backed resources handle fields not declared by schema. */
@@ -576,6 +583,8 @@ export type DbOptions = {
   resources?: DbResourceOptions;
   /** Public storage options. Defaults to the JSON store. */
   stores?: DbStoresOptions;
+  /** Doctor and check command options. */
+  doctor?: DbDoctorOptions;
   server?: {
     /** Scoped base for local db dev tools. Defaults to "/__db". */
     apiBase?: string;

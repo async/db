@@ -9,15 +9,15 @@ Use this after the basics when you want to see several features working together
 - [db/users.schema.mjs](./db/users.schema.mjs): schema helper API from `@async/db/schema`.
 - [db/users.json](./db/users.json): data seed for the schema-backed `users` collection.
 - [db/projects.schema.jsonc](./db/projects.schema.jsonc): nested object defaults.
-- [src/generated/db.types.ts](./src/generated/db.types.ts): committed generated types.
+- [src/generated/db.types.d.ts](./src/generated/db.types.d.ts): committed generated types.
 
 ## Run It
 
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/advanced
-node ./src/cli.js serve --cwd ./examples/advanced
+npm run db -- sync --cwd ./examples/advanced
+npm run db -- serve --cwd ./examples/advanced
 ```
 
 Open the viewer:

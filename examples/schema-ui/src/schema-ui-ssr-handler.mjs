@@ -11,7 +11,7 @@ import { readManifest, renderSchemaUiHtml } from './render-admin.mjs';
  *
  * @param {import('node:http').IncomingMessage} request
  * @param {import('node:http').ServerResponse} response
- * @param {{ cwd: string; db: object; manifestUrl: URL }} context
+ * @param {{ cwd: string; db: object; basePath?: string; manifestUrl: URL }} context
  */
 export async function handleSchemaUiSsrRequest(request, response, context) {
   if (request.method !== 'GET') {
@@ -20,7 +20,8 @@ export async function handleSchemaUiSsrRequest(request, response, context) {
 
   const host = request.headers.host ?? 'localhost';
   const url = new URL(request.url ?? '/', `http://${host}`);
-  const route = parsePath(url.pathname);
+  const basePath = normalizeBasePath(context.basePath);
+  const route = parsePath(url.pathname, basePath);
 
   if (!route) {
     return false;
@@ -39,12 +40,12 @@ export async function handleSchemaUiSsrRequest(request, response, context) {
     const recordsByCollection = await loadRecordsByCollection(db, manifest);
 
     if (route.type === 'home') {
-      sendHtml(response, renderHomePage(manifest, recordsByCollection));
+      sendHtml(response, renderHomePage(manifest, recordsByCollection, { basePath }));
       return true;
     }
 
     if (route.type === 'list') {
-      const html = renderCollectionListPage(manifest, route.collection, recordsByCollection[route.collection] ?? []);
+      const html = renderCollectionListPage(manifest, route.collection, recordsByCollection[route.collection] ?? [], { basePath });
       if (!html) {
         response.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
         response.end('<!doctype html><meta charset="utf-8"><title>404</title><p>Unknown collection</p>');
@@ -55,7 +56,7 @@ export async function handleSchemaUiSsrRequest(request, response, context) {
     }
 
     const record = await db.collection(route.collection).get(route.id);
-    const html = renderRecordDetailPage(manifest, route.collection, record, recordsByCollection);
+    const html = renderRecordDetailPage(manifest, route.collection, record, recordsByCollection, { basePath });
     if (!html) {
       response.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
       response.end('<!doctype html><meta charset="utf-8"><title>404</title><p>Record not found</p>');
@@ -80,8 +81,13 @@ function sendHtml(response, html) {
   response.end(html);
 }
 
-function parsePath(pathname) {
-  const normalized = pathname === '' ? '/' : pathname;
+function parsePath(pathname, basePath = '') {
+  const strippedPathname = stripBasePath(pathname, basePath);
+  if (strippedPathname === null) {
+    return null;
+  }
+
+  const normalized = strippedPathname === '' ? '/' : strippedPathname;
   if (normalized === '/' || normalized === '/index.html') {
     return { type: 'home' };
   }
@@ -100,6 +106,30 @@ function parsePath(pathname) {
   }
 
   return null;
+}
+
+function stripBasePath(pathname, basePath) {
+  const normalizedBasePath = normalizeBasePath(basePath);
+  if (!normalizedBasePath) {
+    return pathname;
+  }
+
+  if (pathname === normalizedBasePath) {
+    return '/';
+  }
+
+  if (pathname.startsWith(`${normalizedBasePath}/`)) {
+    return pathname.slice(normalizedBasePath.length) || '/';
+  }
+
+  return null;
+}
+
+function normalizeBasePath(basePath) {
+  if (!basePath || basePath === '/') {
+    return '';
+  }
+  return `/${String(basePath).replace(/^\/+|\/+$/gu, '')}`;
 }
 
 async function loadRecordsByCollection(db, manifest) {

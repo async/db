@@ -34,17 +34,33 @@ npm pack --dry-run
 
 ## Useful Smoke Commands
 
+Use the dev loop while editing package code:
+
 ```bash
-node ./src/cli.js sync --cwd ./examples/basic
-node ./src/cli.js schema validate --cwd ./examples/basic
-node ./src/cli.js create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
+npm run dev          # watch src and relaunch all examples
+npm run examples     # one-shot all examples server for smoke checks
+npm run watch        # compile dist and test-build in watch mode only
+npm run cli -- sync --cwd ./examples/basic
+```
+
+Use `npm run dev` for active package work. Use `npm run examples` for CI-like example smoke checks.
+Npm task entrypoints live under `scripts/tasks/`; reusable helper scripts live directly under `scripts/`.
+
+```bash
+npm run db -- sync --cwd ./examples/basic
+npm run db -- schema validate --cwd ./examples/basic
+npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
 npm run examples
 ```
+
+Use `npm run examples -- --tailscale-serve` only for local tailnet previews.
+The default examples command remains loopback-only and does not configure
+Tailscale.
 
 The local REST server binds a loopback port. In sandboxed environments this may require explicit approval:
 
 ```bash
-node ./src/cli.js serve --cwd ./examples/basic
+npm run db -- serve --cwd ./examples/basic
 ```
 
 ## Package Files Allowlist
@@ -78,13 +94,15 @@ Generated `.db/` output should normally stay uncommitted.
 Committed generated files are allowed when configured:
 
 ```txt
-examples/advanced/src/generated/db.types.ts
-examples/basic/src/generated/db.types.ts
-examples/schema-first/src/generated/db.types.ts
+examples/advanced/src/generated/db.types.d.ts
+examples/basic/src/generated/db.types.d.ts
+examples/computed-fields/src/generated/db.types.d.ts
+examples/content-collections/src/generated/db.types.d.ts
+examples/schema-first/src/generated/db.types.d.ts
 examples/schema-manifest/src/generated/db.schema.json
-examples/schema-manifest/src/generated/db.types.ts
+examples/schema-manifest/src/generated/db.types.d.ts
 examples/schema-ui/src/generated/db.schema.json
-examples/schema-ui/src/generated/db.types.ts
+examples/schema-ui/src/generated/db.types.d.ts
 ```
 
 If a smoke command writes `.db/` inside an example, remove that generated runtime state before finalizing unless the task explicitly asks to commit it.

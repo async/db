@@ -62,7 +62,7 @@ Sync reads fixtures and writes generated runtime output:
 
 ```txt
 .db/schema.generated.json
-.db/types/index.ts
+.db/types/index.d.ts
 .db/state/users.json
 ```
 
@@ -145,8 +145,8 @@ When `db/users.schema.json` and `db/users.json` both exist, the schema defines t
 From this repository root:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/basic
-node ./src/cli.js serve --cwd ./examples/basic
+npm run db -- sync --cwd ./examples/basic
+npm run db -- serve --cwd ./examples/basic
 ```
 
 Open:

@@ -1,8 +1,10 @@
 node_modules/
+dist/
 .db/
 .jsondb/
 coverage/
 *.log
+*.tsbuildinfo
 *.tgz
 pack.json
 /.tmp

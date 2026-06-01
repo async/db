@@ -15,8 +15,8 @@ Use this when you want to call db from app or test code instead of typing `curl`
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/rest-client
-node ./src/cli.js serve --cwd ./examples/rest-client
+npm run db -- sync --cwd ./examples/rest-client
+npm run db -- serve --cwd ./examples/rest-client
 ```
 
 In another terminal:

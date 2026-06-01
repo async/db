@@ -30,6 +30,12 @@ and import tools under `/__db`.
 This default is local development infrastructure. Do not expose `async-db
 serve` directly to customers as a public database API.
 
+The JSON store can still be production-appropriate for small low-write
+resources such as settings, feature flags, content, templates, policy rules,
+and seed data. Treat it as a file-backed store behind your app API, not as a
+public hosted database. Use registered operations, app-owned auth, rate limits,
+and monitoring for production-facing traffic.
+
 ## Pick A Production Namespace
 
 When a prototype turns into app-owned API surface, use an API namespace that
@@ -369,3 +375,4 @@ repository, deploy process, migrations, and production storage.
 - Set `server.expose.rest: 'registered-only'` before treating operation refs as the public contract.
 - Add app-owned auth, authorization, rate limits, and observability outside the registered operation registry.
 - Generate a Hono/SQLite API when the endpoint needs production storage and deployment boundaries.
+- Keep low-write control-plane resources in JSON when that is operationally appropriate, but move high-write, transactional, or multi-writer resources to SQLite, Postgres, or another app-owned store.
