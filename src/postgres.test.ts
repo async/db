@@ -3,6 +3,7 @@ import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb } from './index.js';
+import { createDbOperationHandler } from './operations.js';
 import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
 
 test('postgresStore hydrates, persists, and refreshes selected resources', async () => {
@@ -92,6 +93,116 @@ export default {
     await db.close();
 
     assert.equal(client.closed, true);
+  } finally {
+    delete globalThis.__asyncDbPostgresClient;
+  }
+});
+
+test('postgresStore mixes database resources with JSON resources behind operation refs', async () => {
+  const cwd = await makeProject();
+  const client = new FakePostgresClient();
+  globalThis.__asyncDbPostgresClient = client;
+  await writeFixture(cwd, 'featureFlags.json', JSON.stringify([
+    {
+      id: 'flag_billing_v2',
+      key: 'billing.v2',
+      enabled: true,
+    },
+  ]));
+  await writeFixture(cwd, 'orders.json', JSON.stringify([
+    {
+      id: 'order_1',
+      totalCents: 2500,
+      status: 'paid',
+    },
+  ]));
+  await writeConfig(cwd, `import { postgresStore } from '@async/db/postgres';
+
+export default {
+  resources: {
+    featureFlags: {
+      store: 'json'
+    },
+    orders: {
+      store: 'postgres'
+    }
+  },
+  stores: {
+    default: 'json',
+    postgres: postgresStore({
+      client: globalThis.__asyncDbPostgresClient,
+      namespace: 'mixed'
+    })
+  },
+  operations: {
+    enabled: true,
+    acceptRefs: 'ref',
+    registry: {
+      'flags.list': {
+        name: 'ListFeatureFlags',
+        ref: 'flags.list',
+        method: 'GET',
+        path: '/feature-flags.json',
+        query: {
+          select: 'id,key,enabled'
+        }
+      },
+      'orders.list': {
+        name: 'ListOrders',
+        ref: 'orders.list',
+        method: 'GET',
+        path: '/orders.json',
+        query: {
+          select: 'id,totalCents,status'
+        }
+      }
+    }
+  }
+};`);
+
+  try {
+    const db = await openDb({ cwd });
+    const operations = createDbOperationHandler(db as never);
+
+    await db.collection('orders').create({
+      id: 'order_2',
+      totalCents: 4200,
+      status: 'paid',
+    });
+
+    assert.deepEqual((await operations.execute('flags.list')).body, [
+      {
+        id: 'flag_billing_v2',
+        key: 'billing.v2',
+        enabled: true,
+      },
+    ]);
+    assert.deepEqual((await operations.execute('orders.list')).body, [
+      {
+        id: 'order_1',
+        totalCents: 2500,
+        status: 'paid',
+      },
+      {
+        id: 'order_2',
+        totalCents: 4200,
+        status: 'paid',
+      },
+    ]);
+
+    await assert.rejects(
+      () => access(path.join(cwd, '.db/state/orders.json')),
+      { code: 'ENOENT' },
+    );
+    assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/featureFlags.json'), 'utf8')), [
+      {
+        id: 'flag_billing_v2',
+        key: 'billing.v2',
+        enabled: true,
+      },
+    ]);
+    assert.ok(client.rows.has('mixed:orders'));
+    await db.close();
   } finally {
     delete globalThis.__asyncDbPostgresClient;
   }

@@ -103,6 +103,8 @@ export default {
 
 The app-facing contract stays in @async/db. Frontend code calls the same generated types, REST resources, or registered operation refs while each resource chooses the storage boundary that fits its write rate and operational risk.
 
+For the full resource-by-resource migration path, see [Resource Graduation And Mixed Stores](./store-graduation.md).
+
 ## Readiness Checklist
 
 - Run `async-db doctor --production` before treating JSON-backed resources as production data. Use `async-db check --strict --production` when warnings should fail CI.
