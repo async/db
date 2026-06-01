@@ -22,7 +22,7 @@ export async function openUpgradeDemoDb() {
 }
 
 export async function upgradeTenantToPaid({ db, tenantId }) {
-  await db.forks.create(tenantId, {
+  const tenant = await db.forks.ensure(tenantId, {
     from: 'main',
     kind: 'tenant',
     metadata: {
@@ -30,7 +30,6 @@ export async function upgradeTenantToPaid({ db, tenantId }) {
     },
   });
 
-  const tenant = db.fork(tenantId).branch('main');
   const backup = await tenant.snapshots.create({
     label: 'before-paid-upgrade',
     resources: ['projects'],

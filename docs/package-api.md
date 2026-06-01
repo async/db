@@ -98,7 +98,7 @@ const value = await settings.get('/theme');
 Fork and branch usage:
 
 ```ts
-await db.forks.create('tenant_acme', {
+const tenant = await db.forks.ensure('tenant_acme', {
   from: 'main',
   kind: 'tenant',
   metadata: {
@@ -106,7 +106,6 @@ await db.forks.create('tenant_acme', {
   },
 });
 
-const tenant = db.fork('tenant_acme').branch('main');
 const snapshot = await tenant.snapshots.create({
   label: 'before-projects-migration',
   resources: ['projects'],

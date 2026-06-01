@@ -5,21 +5,20 @@ import { openDb } from '@async/db';
 export function createCms(db, { tenantId }) {
   return {
     async setup() {
-      await db.forks.create(tenantId, {
+      const tenant = await db.forks.ensure(tenantId, {
         from: 'main',
         kind: 'tenant',
         metadata: {
           app: 'cms-json-publish',
         },
       });
-      const tenant = db.fork(tenantId);
-      await tenant.branches.create('draft', { from: 'main', kind: 'draft' });
-      await tenant.branches.create('published', { from: 'main', kind: 'published' });
+      await tenant.branches.ensure('draft', { from: 'main', kind: 'draft' });
+      await tenant.branches.ensure('published', { from: 'main', kind: 'published' });
     },
 
     async saveDraft(pageId, changes) {
-      const tenant = db.fork(tenantId);
-      const draft = tenant.branch('draft');
+      const tenant = await db.forks.open(tenantId);
+      const draft = await tenant.branches.open('draft');
       return draft.collection('pages').patch(pageId, {
         ...changes,
         status: 'draft',
@@ -28,19 +27,17 @@ export function createCms(db, { tenantId }) {
     },
 
     async createPreview(previewId) {
-      const tenant = db.fork(tenantId);
-      await tenant.branches.create(previewId, {
+      const tenant = await db.forks.open(tenantId);
+      return tenant.branches.create(previewId, {
         from: 'draft',
         kind: 'preview',
       });
-
-      return tenant.branch(previewId);
     },
 
     async publish({ label = 'publish' } = {}) {
-      const tenant = db.fork(tenantId);
-      const draft = tenant.branch('draft');
-      const published = tenant.branch('published');
+      const tenant = await db.forks.open(tenantId);
+      const draft = await tenant.branches.open('draft');
+      const published = await tenant.branches.open('published');
       const snapshot = await draft.snapshots.create({
         label,
         resources: ['pages', 'navigation'],
@@ -67,8 +64,9 @@ export function createCms(db, { tenantId }) {
     },
 
     async listPublishedPages() {
-      const tenant = db.fork(tenantId);
-      return tenant.branch('published').collection('pages').all();
+      const tenant = await db.forks.open(tenantId);
+      const published = await tenant.branches.open('published');
+      return published.collection('pages').all();
     },
   };
 }

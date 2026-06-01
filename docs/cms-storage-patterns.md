@@ -7,18 +7,19 @@ CMS workflows are app code on top of `@async/db` primitives. The package should 
 ```js
 export function createCms(db, { tenantId }) {
   return {
-    saveDraft(pageId, changes) {
-      const tenant = db.fork(tenantId);
-      return tenant.branch('draft').collection('pages').patch(pageId, {
+    async saveDraft(pageId, changes) {
+      const tenant = await db.forks.open(tenantId);
+      const draft = await tenant.branches.open('draft');
+      return draft.collection('pages').patch(pageId, {
         ...changes,
         status: 'draft',
       });
     },
 
     async publish() {
-      const tenant = db.fork(tenantId);
-      const draft = tenant.branch('draft');
-      const published = tenant.branch('published');
+      const tenant = await db.forks.open(tenantId);
+      const draft = await tenant.branches.open('draft');
+      const published = await tenant.branches.open('published');
       const pages = await draft.collection('pages').all();
 
       await published.collection('pages').replaceAll(
@@ -56,7 +57,9 @@ The app filters draft records and writes the public result into the `published` 
 When static hosting, S3/R2 reads, or page-level cache invalidation matter, keep that materialization in app code instead of configuring the JSON store layout:
 
 ```js
-const published = await db.fork(tenantId).branch('published').collection('pages').all();
+const tenant = await db.forks.open(tenantId);
+const publishedBranch = await tenant.branches.open('published');
+const published = await publishedBranch.collection('pages').all();
 
 for (const page of published) {
   await writePublicJson(`pages/${page.slug}.json`, page);

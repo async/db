@@ -292,7 +292,7 @@ function rejectRemovedFixtureForkConfig(config: unknown): void {
       'CONFIG_LEGACY_FIXTURE_FORKS_REMOVED',
       `Unsupported config "${key}". Fixture-folder forks were removed so forks only mean runtime logical databases.`,
       {
-        hint: 'Use runtime forks with db.forks.create(), db.fork(name), branches, and snapshots. Keep alternate seed data in normal fixture folders or app-owned import scripts.',
+        hint: 'Use runtime forks with db.forks.create(), db.forks.open(), db.forks.ensure(), branches, and snapshots. Keep alternate seed data in normal fixture folders or app-owned import scripts.',
         details: {
           configKey: key,
         },

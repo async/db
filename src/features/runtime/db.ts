@@ -208,11 +208,17 @@ export class Db {
   scope: DbScope;
   forks: {
     create: (name: string, options?: ForkCreateOptions) => Promise<Db>;
+    open: (name: string) => Promise<Db>;
+    ensure: (name: string, options?: ForkCreateOptions) => Promise<Db>;
     list: () => Promise<Array<Record<string, unknown>>>;
     delete: (name: string) => Promise<boolean>;
   };
   branches: {
     create: (name: string, options?: BranchCreateOptions) => Promise<Db>;
+    open: (name: string) => Promise<Db>;
+    ensure: (name: string, options?: BranchCreateOptions) => Promise<Db>;
+    list: () => Promise<Array<Record<string, unknown>>>;
+    delete: (name: string) => Promise<boolean>;
   };
   snapshots: {
     create: (options?: SnapshotCreateOptions) => Promise<SnapshotResult>;
@@ -244,11 +250,17 @@ export class Db {
     this.migrationLocks = loadPersistedMigrationLocks(this.scope);
     this.forks = {
       create: (name, options = {}) => this.createFork(name, options),
+      open: (name) => this.openFork(name),
+      ensure: (name, options = {}) => this.ensureFork(name, options),
       list: () => this.listForks(),
       delete: (name) => this.deleteFork(name),
     };
     this.branches = {
       create: (name, options = {}) => this.createBranch(name, options),
+      open: (name) => this.openBranch(name),
+      ensure: (name, options = {}) => this.ensureBranch(name, options),
+      list: () => this.listBranches(),
+      delete: (name) => this.deleteBranch(name),
     };
     this.snapshots = {
       create: (options = {}) => this.createSnapshot(options),
@@ -285,6 +297,7 @@ export class Db {
 
   fork(name: string): Db {
     assertValidScopedName(name, 'fork');
+    this.assertRootForkLifecycle('open fork');
     this.assertForkExists(name);
     this.assertBranchExists(name, 'main');
     return this.scopedDb({
@@ -302,7 +315,7 @@ export class Db {
         `Cannot open branch "${name}" without a fork.`,
         {
           status: 400,
-          hint: 'Call db.fork("tenant_id").branch("main") so the branch belongs to one isolated database fork.',
+          hint: 'Open a fork with await db.forks.open("tenant_id"), then open a branch with await tenant.branches.open(name).',
           details: {
             branch: name,
           },
@@ -394,7 +407,24 @@ export class Db {
 
   private async createFork(name: string, options: ForkCreateOptions = {}): Promise<Db> {
     assertValidScopedName(name, 'fork');
+    this.assertRootForkLifecycle('create fork');
     const now = new Date().toISOString();
+    const registryPath = forkRegistryPath(this.scope.rootStateDir);
+    const registry = await readJsonFile(registryPath, { forks: {} });
+    if (configRecord(registry.forks)[name]) {
+      throw dbError(
+        'DB_FORK_ALREADY_EXISTS',
+        `Fork "${name}" already exists.`,
+        {
+          status: 409,
+          hint: 'Open it with db.forks.open(name), or use db.forks.ensure(name, options) for idempotent setup.',
+          details: {
+            fork: name,
+          },
+        },
+      );
+    }
+
     const source = await this.resolveForkSource(options.from);
     const target = this.scopedDb({
       fork: name,
@@ -404,14 +434,15 @@ export class Db {
 
     await copyForkSource(source, target, this.resourceNames());
 
-    const registryPath = forkRegistryPath(this.scope.rootStateDir);
-    const registry = await readJsonFile(registryPath, { forks: {} });
-    registry.forks[name] = {
-      id: name,
-      kind: options.kind ?? 'fork',
-      metadata: options.metadata ?? {},
-      from: serializeForkSource(options.from),
-      createdAt: now,
+    registry.forks = {
+      ...configRecord(registry.forks),
+      [name]: {
+        id: name,
+        kind: options.kind ?? 'fork',
+        metadata: options.metadata ?? {},
+        from: serializeForkSource(options.from),
+        createdAt: now,
+      },
     };
     await writeJsonFile(registryPath, registry);
 
@@ -428,13 +459,29 @@ export class Db {
     return target;
   }
 
+  private async openFork(name: string): Promise<Db> {
+    return this.fork(name);
+  }
+
+  private async ensureFork(name: string, options: ForkCreateOptions = {}): Promise<Db> {
+    assertValidScopedName(name, 'fork');
+    this.assertRootForkLifecycle('ensure fork');
+    const registry = await readJsonFile(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
+    if (configRecord(registry.forks)[name]) {
+      return this.openFork(name);
+    }
+    return this.createFork(name, options);
+  }
+
   private async listForks(): Promise<Array<Record<string, unknown>>> {
+    this.assertRootForkLifecycle('list forks');
     const registry = await readJsonFile(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
     return Object.values(registry.forks ?? {});
   }
 
   private async deleteFork(name: string): Promise<boolean> {
     assertValidScopedName(name, 'fork');
+    this.assertRootForkLifecycle('delete fork');
     const registryPath = forkRegistryPath(this.scope.rootStateDir);
     const registry = await readJsonFile(registryPath, { forks: {} });
     const existed = Boolean(registry.forks?.[name]);
@@ -454,13 +501,30 @@ export class Db {
         `Cannot create branch "${name}" without a fork.`,
         {
           status: 400,
-          hint: 'Call db.fork("tenant_id").branches.create("preview") so the branch belongs to one fork.',
+          hint: 'Open a fork with await db.forks.open("tenant_id"), then create a branch with await tenant.branches.create(name).',
           details: {
             branch: name,
           },
         },
       );
     }
+    const registryPath = branchRegistryPath(this.scope.rootStateDir, this.scope.fork);
+    const registry = await readJsonFile(registryPath, { branches: {} });
+    if (configRecord(registry.branches)[name]) {
+      throw dbError(
+        'DB_BRANCH_ALREADY_EXISTS',
+        `Branch "${name}" already exists in fork "${this.scope.fork}".`,
+        {
+          status: 409,
+          hint: 'Open it with tenant.branches.open(branch), or use tenant.branches.ensure(branch, options) for idempotent setup.',
+          details: {
+            fork: this.scope.fork,
+            branch: name,
+          },
+        },
+      );
+    }
+
     const source = this.branch(options.from ?? this.scope.branch ?? 'main');
     const target = this.scopedDb({
       fork: this.scope.fork,
@@ -469,17 +533,103 @@ export class Db {
     });
     await copyResources(source, target, this.resourceNames());
 
-    const registryPath = branchRegistryPath(this.scope.rootStateDir, this.scope.fork);
-    const registry = await readJsonFile(registryPath, { branches: {} });
-    registry.branches[name] = {
-      id: name,
-      kind: options.kind ?? 'branch',
-      metadata: options.metadata ?? {},
-      from: options.from ?? this.scope.branch ?? 'main',
-      createdAt: new Date().toISOString(),
+    registry.branches = {
+      ...configRecord(registry.branches),
+      [name]: {
+        id: name,
+        kind: options.kind ?? 'branch',
+        metadata: options.metadata ?? {},
+        from: options.from ?? this.scope.branch ?? 'main',
+        createdAt: new Date().toISOString(),
+      },
     };
     await writeJsonFile(registryPath, registry);
     return target;
+  }
+
+  private async openBranch(name: string): Promise<Db> {
+    return this.branch(name);
+  }
+
+  private async ensureBranch(name: string, options: BranchCreateOptions = {}): Promise<Db> {
+    assertValidScopedName(name, 'branch');
+    if (!this.scope.fork) {
+      throw dbError(
+        'DB_BRANCH_REQUIRES_FORK',
+        `Cannot ensure branch "${name}" without a fork.`,
+        {
+          status: 400,
+          hint: 'Open or create a fork before ensuring a branch.',
+          details: {
+            branch: name,
+          },
+        },
+      );
+    }
+    const registry = await readJsonFile(branchRegistryPath(this.scope.rootStateDir, this.scope.fork), { branches: {} });
+    if (configRecord(registry.branches)[name]) {
+      return this.openBranch(name);
+    }
+    return this.createBranch(name, options);
+  }
+
+  private async listBranches(): Promise<Array<Record<string, unknown>>> {
+    if (!this.scope.fork) {
+      throw dbError(
+        'DB_BRANCH_REQUIRES_FORK',
+        'Cannot list branches without a fork.',
+        {
+          status: 400,
+          hint: 'Open a fork before listing its branches.',
+          details: {},
+        },
+      );
+    }
+    const registry = await readJsonFile(branchRegistryPath(this.scope.rootStateDir, this.scope.fork), { branches: {} });
+    return Object.values(registry.branches ?? {});
+  }
+
+  private async deleteBranch(name: string): Promise<boolean> {
+    assertValidScopedName(name, 'branch');
+    if (!this.scope.fork) {
+      throw dbError(
+        'DB_BRANCH_REQUIRES_FORK',
+        `Cannot delete branch "${name}" without a fork.`,
+        {
+          status: 400,
+          hint: 'Open a fork before deleting one of its branches.',
+          details: {
+            branch: name,
+          },
+        },
+      );
+    }
+    if (name === 'main') {
+      throw dbError(
+        'DB_BRANCH_MAIN_DELETE_FORBIDDEN',
+        'Cannot delete the main branch.',
+        {
+          status: 400,
+          hint: 'Delete the entire fork with db.forks.delete(name), or delete a non-main branch.',
+          details: {
+            fork: this.scope.fork,
+            branch: name,
+          },
+        },
+      );
+    }
+
+    const registryPath = branchRegistryPath(this.scope.rootStateDir, this.scope.fork);
+    const registry = await readJsonFile(registryPath, { branches: {} });
+    const existed = Boolean(configRecord(registry.branches)[name]);
+    registry.branches = { ...configRecord(registry.branches) };
+    delete registry.branches[name];
+    await writeJsonFile(registryPath, registry);
+    await rm(path.join(this.scope.rootStateDir, 'forks', this.scope.fork, 'branches', name), {
+      force: true,
+      recursive: true,
+    });
+    return existed;
   }
 
   private async createSnapshot(options: SnapshotCreateOptions = {}): Promise<SnapshotResult> {
@@ -648,6 +798,25 @@ export class Db {
     return null;
   }
 
+  private assertRootForkLifecycle(action: string): void {
+    if (!this.scope.fork) {
+      return;
+    }
+    throw dbError(
+      'DB_FORK_REQUIRES_ROOT',
+      `Cannot ${action} from fork "${this.scope.fork}".`,
+      {
+        status: 400,
+        hint: 'Use the root db handle for fork lifecycle methods. Pass an explicit from source when creating a fork from another fork or branch.',
+        details: {
+          fork: this.scope.fork,
+          branch: this.scope.branch,
+          action,
+        },
+      },
+    );
+  }
+
   private assertForkExists(name: string): void {
     const registry = readJsonFileSync(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
     if (configRecord(registry.forks)[name]) {
@@ -676,7 +845,7 @@ export class Db {
       `Branch "${name}" was not found in fork "${fork}".`,
       {
         status: 404,
-        hint: 'Create the branch with db.fork(name).branches.create(branch) before opening it, or check the branch id.',
+        hint: 'Create the branch with tenant.branches.create(branch) before opening it, or check the branch id.',
         details: {
           fork,
           branch: name,

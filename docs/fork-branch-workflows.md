@@ -9,17 +9,30 @@
 - `snapshot`: immutable captured state of a fork branch.
 - `migration`: app-controlled move of one resource from one store to another.
 
-Every query should run inside one fork and branch:
+The default root database already points at `main`, so simple apps can call resources and operations directly:
 
 ```js
-await db.forks.create('tenant_acme', {
+await db.query('projects.list');
+await db.collection('projects').all();
+```
+
+When an app has tenants or sandboxes, open or ensure the fork. A fork handle starts on its default `main` branch, so most app code does not need to mention `branch('main')`:
+
+```js
+const tenant = await db.forks.ensure('tenant_acme', {
   from: 'main',
   kind: 'tenant',
 });
 
-const tenant = db.fork('tenant_acme').branch('main');
-
 await tenant.query('projects.list');
+```
+
+Open named branches only when you intentionally leave `main`:
+
+```js
+const draft = await tenant.branches.open('draft');
+
+await draft.query('projects.list');
 ```
 
 ## Free Plan To Paid Store
@@ -28,7 +41,7 @@ The app decides what "paid" means. `@async/db` only moves resources and switches
 
 ```js
 export async function upgradeTenantToPaid({ tenantId }) {
-  const tenant = db.fork(tenantId).branch('main');
+  const tenant = await db.forks.open(tenantId);
 
   const backup = await tenant.snapshots.create({
     label: 'before-paid-upgrade',
@@ -67,7 +80,7 @@ Debugging a production issue should not mutate production data:
 
 ```js
 export async function createDebugForkFromSnapshot({ snapshotId, ticketId }) {
-  await db.forks.create(`debug_${ticketId}`, {
+  return db.forks.create(`debug_${ticketId}`, {
     from: { snapshot: snapshotId },
     kind: 'debug',
     metadata: {
@@ -75,8 +88,6 @@ export async function createDebugForkFromSnapshot({ snapshotId, ticketId }) {
       ttl: '24h',
     },
   });
-
-  return db.fork(`debug_${ticketId}`).branch('main');
 }
 ```
 
