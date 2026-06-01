@@ -76,14 +76,15 @@ export function s3Storage(options: Omit<S3StorageOptions, 'kind'>): S3StorageOpt
 
 export function jsonStore(options: JsonStoreOptions = {}) {
   return ({ config, storeName }: { config: RuntimeConfig; resources: RuntimeResource[]; storeName: string }) => {
-    const storage = options.storage ?? fileStorage(config.stateDir);
+    const storage = options.storage ?? fileStorage(config.__asyncDbScope?.rootStateDir ?? config.stateDir);
     if (storage.kind !== 'file') {
       return unsupportedObjectStorageAdapter(storeName, storage, options);
     }
     const fileBackend = storage;
+    const rootDirectory = options.storage ? 'resources' : 'state';
 
     function statePath(resource: RuntimeResource): string {
-      return jsonStoreStatePath(config, fileBackend, resource.name);
+      return jsonStoreStatePath(config, fileBackend, resource.name, rootDirectory);
     }
 
     return {
@@ -142,24 +143,58 @@ export function statePathForResource(config: RuntimeConfig, resourceName: string
   const name = typeof resourceName === 'string'
     ? resourceName
     : (resourceName as { name?: string }).name;
-  return path.join(jsonResourceStateDir(config), `${name}.json`);
+  return jsonResourcePath({
+    root: config.__asyncDbScope?.rootStateDir ?? config.stateDir,
+    rootDirectory: 'state',
+    scope: config.__asyncDbScope,
+    resourceName: name,
+  });
 }
 
 function jsonResourceStateDir(config: RuntimeConfig): string {
-  return config.__asyncDbScope?.fork
-    ? path.join(config.stateDir, 'resources')
-    : path.join(config.stateDir, 'state');
+  return jsonResourceDir({
+    root: config.__asyncDbScope?.rootStateDir ?? config.stateDir,
+    rootDirectory: 'state',
+    scope: config.__asyncDbScope,
+  });
 }
 
-function jsonStoreStatePath(config: RuntimeConfig, storage: FileStorageOptions, resourceName: string): string {
+function jsonStoreStatePath(
+  config: RuntimeConfig,
+  storage: FileStorageOptions,
+  resourceName: string,
+  rootDirectory: 'state' | 'resources',
+): string {
   const root = path.isAbsolute(storage.root)
     ? storage.root
     : path.resolve(config.cwd, storage.root);
-  const scope = config.__asyncDbScope;
+  return jsonResourcePath({
+    root,
+    rootDirectory,
+    scope: config.__asyncDbScope,
+    resourceName,
+  });
+}
+
+function jsonResourcePath(options: {
+  root: string;
+  rootDirectory: 'state' | 'resources';
+  scope?: RuntimeConfig['__asyncDbScope'];
+  resourceName: string;
+}): string {
+  return path.join(jsonResourceDir(options), `${options.resourceName}.json`);
+}
+
+function jsonResourceDir(options: {
+  root: string;
+  rootDirectory: 'state' | 'resources';
+  scope?: RuntimeConfig['__asyncDbScope'];
+}): string {
+  const { root, rootDirectory, scope } = options;
   if (scope?.fork) {
-    return path.join(root, 'forks', scope.fork, 'branches', scope.branch ?? 'main', 'resources', `${resourceName}.json`);
+    return path.join(root, 'forks', scope.fork, 'branches', scope.branch ?? 'main', 'resources');
   }
-  return path.join(root, 'resources', `${resourceName}.json`);
+  return path.join(root, rootDirectory);
 }
 
 function unsupportedObjectStorageAdapter(storeName: string, storage: S3StorageOptions, options: JsonStoreOptions) {

@@ -183,8 +183,8 @@ const contentSchema = collection({
 const dbPromise: Promise<Db<DbTypes>> = openDb<DbTypes>(options);
 void dbPromise.then(async (db) => {
   const tenant = await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
-  const preview = tenant.branch('preview');
   await tenant.branches.create('preview', { from: 'main', kind: 'preview' });
+  const preview = tenant.branch('preview');
   await preview.snapshots.create({ resources: ['users'] });
   await preview.migrations.start('users-to-json', { resources: ['users'], mode: 'read-only' });
   await preview.migrations.finish('users-to-json');

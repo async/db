@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb as typedOpenDb } from '../../src/index.js';
@@ -71,6 +71,92 @@ test('fork metadata and scope validation use structured errors', async () => {
       return true;
     },
   );
+});
+
+test('opening forks and branches requires registered lifecycle state', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({
+    theme: 'light',
+  }));
+
+  const db = await openDb({ cwd });
+
+  assert.throws(
+    () => db.fork('tenant_typo'),
+    (error: any) => {
+      assert.equal(error.code, 'DB_FORK_NOT_FOUND');
+      assert.equal(error.details.fork, 'tenant_typo');
+      return true;
+    },
+  );
+
+  await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
+  const tenant = db.fork('tenant_acme');
+  assert.equal(tenant.branch('main').scope.branch, 'main');
+
+  assert.throws(
+    () => tenant.branch('preview_typo'),
+    (error: any) => {
+      assert.equal(error.code, 'DB_BRANCH_NOT_FOUND');
+      assert.equal(error.details.fork, 'tenant_acme');
+      assert.equal(error.details.branch, 'preview_typo');
+      return true;
+    },
+  );
+});
+
+test('fork creation rejects unsupported string sources', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({
+    theme: 'light',
+  }));
+
+  const db = await openDb({ cwd });
+
+  await assert.rejects(
+    () => db.forks.create('tenant_from_unknown_string', { from: 'template_free' }),
+    (error: any) => {
+      assert.equal(error.code, 'DB_FORK_SOURCE_UNSUPPORTED');
+      assert.equal(error.details.from, 'template_free');
+      return true;
+    },
+  );
+});
+
+test('fork creation copies from explicit fork branch and snapshot sources', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'pages.json', JSON.stringify([
+    { id: 'home', title: 'Home' },
+  ]));
+
+  const db = await openDb({ cwd });
+  await db.forks.create('template_demo', { from: 'main', kind: 'template' });
+  const template = db.fork('template_demo').branch('main');
+  await template.collection('pages').patch('home', { title: 'Template Home' });
+
+  await db.forks.create('tenant_from_template', {
+    from: { fork: 'template_demo', branch: 'main' },
+    kind: 'tenant',
+  });
+
+  assert.deepEqual(await db.fork('tenant_from_template').branch('main').collection('pages').all(), [
+    { id: 'home', title: 'Template Home' },
+  ]);
+
+  const snapshot = await template.snapshots.create({
+    label: 'debug-source',
+    resources: ['pages'],
+  });
+  await template.collection('pages').patch('home', { title: 'Changed After Snapshot' });
+
+  await db.forks.create('tenant_from_snapshot', {
+    from: { fork: 'template_demo', snapshot: snapshot.id },
+    kind: 'debug',
+  });
+
+  assert.deepEqual(await db.fork('tenant_from_snapshot').branch('main').collection('pages').all(), [
+    { id: 'home', title: 'Template Home' },
+  ]);
 });
 
 test('snapshots capture and restore a fork branch resource', async () => {
@@ -202,6 +288,55 @@ test('migration read-only locks apply to fresh branch handles', async () => {
   );
 });
 
+test('migration verification can resume after reopening the db', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'projects.json', JSON.stringify([
+    { id: 'p_1', name: 'Launch checklist' },
+  ]));
+  const targetStore = new Map<string, unknown>();
+  const options = {
+    cwd,
+    stores: {
+      default: 'json',
+      paidStore: {
+        read(resource: { name: string }, fallback: unknown) {
+          return targetStore.has(resource.name) ? targetStore.get(resource.name) : fallback;
+        },
+        write(resource: { name: string }, value: unknown) {
+          targetStore.set(resource.name, value);
+        },
+      },
+    },
+  };
+
+  const db = await openDb(options);
+  await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
+  const tenant = db.fork('tenant_acme').branch('main');
+
+  await tenant.migrations.start('projects-to-paid-store', {
+    resources: ['projects'],
+    mode: 'read-only',
+  });
+  await tenant.resources.migrate('projects', {
+    from: 'json',
+    to: 'paidStore',
+  });
+
+  const reopened = await openDb(options);
+  const reopenedTenant = reopened.fork('tenant_acme').branch('main');
+  await reopenedTenant.migrations.verify('projects-to-paid-store', {
+    resources: ['projects'],
+    checks: ['count', 'checksum'],
+  });
+  await reopenedTenant.routing.set({ projects: 'paidStore' });
+  await reopenedTenant.migrations.finish('projects-to-paid-store');
+
+  const secondReopen = await openDb(options);
+  assert.deepEqual(await secondReopen.fork('tenant_acme').branch('main').collection('projects').all(), [
+    { id: 'p_1', name: 'Launch checklist' },
+  ]);
+});
+
 test('snapshots write immutable JSON manifests under fork storage', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'pages.json', JSON.stringify([
@@ -261,4 +396,25 @@ test('fork branch query executes registered operations against branch state', as
     id: 'home',
     title: 'Preview Home',
   });
+});
+
+test('control-plane JSON reports corruption with recovery guidance', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({
+    theme: 'light',
+  }));
+
+  const db = await openDb({ cwd });
+  await mkdir(path.join(cwd, '.db/forks'), { recursive: true });
+  await writeFile(path.join(cwd, '.db/forks/registry.json'), '{ not json', 'utf8');
+
+  await assert.rejects(
+    () => db.forks.list(),
+    (error: any) => {
+      assert.equal(error.code, 'JSON_STATE_INVALID');
+      assert.match(error.hint, /known-good snapshot/);
+      assert.equal(error.details.filePath, path.join(cwd, '.db/forks/registry.json'));
+      return true;
+    },
+  );
 });
