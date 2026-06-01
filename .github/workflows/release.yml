@@ -47,11 +47,20 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
+      - name: Set up pnpm
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: corepack enable
+
       - name: Show tool versions
         if: ${{ steps.release.outputs.release_created == 'true' }}
         run: |
           node --version
           npm --version
+          pnpm --version
+
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: pnpm install --frozen-lockfile
 
       - name: Verify release package
         if: ${{ steps.release.outputs.release_created == 'true' }}
@@ -94,6 +103,12 @@ jobs:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
+
+      - name: Set up pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Validate package version matches tag
         run: |
