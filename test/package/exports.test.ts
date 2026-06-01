@@ -182,9 +182,11 @@ const contentSchema = collection({
 
 const dbPromise: Promise<Db<DbTypes>> = openDb<DbTypes>(options);
 void dbPromise.then(async (db) => {
-  const tenant = await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
-  await tenant.branches.create('preview', { from: 'main', kind: 'preview' });
-  const preview = tenant.branch('preview');
+  await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
+  const tenant = await db.forks.open('tenant_acme');
+  await tenant.branches.ensure('preview', { from: 'main', kind: 'preview' });
+  const preview = await tenant.branches.open('preview');
+  const branchList = await tenant.branches.list();
   await preview.snapshots.create({ resources: ['users'] });
   await preview.migrations.start('users-to-json', { resources: ['users'], mode: 'read-only' });
   await preview.migrations.finish('users-to-json');
@@ -194,11 +196,14 @@ void dbPromise.then(async (db) => {
   const settings = await db.document('settings').get();
   const requestHandler = createDbRequestHandler(db);
   const operationHandler = createDbOperationHandler(db);
-  void db.fork('tenant_acme').branch('main').query('users.get', { id: 'u_1' });
+  void tenant.query('users.get', { id: 'u_1' });
+  void db.forks.ensure('tenant_acme', { from: 'main' });
+  void tenant.branches.delete('preview');
   void db.resources.migrate('users', { from: 'json', to: 'json' });
   await db.close();
   void requestHandler;
   void operationHandler;
+  void branchList;
   return { first, settings };
 });
 

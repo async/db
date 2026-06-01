@@ -275,7 +275,7 @@ test('client rejects removed fixture fork option', () => {
     (error: any) => {
       assert.equal(error.code, 'CLIENT_FORK_OPTION_REMOVED');
       assert.match(error.message, /fork option/);
-      assert.match(error.hint, /runtime db\.fork/);
+      assert.match(error.hint, /db\.forks\.open/);
       return true;
     },
   );

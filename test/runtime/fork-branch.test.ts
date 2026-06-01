@@ -14,24 +14,25 @@ test('fork branches isolate JSON resource state', async () => {
   ]));
 
   const db = await openDb({ cwd });
-  await db.forks.create('tenant_acme', {
+  const tenant = await db.forks.create('tenant_acme', {
     from: 'main',
     kind: 'tenant',
     metadata: { plan: 'free' },
   });
-  const tenant = db.fork('tenant_acme');
   await tenant.branches.create('draft', { from: 'main', kind: 'draft' });
   await tenant.branches.create('published', { from: 'main', kind: 'published' });
+  const draft = await tenant.branches.open('draft');
+  const published = await tenant.branches.open('published');
 
-  await tenant.branch('draft').collection('pages').patch('home', {
+  await draft.collection('pages').patch('home', {
     title: 'Draft Home',
     status: 'draft',
   });
 
-  assert.deepEqual(await tenant.branch('draft').collection('pages').all(), [
+  assert.deepEqual(await draft.collection('pages').all(), [
     { id: 'home', title: 'Draft Home', status: 'draft' },
   ]);
-  assert.deepEqual(await tenant.branch('published').collection('pages').all(), [
+  assert.deepEqual(await published.collection('pages').all(), [
     { id: 'home', title: 'Home', status: 'published' },
   ]);
 });
@@ -105,6 +106,128 @@ test('opening forks and branches requires registered lifecycle state', async () 
   );
 });
 
+test('fork and branch lifecycle namespaces expose async open helpers', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'pages.json', JSON.stringify([
+    { id: 'home', title: 'Home' },
+  ]));
+
+  const db = await openDb({ cwd });
+  await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
+  const tenant = await db.forks.open('tenant_acme');
+  assert.equal(tenant.scope.fork, 'tenant_acme');
+  assert.equal(tenant.scope.branch, 'main');
+
+  await tenant.branches.create('draft', { from: 'main', kind: 'draft' });
+  const draft = await tenant.branches.open('draft');
+  assert.equal(draft.scope.fork, 'tenant_acme');
+  assert.equal(draft.scope.branch, 'draft');
+  assert.deepEqual(await draft.collection('pages').all(), [
+    { id: 'home', title: 'Home' },
+  ]);
+
+  await assert.rejects(
+    () => db.forks.open('tenant_missing'),
+    (error: any) => {
+      assert.equal(error.code, 'DB_FORK_NOT_FOUND');
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => tenant.branches.open('preview_missing'),
+    (error: any) => {
+      assert.equal(error.code, 'DB_BRANCH_NOT_FOUND');
+      return true;
+    },
+  );
+});
+
+test('fork and branch create reject duplicates while ensure preserves existing state', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'pages.json', JSON.stringify([
+    { id: 'home', title: 'Home' },
+  ]));
+
+  const db = await openDb({ cwd });
+  const tenant = await db.forks.ensure('tenant_acme', {
+    from: 'main',
+    kind: 'tenant',
+    metadata: { ownerId: 'org_acme' },
+  });
+  await tenant.collection('pages').patch('home', { title: 'Tenant Home' });
+
+  await assert.rejects(
+    () => db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' }),
+    (error: any) => {
+      assert.equal(error.code, 'DB_FORK_ALREADY_EXISTS');
+      assert.equal(error.details.fork, 'tenant_acme');
+      return true;
+    },
+  );
+
+  const ensuredTenant = await db.forks.ensure('tenant_acme', {
+    from: 'main',
+    kind: 'tenant',
+    metadata: { ownerId: 'changed' },
+  });
+  assert.deepEqual(await ensuredTenant.collection('pages').all(), [
+    { id: 'home', title: 'Tenant Home' },
+  ]);
+
+  const draft = await ensuredTenant.branches.ensure('draft', { from: 'main', kind: 'draft' });
+  await draft.collection('pages').patch('home', { title: 'Draft Home' });
+
+  await assert.rejects(
+    () => ensuredTenant.branches.create('draft', { from: 'main', kind: 'draft' }),
+    (error: any) => {
+      assert.equal(error.code, 'DB_BRANCH_ALREADY_EXISTS');
+      assert.equal(error.details.fork, 'tenant_acme');
+      assert.equal(error.details.branch, 'draft');
+      return true;
+    },
+  );
+
+  const ensuredDraft = await ensuredTenant.branches.ensure('draft', { from: 'main', kind: 'draft' });
+  assert.deepEqual(await ensuredDraft.collection('pages').all(), [
+    { id: 'home', title: 'Draft Home' },
+  ]);
+});
+
+test('branch lifecycle can list and delete non-main branches', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'pages.json', JSON.stringify([
+    { id: 'home', title: 'Home' },
+  ]));
+
+  const db = await openDb({ cwd });
+  const tenant = await db.forks.ensure('tenant_acme', { from: 'main', kind: 'tenant' });
+  await tenant.branches.create('draft', { from: 'main', kind: 'draft' });
+  await tenant.branches.create('published', { from: 'main', kind: 'published' });
+
+  assert.deepEqual((await tenant.branches.list()).map((branch: any) => branch.id).sort(), [
+    'draft',
+    'main',
+    'published',
+  ]);
+  assert.equal(await tenant.branches.delete('draft'), true);
+  assert.equal(await tenant.branches.delete('draft'), false);
+
+  await assert.rejects(
+    () => tenant.branches.open('draft'),
+    (error: any) => {
+      assert.equal(error.code, 'DB_BRANCH_NOT_FOUND');
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => tenant.branches.delete('main'),
+    (error: any) => {
+      assert.equal(error.code, 'DB_BRANCH_MAIN_DELETE_FORBIDDEN');
+      return true;
+    },
+  );
+});
+
 test('fork creation rejects unsupported string sources', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'settings.json', JSON.stringify({
@@ -131,7 +254,7 @@ test('fork creation copies from explicit fork branch and snapshot sources', asyn
 
   const db = await openDb({ cwd });
   await db.forks.create('template_demo', { from: 'main', kind: 'template' });
-  const template = db.fork('template_demo').branch('main');
+  const template = await db.forks.open('template_demo');
   await template.collection('pages').patch('home', { title: 'Template Home' });
 
   await db.forks.create('tenant_from_template', {
@@ -139,7 +262,8 @@ test('fork creation copies from explicit fork branch and snapshot sources', asyn
     kind: 'tenant',
   });
 
-  assert.deepEqual(await db.fork('tenant_from_template').branch('main').collection('pages').all(), [
+  const tenantFromTemplate = await db.forks.open('tenant_from_template');
+  assert.deepEqual(await tenantFromTemplate.collection('pages').all(), [
     { id: 'home', title: 'Template Home' },
   ]);
 
@@ -154,7 +278,8 @@ test('fork creation copies from explicit fork branch and snapshot sources', asyn
     kind: 'debug',
   });
 
-  assert.deepEqual(await db.fork('tenant_from_snapshot').branch('main').collection('pages').all(), [
+  const tenantFromSnapshot = await db.forks.open('tenant_from_snapshot');
+  assert.deepEqual(await tenantFromSnapshot.collection('pages').all(), [
     { id: 'home', title: 'Template Home' },
   ]);
 });
@@ -168,7 +293,7 @@ test('snapshots capture and restore a fork branch resource', async () => {
 
   const db = await openDb({ cwd });
   await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
-  const main = db.fork('tenant_acme').branch('main');
+  const main = await db.forks.open('tenant_acme');
 
   const snapshot = await main.snapshots.create({
     label: 'before-settings-change',
@@ -211,7 +336,7 @@ test('resource migrations lock writes, copy to another store, verify, and switch
     },
   });
   await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
-  const tenant = db.fork('tenant_acme').branch('main');
+  const tenant = await db.forks.open('tenant_acme');
 
   await tenant.migrations.start('projects-to-paid-store', {
     resources: ['projects'],
@@ -241,7 +366,7 @@ test('resource migrations lock writes, copy to another store, verify, and switch
   });
   await tenant.migrations.finish('projects-to-paid-store');
 
-  const reopenedTenant = db.fork('tenant_acme').branch('main');
+  const reopenedTenant = await db.forks.open('tenant_acme');
   assert.deepEqual(targetStore.get('projects'), [
     { id: 'p_1', name: 'Launch checklist' },
   ]);
@@ -269,14 +394,14 @@ test('migration read-only locks apply to fresh branch handles', async () => {
 
   const db = await openDb({ cwd });
   await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
-  const tenant = db.fork('tenant_acme').branch('main');
+  const tenant = await db.forks.open('tenant_acme');
 
   await tenant.migrations.start('projects-to-postgres', {
     resources: ['projects'],
     mode: 'read-only',
   });
 
-  const reopenedTenant = db.fork('tenant_acme').branch('main');
+  const reopenedTenant = await db.forks.open('tenant_acme');
   await assert.rejects(
     () => reopenedTenant.collection('projects').create({ id: 'p_2', name: 'Blocked write' }),
     (error: any) => {
@@ -311,7 +436,7 @@ test('migration verification can resume after reopening the db', async () => {
 
   const db = await openDb(options);
   await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
-  const tenant = db.fork('tenant_acme').branch('main');
+  const tenant = await db.forks.open('tenant_acme');
 
   await tenant.migrations.start('projects-to-paid-store', {
     resources: ['projects'],
@@ -323,7 +448,7 @@ test('migration verification can resume after reopening the db', async () => {
   });
 
   const reopened = await openDb(options);
-  const reopenedTenant = reopened.fork('tenant_acme').branch('main');
+  const reopenedTenant = await reopened.forks.open('tenant_acme');
   await reopenedTenant.migrations.verify('projects-to-paid-store', {
     resources: ['projects'],
     checks: ['count', 'checksum'],
@@ -332,7 +457,8 @@ test('migration verification can resume after reopening the db', async () => {
   await reopenedTenant.migrations.finish('projects-to-paid-store');
 
   const secondReopen = await openDb(options);
-  assert.deepEqual(await secondReopen.fork('tenant_acme').branch('main').collection('projects').all(), [
+  const secondReopenedTenant = await secondReopen.forks.open('tenant_acme');
+  assert.deepEqual(await secondReopenedTenant.collection('projects').all(), [
     { id: 'p_1', name: 'Launch checklist' },
   ]);
 });
@@ -345,7 +471,7 @@ test('snapshots write immutable JSON manifests under fork storage', async () => 
 
   const db = await openDb({ cwd });
   await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
-  const main = db.fork('tenant_acme').branch('main');
+  const main = await db.forks.open('tenant_acme');
   const snapshot = await main.snapshots.create({
     label: 'before-publish',
     resources: ['pages'],
@@ -386,13 +512,14 @@ test('fork branch query executes registered operations against branch state', as
     },
   });
   await db.forks.create('tenant_acme', { from: 'main' });
-  const tenant = db.fork('tenant_acme');
+  const tenant = await db.forks.open('tenant_acme');
   await tenant.branches.create('preview', { from: 'main' });
-  await tenant.branch('preview').collection('pages').patch('home', {
+  const preview = await tenant.branches.open('preview');
+  await preview.collection('pages').patch('home', {
     title: 'Preview Home',
   });
 
-  assert.deepEqual(await tenant.branch('preview').query('cms.page', { id: 'home' }), {
+  assert.deepEqual(await preview.query('cms.page', { id: 'home' }), {
     id: 'home',
     title: 'Preview Home',
   });

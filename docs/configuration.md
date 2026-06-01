@@ -535,20 +535,18 @@ change.
 
 ## Runtime Forks
 
-Runtime forks are package API state, not `db.config.mjs` fixture folders. Use `db.forks.create()`, `db.fork(name)`, branches, snapshots, migrations, and routing when an app needs tenants, previews, debug copies, or upgrade flows.
+Runtime forks are package API state, not `db.config.mjs` fixture folders. Use `db.forks.create()`, `db.forks.open()`, `db.forks.ensure()`, branches, snapshots, migrations, and routing when an app needs tenants, previews, debug copies, or upgrade flows.
 
 ```js
-const tenant = await db.forks.create('tenant_acme', {
+const tenant = await db.forks.ensure('tenant_acme', {
   from: 'main',
   kind: 'tenant',
 });
 
-await tenant.branches.create('draft', {
+const draft = await tenant.branches.ensure('draft', {
   from: 'main',
   kind: 'draft',
 });
-
-const draft = tenant.branch('draft');
 ```
 
 The old fixture-folder `forks` and `templates` config surfaces were removed so `fork` has one meaning: an isolated logical database instance.

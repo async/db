@@ -747,17 +747,27 @@ export type DbResourceRegistry = Map<string, unknown> & {
   migrate(resource: string, options: DbResourceMigrateOptions): Promise<void>;
 };
 
+export type DbForkManager<Types extends DbTypeMap = DbTypeMap> = {
+  create(name: string, options?: DbForkCreateOptions): Promise<Db<Types>>;
+  open(name: string): Promise<Db<Types>>;
+  ensure(name: string, options?: DbForkCreateOptions): Promise<Db<Types>>;
+  list(): Promise<Array<Record<string, unknown>>>;
+  delete(name: string): Promise<boolean>;
+};
+
+export type DbBranchManager<Types extends DbTypeMap = DbTypeMap> = {
+  create(name: string, options?: DbBranchCreateOptions): Promise<Db<Types>>;
+  open(name: string): Promise<Db<Types>>;
+  ensure(name: string, options?: DbBranchCreateOptions): Promise<Db<Types>>;
+  list(): Promise<Array<Record<string, unknown>>>;
+  delete(name: string): Promise<boolean>;
+};
+
 export type Db<Types extends DbTypeMap = DbTypeMap> = {
   events: DbRuntimeEvents;
   resources: DbResourceRegistry;
-  forks: {
-    create(name: string, options?: DbForkCreateOptions): Promise<Db<Types>>;
-    list(): Promise<Array<Record<string, unknown>>>;
-    delete(name: string): Promise<boolean>;
-  };
-  branches: {
-    create(name: string, options?: DbBranchCreateOptions): Promise<Db<Types>>;
-  };
+  forks: DbForkManager<Types>;
+  branches: DbBranchManager<Types>;
   snapshots: {
     create(options?: DbSnapshotCreateOptions): Promise<DbSnapshotResult>;
     restore(id: string, options?: DbSnapshotRestoreOptions): Promise<void>;

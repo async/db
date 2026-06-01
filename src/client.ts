@@ -270,7 +270,7 @@ function rejectRemovedForkOption(options: ClientOptions): void {
       'CLIENT_FORK_OPTION_REMOVED',
       'The HTTP client fork option was removed with fixture-folder fork routes.',
       {
-        hint: 'Use runtime db.fork(name).branch(name) on the package API, or pass explicit REST/GraphQL paths for an app-owned tenant route.',
+        hint: 'Use the package API runtime scope with db.forks.open(name) and tenant.branches.open(name), or pass explicit REST/GraphQL paths for an app-owned tenant route.',
         details: {
           fork,
         },
