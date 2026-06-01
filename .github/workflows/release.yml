@@ -22,7 +22,7 @@ permissions:
 jobs:
   release-pr:
     name: Release PR
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.RELEASE_PLEASE_CREATE_PR == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
