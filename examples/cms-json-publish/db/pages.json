@@ -1,0 +1,18 @@
+[
+  {
+    "id": "home",
+    "slug": "home",
+    "title": "Home",
+    "status": "published",
+    "summary": "Public home page",
+    "bodyMarkdown": "# Home"
+  },
+  {
+    "id": "roadmap",
+    "slug": "roadmap",
+    "title": "Roadmap",
+    "status": "draft",
+    "summary": "Draft roadmap",
+    "bodyMarkdown": "# Roadmap"
+  }
+]
