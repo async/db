@@ -324,7 +324,7 @@ test('release automation creates release PRs and publishes npm from pinned actio
     'include-component-in-tag': false,
   });
   assert.deepEqual(releaseManifest, {
-    '.': '0.1.0',
+    '.': '0.2.0',
   });
 });
 
