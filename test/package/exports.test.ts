@@ -310,8 +310,12 @@ test('release automation creates release PRs and publishes npm from pinned actio
   assert.match(workflow, /googleapis\/release-please-action@[0-9a-f]{40} # v4\.[0-9]+\.[0-9]+/);
   assert.match(workflow, /config-file: release-please-config\.json/);
   assert.match(workflow, /manifest-file: \.release-please-manifest\.json/);
+  assert.match(workflow, /vars\.RELEASE_PLEASE_CREATE_PR == 'true'/);
   assert.match(workflow, /Publish existing tag/);
   assert.match(workflow, /Validate package version matches tag/);
+  assert.match(workflow, /Check npm package version/);
+  assert.match(workflow, /npm view "\$\{PACKAGE_NAME\}@\$\{PACKAGE_VERSION\}" version/);
+  assert.match(workflow, /steps\.npm_version\.outputs\.published != 'true'/);
   assert.match(workflow, /actions\/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6\.0\.2/);
   assert.match(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6/);
   assert.match(workflow, /id-token: write/);
@@ -324,7 +328,7 @@ test('release automation creates release PRs and publishes npm from pinned actio
     'include-component-in-tag': false,
   });
   assert.deepEqual(releaseManifest, {
-    '.': '0.2.0',
+    '.': '0.2.1',
   });
 });
 

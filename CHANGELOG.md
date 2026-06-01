@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/async-framework/async-db/releases/tag/v0.2.1) - 2026-06-01
+
+### Fixed
+
+- Made the tag release workflow retry-safe by skipping npm publish when the package version already exists, while still creating or updating the GitHub release asset.
+- Updated release documentation to match the built `dist/` package allowlist, gated Release Please behavior, and manual/tag release flow.
+
 ## [0.2.0](https://github.com/async-framework/async-db/releases/tag/v0.2.0) - 2026-06-01
 
 ### Added
