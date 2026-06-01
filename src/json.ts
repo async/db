@@ -4,7 +4,6 @@ export {
   jsonStore,
   jsonRuntimeCapabilities as jsonStoreCapabilities,
   readJsonState,
-  recordFiles,
   s3Storage,
   statePathForResource as jsonStatePathForResource,
   withJsonStateWrite,

@@ -26,20 +26,12 @@ type ClientRequestOptions = {
 type ClientOptions = {
   baseUrl?: string;
   apiBase?: string;
-  fork?: string;
   restBasePath?: string;
   graphqlPath?: string;
   restBatchPath?: string;
   manifestPath?: string;
   batching?: ClientBatchingOptions;
   cache?: unknown;
-};
-
-type ForkPaths = {
-  restBasePath?: string;
-  restBatchPath?: string;
-  graphqlPath?: string;
-  manifestPath?: string;
 };
 
 type GraphqlRequest = {
@@ -95,20 +87,19 @@ type QueueOptions<TRequest> = {
 type JsonFetchResponse = Pick<Response, 'ok' | 'status' | 'text'>;
 
 export function createDbClient(options: ClientOptions = {}) {
+  rejectRemovedForkOption(options);
   const baseUrl = options.baseUrl ?? '';
   const apiBase = normalizeBasePath(options.apiBase ?? '/__db');
-  const forkPaths = forkPathsForOptions(options);
-  const restBasePath = options.restBasePath ?? forkPaths.restBasePath ?? '';
-  const graphqlPath = options.graphqlPath ?? forkPaths.graphqlPath ?? '/graphql';
-  const restBatchPath = options.restBatchPath ?? forkPaths.restBatchPath ?? `${apiBase}/batch`;
-  const manifestPath = options.manifestPath ?? forkPaths.manifestPath ?? `${apiBase}/manifest.json`;
+  const restBasePath = options.restBasePath ?? '';
+  const graphqlPath = options.graphqlPath ?? '/graphql';
+  const restBatchPath = options.restBatchPath ?? `${apiBase}/batch`;
+  const manifestPath = options.manifestPath ?? `${apiBase}/manifest.json`;
   const batching = normalizeBatching(options.batching);
   const cache = createClientCache({
     cache: options.cache,
     cacheNamespace: {
       baseUrl,
       apiBase,
-      fork: options.fork ?? null,
       manifestPath,
     },
     restBasePath,
@@ -272,47 +263,20 @@ export function createDbClient(options: ClientOptions = {}) {
   };
 }
 
-function forkPathsForOptions(options: ClientOptions): ForkPaths {
-  if (!options.fork) {
-    return {};
-  }
-
-  if (options.restBasePath || options.graphqlPath || options.restBatchPath) {
+function rejectRemovedForkOption(options: ClientOptions): void {
+  const fork = (options as Record<string, unknown>).fork;
+  if (fork !== undefined) {
     throw dbError(
-      'CLIENT_FORK_PATH_CONFLICT',
-      'The client fork option cannot be combined with manual REST, batch, or GraphQL paths.',
+      'CLIENT_FORK_OPTION_REMOVED',
+      'The HTTP client fork option was removed with fixture-folder fork routes.',
       {
-        hint: 'Use either { fork: "legacy-demo" } or explicit restBasePath/graphqlPath/restBatchPath options.',
-      },
-    );
-  }
-
-  const fork = normalizeForkName(options.fork);
-  const apiBase = normalizeBasePath(options.apiBase ?? '/__db');
-  const base = `${apiBase}/forks/${encodeURIComponent(fork)}`;
-  return {
-    restBasePath: `${base}/rest`,
-    restBatchPath: `${base}/batch`,
-    graphqlPath: `${base}/graphql`,
-    manifestPath: `${base}/manifest.json`,
-  };
-}
-
-function normalizeForkName(value: unknown): string {
-  const name = String(value ?? '');
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name)) {
-    throw dbError(
-      'CLIENT_INVALID_FORK_NAME',
-      `Invalid db fork name "${name}".`,
-      {
-        hint: 'Use a folder-style name with letters, numbers, underscores, or hyphens, such as "legacy-demo".',
+        hint: 'Use runtime db.fork(name).branch(name) on the package API, or pass explicit REST/GraphQL paths for an app-owned tenant route.',
         details: {
-          fork: name,
+          fork,
         },
       },
     );
   }
-  return name;
 }
 
 function normalizeBatching(value: ClientBatchingOptions | undefined): NormalizedBatching {

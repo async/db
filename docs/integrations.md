@@ -34,16 +34,13 @@ GET  /__db/rest/users/u_1
 Use the virtual browser client from app code:
 
 ```ts
-import db, { fork } from 'virtual:db/client';
+import db from 'virtual:db/client';
 
 const users = await db.rest.get('/users');
 const selected = await db.rest.get('/users?select=id,name');
-
-const legacyDb = fork('legacy-demo');
-const legacyUsers = await legacyDb.rest.get('/users');
 ```
 
-Plugin options include `cwd`, `dbDir`, `outputs`, legacy `stateDir`, `templates`, legacy `forks`, `apiBase`, `dataPath`, `restBasePath`, `graphqlPath`, `rootRoutes`, `clientVirtualModule`, `clientImport`, and `clientCache`.
+Plugin options include `cwd`, `dbDir`, `outputs`, legacy `stateDir`, `apiBase`, `dataPath`, `restBasePath`, `graphqlPath`, `rootRoutes`, `clientVirtualModule`, `clientImport`, and `clientCache`.
 The plugin uses `apiBase` first, then `server.apiBase`, then `/__db` for scoped dev routes.
 Use `server.dataPath: false` to disable the `/db` app-facing data route alias.
 

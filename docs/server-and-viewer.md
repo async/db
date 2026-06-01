@@ -464,18 +464,3 @@ Unsupported in v1:
 `serve` watches fixture sources, ignores `.db/`, reloads valid resources when files change, and surfaces file-specific diagnostics in the viewer without breaking unrelated resources.
 
 If an app commits generated files under frontend source folders, Vite may still reload when those files genuinely change. Only ignore generated files that the browser does not need to hot reload.
-
-## Advanced: Fixture Template Routes
-
-Template-scoped routes are derived automatically from `templates` config. The path keeps `/forks/` for compatibility with existing dev clients:
-
-```txt
-GET  /__db/forks/legacy-demo/rest/users
-POST /__db/forks/legacy-demo/batch
-POST /__db/forks/legacy-demo/graphql
-GET  /__db/forks/legacy-demo/schema
-```
-
-These routes also follow `server.apiBase`.
-
-See [Configuration](./configuration.md) for template setup and [Package API](./package-api.md) for client usage.

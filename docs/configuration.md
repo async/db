@@ -44,7 +44,6 @@ See [db.config.example.mjs](../db.config.example.mjs) for a commented config wit
 | Local latency | `30-100ms` | `mock.delay` |
 | Random local failures | Off | `mock.errors` |
 | GraphQL endpoint | `/graphql`, enabled | `graphql` |
-| Alternate fixture templates | Off | `templates` |
 | Host, port, dev-tool route base, body limit | `127.0.0.1:7331`, `/__db`, 1 MB bodies | `server` |
 
 ## Full Example
@@ -150,11 +149,6 @@ export default defineConfig({
     errors: null,
   },
 
-  templates: {
-    'legacy-demo': {
-      dbDir: './db.templates/legacy-demo',
-    },
-  },
 });
 ```
 
@@ -357,7 +351,7 @@ export default defineConfig({
 ```
 
 `server.apiBase` scopes the standalone viewer and internal development routes:
-viewer, schema, batch, import, live events, runtime log, and fork routes. REST
+viewer, schema, batch, import, live events, and runtime log. REST
 resources such as `/users` and the standalone GraphQL path stay unchanged unless
 you configure those surfaces separately.
 
@@ -539,43 +533,17 @@ async-db operations contract --check
 `--out <file>` when provided, and fails when the exposed operation names or refs
 change.
 
-## Fixture Templates
+## Runtime Forks
 
-Use fixture templates when part of an app needs an alternate fixture shape while other pages move to a new shape. Templates are input fixtures for local development and generated clients. Runtime database forks for tenants, previews, snapshots, and migrations use `openDb().fork()` and `db.forks.create()` instead.
-
-```txt
-db/                              current database shape
-db.templates/legacy-demo/        alternate demo/page shape
-.db/state/                       generated state for db/
-.db/forks/legacy-demo/           generated state for the template route
-```
+Runtime forks are package API state, not `db.config.mjs` fixture folders. Use `db.forks.create()`, `db.fork(name)`, branches, snapshots, migrations, and routing when an app needs tenants, previews, debug copies, or upgrade flows.
 
 ```js
-import { defineConfig } from '@async/db/config';
-
-export default defineConfig({
-  templates: {
-    'legacy-demo': {
-      dbDir: './db.templates/legacy-demo',
-    },
-  },
+const tenant = await db.forks.create('tenant_acme', {
+  from: 'main',
+  kind: 'tenant',
 });
+
+const draft = tenant.branch('draft');
 ```
 
-For a custom folder:
-
-```js
-export default defineConfig({
-  templates: {
-    'legacy-demo': {
-      dbDir: './fixtures/legacy-demo',
-    },
-  },
-});
-```
-
-Template names are folder-style slugs: they must start with an alphanumeric character and may contain letters, numbers, underscores, and hyphens.
-
-Existing `forks` config still works as a compatibility alias for `templates`. Prefer `templates` in new configs so fixture shapes do not get confused with the runtime fork/branch API.
-
-The HTTP route remains `/__db/forks/:name/...` for compatibility with existing dev clients. See [Server And Viewer](./server-and-viewer.md) for route details and [Package API](./package-api.md) for client usage.
+The old fixture-folder `forks` and `templates` config surfaces were removed so `fork` has one meaning: an isolated logical database instance.

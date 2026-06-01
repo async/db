@@ -84,8 +84,6 @@ type DefaultConfig = {
     delay: [number, number] | number | false;
     errors: unknown;
   };
-  templates: Record<string, unknown>;
-  forks: Record<string, unknown>;
   generate: {
     hono: {
       outDir: string;
@@ -182,8 +180,6 @@ export const DEFAULT_CONFIG: DefaultConfig = {
     delay: [30, 100],
     errors: null,
   },
-  templates: {},
-  forks: {},
   generate: {
     hono: {
       outDir: './db-api',

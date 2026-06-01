@@ -1,8 +1,6 @@
 import type { DbCacheEventPolicy, DbCacheReadPolicy, DbCacheWritePolicy, DbClient, DbOptions, DbTraceOptions } from './index.d.ts';
 
 export type DbVirtualClient = DbClient & {
-  /** Create a client scoped to a configured database fork. */
-  fork(name: string): DbClient;
 };
 
 export type DbViteClientCacheOptions = boolean | {
@@ -12,7 +10,7 @@ export type DbViteClientCacheOptions = boolean | {
   eventPolicy?: DbCacheEventPolicy;
 };
 
-export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'outputs' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'operations' | 'mock' | 'templates' | 'forks'> & {
+export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'outputs' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'operations' | 'mock'> & {
   /** Scoped base for db dev tools. Defaults to "/__db". */
   apiBase?: string;
   /** App-facing REST data route alias. Defaults to "/db"; set false to disable. */
@@ -57,7 +55,5 @@ export function dbPlugin(options?: DbVitePluginOptions): ViteLikePlugin;
 
 declare module 'virtual:db/client' {
   export const client: DbVirtualClient;
-  export function fork(name: string): DbClient;
-  export const createForkClient: typeof fork;
   export default client;
 }

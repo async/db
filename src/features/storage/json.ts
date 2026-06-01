@@ -45,16 +45,10 @@ type S3StorageOptions = {
   encryption?: unknown;
 };
 
-type RecordFilesLayout = {
-  mode: 'record-files';
-  key: string;
-};
-
 type JsonStoreOptions = {
   storage?: FileStorageOptions | S3StorageOptions;
   durability?: 'current' | 'versioned' | string;
   encryption?: unknown;
-  resources?: Record<string, RecordFilesLayout>;
 };
 
 export const jsonRuntimeCapabilities = {
@@ -80,13 +74,6 @@ export function s3Storage(options: Omit<S3StorageOptions, 'kind'>): S3StorageOpt
   };
 }
 
-export function recordFiles(options: { key: string }): RecordFilesLayout {
-  return {
-    mode: 'record-files',
-    key: options.key,
-  };
-}
-
 export function jsonStore(options: JsonStoreOptions = {}) {
   return ({ config, storeName }: { config: RuntimeConfig; resources: RuntimeResource[]; storeName: string }) => {
     const storage = options.storage ?? fileStorage(config.stateDir);
@@ -105,9 +92,7 @@ export function jsonStore(options: JsonStoreOptions = {}) {
         ...jsonRuntimeCapabilities,
         durability: options.durability ?? 'current',
         encryption: options.encryption ?? null,
-        layout: {
-          resources: options.resources ?? {},
-        },
+        layout: 'resource-files',
       },
       statePath,
       readResource(resource: RuntimeResource, fallback: unknown) {
@@ -197,9 +182,7 @@ function unsupportedObjectStorageAdapter(storeName: string, storage: S3StorageOp
       persistence: 'object-storage',
       durability: options.durability ?? 'versioned',
       encryption: storage.encryption ?? options.encryption ?? null,
-      layout: {
-        resources: options.resources ?? {},
-      },
+      layout: 'resource-files',
     },
     readResource() {
       throw error();

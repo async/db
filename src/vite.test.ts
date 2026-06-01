@@ -18,22 +18,8 @@ test('db Vite plugin is serve-only and exposes a virtual client module', async (
   assert.match(loaded, /restBasePath: "\/__db\/rest"/);
   assert.match(loaded, /graphqlPath: "\/__db\/graphql"/);
   assert.match(loaded, /restBatchPath: "\/__db\/batch"/);
-  assert.match(loaded, /export function fork/);
-  assert.match(loaded, /client\.fork = fork/);
-});
-
-test('db Vite virtual client creates fork clients under the configured apiBase', async () => {
-  const plugin = dbPlugin({
-    apiBase: '/local-data',
-  });
-
-  const loaded = await plugin.load('\0virtual:db/client');
-
-  assert.match(loaded, /const forkBase = `\/local-data\/forks\/\$\{encodeURIComponent\(forkName\)\}`;/);
-  assert.match(loaded, /manifestPath: `\$\{forkBase\}\/manifest\.json`/);
-  assert.match(loaded, /restBasePath: `\$\{forkBase\}\/rest`/);
-  assert.match(loaded, /restBatchPath: `\$\{forkBase\}\/batch`/);
-  assert.match(loaded, /graphqlPath: `\$\{forkBase\}\/graphql`/);
+  assert.doesNotMatch(loaded, /export function fork/);
+  assert.doesNotMatch(loaded, /client\.fork/);
 });
 
 test('db Vite plugin falls back to configured server apiBase', async () => {
@@ -49,7 +35,7 @@ test('db Vite plugin falls back to configured server apiBase', async () => {
   assert.match(loaded, /graphqlPath: "\/_db\/graphql"/);
   assert.match(loaded, /restBatchPath: "\/_db\/batch"/);
   assert.match(loaded, /manifestPath: "\/_db\/manifest\.json"/);
-  assert.match(loaded, /const forkBase = `\/_db\/forks\/\$\{encodeURIComponent\(forkName\)\}`;/);
+  assert.doesNotMatch(loaded, /\/forks/);
 });
 
 test('db Vite plugin apiBase option wins over configured server apiBase', async () => {
@@ -93,7 +79,7 @@ test('db Vite virtual client can opt into memory cache options', async () => {
 
   assert.match(loaded, /manifestPath: "\/local-data\/manifest\.json"/);
   assert.match(loaded, /cache: \{"enabled":true,"readPolicy":"cache-and-network","writePolicy":"refetch","eventPolicy":false\}/);
-  assert.match(loaded, /manifestPath: `\$\{forkBase\}\/manifest\.json`/);
+  assert.doesNotMatch(loaded, /forkBase/);
   assert.doesNotMatch(loaded, /storage/);
 });
 

@@ -128,10 +128,8 @@ function resolveViteRoutes(options: DbVitePluginOptions): ResolvedViteRoutes {
 }
 
 function renderVirtualClient(routes: ResolvedViteRoutes, clientImport: string, clientCache: ClientCacheOptions): string {
-  const forkBasePath = `${routes.apiBase || ''}/forks`;
   const cacheOption = serializeVirtualClientCache(clientCache);
   const defaultCacheLine = cacheOption ? `  cache: ${cacheOption},\n` : '';
-  const forkCacheLine = cacheOption ? `    cache: ${cacheOption},\n` : '';
   return `import { createDbClient } from ${JSON.stringify(clientImport)};
 
 export const client = createDbClient({
@@ -141,25 +139,6 @@ export const client = createDbClient({
   graphqlPath: ${JSON.stringify(routes.graphqlPath)},
 ${defaultCacheLine}
 });
-
-export function fork(name) {
-  const forkName = String(name ?? '');
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(forkName)) {
-    throw new Error(\`Invalid db fork name "\${forkName}". Use letters, numbers, underscores, or hyphens.\`);
-  }
-
-  const forkBase = \`${forkBasePath}/\${encodeURIComponent(forkName)}\`;
-  return createDbClient({
-    manifestPath: \`\${forkBase}/manifest.json\`,
-    restBasePath: \`\${forkBase}/rest\`,
-    restBatchPath: \`\${forkBase}/batch\`,
-    graphqlPath: \`\${forkBase}/graphql\`,
-${forkCacheLine}
-  });
-}
-
-export const createForkClient = fork;
-client.fork = fork;
 
 export default client;
 `;

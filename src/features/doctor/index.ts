@@ -1,5 +1,4 @@
 import { loadProjectSchema } from '../../schema.js';
-import { forkSourceExists, isValidForkName } from '../config/forks.js';
 import { resourceConfigValue } from '../../names.js';
 import { duplicateIdFindings, mixedIdTypeFindings } from './duplicate-ids.js';
 import { inconsistentFieldTypeFindings } from './field-consistency.js';
@@ -77,10 +76,6 @@ type StoreConfig = string | {
   [key: string]: unknown;
 };
 
-type ForkConfig = DoctorConfig & {
-  sourceDir: string;
-};
-
 type DoctorConfig = {
   doctor?: {
     production?: boolean;
@@ -90,8 +85,6 @@ type DoctorConfig = {
   stores?: Record<string, StoreConfig> & {
     default?: string;
   };
-  templates?: Record<string, ForkConfig>;
-  forks?: Record<string, ForkConfig>;
   [key: string]: unknown;
 };
 
@@ -114,82 +107,11 @@ export async function runDbDoctor(config: DoctorConfig): Promise<DoctorResult> {
     ...doctorResourceFindings(project.resources, config),
     ...schemaGuidanceFindings(project, inferredProject),
     ...await operationStrictModeFindings(config),
-    ...await doctorForkFindings(config),
   ];
 
   return {
     summary: summarizeFindings(findings),
     findings,
-  };
-}
-
-async function doctorForkFindings(config: DoctorConfig): Promise<DoctorFinding[]> {
-  const findings: DoctorFinding[] = [];
-  for (const [forkName, forkConfig] of Object.entries(config.forks ?? {})) {
-    if (!isValidForkName(forkName)) {
-      findings.push({
-        code: 'FORK_NAME_INVALID',
-        severity: 'error',
-        source: 'doctor',
-        message: `Invalid db fork name "${forkName}".`,
-        hint: 'Use a folder-style name with letters, numbers, underscores, or hyphens, such as "legacy-demo".',
-        details: {
-          fork: forkName,
-        },
-      });
-      continue;
-    }
-
-    if (!await forkSourceExists(forkConfig)) {
-      findings.push({
-        code: 'FORK_SOURCE_MISSING',
-        severity: 'error',
-        source: 'doctor',
-        message: `fixture template "${forkName}" source folder does not exist: ${forkConfig.sourceDir}`,
-        hint: `Create db.templates/${forkName}/ or update templates["${forkName}"] in db.config.mjs.`,
-        details: {
-          fork: forkName,
-          sourceDir: forkConfig.sourceDir,
-        },
-      });
-      continue;
-    }
-
-    try {
-      const project = await loadProjectSchema(forkConfig) as DoctorProject;
-      findings.push(
-        ...project.diagnostics.map((diagnostic) => annotateForkFinding(forkName, 'schema', diagnostic)),
-        ...doctorResourceFindings(project.resources, forkConfig).map((finding) => annotateForkFinding(forkName, 'doctor', finding)),
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      findings.push({
-        code: 'FORK_SCHEMA_INVALID',
-        severity: 'error',
-        source: 'doctor',
-        message: `db fork "${forkName}" could not be loaded: ${message}`,
-        hint: `Fix the fork source files in ${forkConfig.sourceDir}.`,
-        details: {
-          fork: forkName,
-          sourceDir: forkConfig.sourceDir,
-        },
-      });
-    }
-  }
-
-  return findings;
-}
-
-function annotateForkFinding(forkName: string, source: string, finding: DoctorDiagnostic): DoctorFinding {
-  const normalized = diagnosticToFinding(finding, source);
-  return {
-    ...normalized,
-    source,
-    message: `Fork "${forkName}": ${normalized.message}`,
-    details: {
-      ...normalized.details,
-      fork: forkName,
-    },
   };
 }
 

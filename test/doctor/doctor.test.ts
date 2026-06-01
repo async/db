@@ -181,21 +181,6 @@ test('doctor suggests unbundling ignored schema seed in mixed mode', async () =>
   assert.match(finding.hint, /async-db schema unbundle users/);
 });
 
-test('doctor validates configured fork folders', async () => {
-  const cwd = await makeProject();
-  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
-  await writeConfig(cwd, `export default {
-    forks: ['legacy-demo', '../unsafe'],
-  };`);
-
-  const config = await loadConfig({ cwd });
-  const result = await runDbDoctor(config);
-
-  assert.equal(result.summary.error, 2);
-  assert.equal(result.findings.some((finding) => finding.code === 'FORK_SOURCE_MISSING' && finding.details?.fork === 'legacy-demo'), true);
-  assert.equal(result.findings.some((finding) => finding.code === 'FORK_NAME_INVALID' && finding.details?.fork === '../unsafe'), true);
-});
-
 test('doctor reports registered-only REST when operations are disabled', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
