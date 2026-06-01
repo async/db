@@ -680,8 +680,13 @@ export type DbDocument<DocumentType> = {
   update(patch: Partial<DocumentType>): Promise<DocumentType>;
 };
 
+export type DbForkSource =
+  | 'main'
+  | { fork?: string | null; branch: string }
+  | { fork?: string | null; snapshot: string };
+
 export type DbForkCreateOptions = {
-  from?: string;
+  from?: DbForkSource;
   kind?: string;
   metadata?: Record<string, unknown>;
 };
@@ -720,6 +725,12 @@ export type DbMigrationLock = {
   resources: string[];
   mode: 'read-only';
   startedAt: string;
+  copies?: Record<string, {
+    resource: string;
+    from: string;
+    to: string;
+    copiedAt: string;
+  }>;
 };
 
 export type DbMigrationVerifyOptions = {

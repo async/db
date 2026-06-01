@@ -10,6 +10,7 @@ import {
   jsonStore,
   readJsonState,
   s3Storage,
+  statePathForResource,
   withJsonStateWrite,
 } from './json.js';
 
@@ -118,6 +119,31 @@ test('jsonStore file storage writes resources under fork branch storage', async 
 `,
   );
   assert.equal(store.capabilities.layout, 'resource-files');
+});
+
+test('jsonStore default storage uses the scoped JSON state path', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-store-default-${Date.now()}-`), { recursive: true });
+  const config = {
+    cwd: dir,
+    stateDir: path.join(dir, 'forks/tenant_acme/branches/main'),
+    __asyncDbScope: {
+      fork: 'tenant_acme',
+      branch: 'main',
+      rootStateDir: dir,
+    },
+  };
+  const storeFactory = jsonStore();
+  const store = storeFactory({
+    config,
+    resources: [],
+    storeName: 'json',
+  }) as ReturnType<typeof storeFactory> & { statePath(resource: { name: string }): string };
+  const resource = { name: 'pages', kind: 'collection' };
+
+  assert.equal(
+    store.statePath(resource),
+    statePathForResource(config, resource),
+  );
 });
 
 test('s3Storage returns an object storage descriptor without bundling an SDK', () => {

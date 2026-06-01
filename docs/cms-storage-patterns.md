@@ -6,10 +6,9 @@ CMS workflows are app code on top of `@async/db` primitives. The package should 
 
 ```js
 export function createCms(db, { tenantId }) {
-  const tenant = db.fork(tenantId);
-
   return {
     saveDraft(pageId, changes) {
+      const tenant = db.fork(tenantId);
       return tenant.branch('draft').collection('pages').patch(pageId, {
         ...changes,
         status: 'draft',
@@ -17,6 +16,7 @@ export function createCms(db, { tenantId }) {
     },
 
     async publish() {
+      const tenant = db.fork(tenantId);
       const draft = tenant.branch('draft');
       const published = tenant.branch('published');
       const pages = await draft.collection('pages').all();

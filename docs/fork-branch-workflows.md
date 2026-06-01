@@ -12,6 +12,11 @@
 Every query should run inside one fork and branch:
 
 ```js
+await db.forks.create('tenant_acme', {
+  from: 'main',
+  kind: 'tenant',
+});
+
 const tenant = db.fork('tenant_acme').branch('main');
 
 await tenant.query('projects.list');
@@ -63,7 +68,7 @@ Debugging a production issue should not mutate production data:
 ```js
 export async function createDebugForkFromSnapshot({ snapshotId, ticketId }) {
   await db.forks.create(`debug_${ticketId}`, {
-    from: snapshotId,
+    from: { snapshot: snapshotId },
     kind: 'debug',
     metadata: {
       ticketId,
@@ -84,7 +89,7 @@ The debug fork can run destructive reproductions, then be deleted.
 - Pricing plan staging: edit plan resources on a branch before publishing.
 - Policy rule sandbox: branch permission rules and run access-decision tests.
 - Prompt template experiment: compare generated outputs across prompt branches.
-- Seed/demo template: create tenant forks from a template fork.
+- Seed/demo template: create tenant forks from a template fork with `from: { fork: 'demo_template', branch: 'main' }`.
 - Forked test environment: create a temporary fork, run destructive tests, delete it.
 
 These helpers should live in app code. The package only owns the generic database lifecycle APIs.

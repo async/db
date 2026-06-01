@@ -543,6 +543,11 @@ const tenant = await db.forks.create('tenant_acme', {
   kind: 'tenant',
 });
 
+await tenant.branches.create('draft', {
+  from: 'main',
+  kind: 'draft',
+});
+
 const draft = tenant.branch('draft');
 ```
 

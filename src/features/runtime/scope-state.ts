@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { dbError } from '../../errors.js';
+import { readJsonState, writeJsonState } from '../storage/json.js';
 
 export type DbScope = {
   fork: string | null;
@@ -22,6 +22,14 @@ export type MigrationLock = {
   resources: string[];
   mode: 'read-only';
   startedAt: string;
+  copies?: Record<string, MigrationResourceCopy>;
+};
+
+export type MigrationResourceCopy = {
+  resource: string;
+  from: string;
+  to: string;
+  copiedAt: string;
 };
 
 export function normalizeScopedConfig<TConfig extends RuntimeScopeConfig>(
@@ -92,25 +100,18 @@ export function loadPersistedMigrationLocks(scope: DbScope): Map<string, Migrati
       resources: lock.resources.map(String),
       mode: 'read-only',
       startedAt: typeof lock.startedAt === 'string' ? lock.startedAt : '',
+      copies: migrationCopiesRecord(lock.copies),
     });
   }
   return locks;
 }
 
 export async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
-  try {
-    return JSON.parse(await readFile(filePath, 'utf8')) as T;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return fallback;
-    }
-    throw error;
-  }
+  return readJsonState(filePath, fallback);
 }
 
 export async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  await writeJsonState(filePath, value);
 }
 
 export function snapshotId(label?: string): string {
@@ -193,15 +194,47 @@ function applyPersistedRouting(config: RuntimeScopeConfig, scope: DbScope): void
   config.resources = resourcesConfig;
 }
 
-function readJsonFileSync<T>(filePath: string, fallback: T): T {
+export function readJsonFileSync<T>(filePath: string, fallback: T): T {
   try {
     return JSON.parse(readFileSync(filePath, 'utf8')) as T;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return fallback;
     }
+    if (error instanceof SyntaxError) {
+      throw dbError(
+        'JSON_STATE_INVALID',
+        `JSON state file is not valid JSON: ${filePath}`,
+        {
+          status: 500,
+          hint: 'Restore this file from a known-good snapshot, delete it to rehydrate from seed data when safe, or fix the JSON syntax before restarting.',
+          details: {
+            filePath,
+            parserMessage: error.message,
+          },
+        },
+      );
+    }
     throw error;
   }
+}
+
+function migrationCopiesRecord(value: unknown): Record<string, MigrationResourceCopy> | undefined {
+  const copies = configRecord(value);
+  const normalized: Record<string, MigrationResourceCopy> = {};
+  for (const [resource, copyValue] of Object.entries(copies)) {
+    const copy = configRecord(copyValue);
+    if (typeof copy.from !== 'string' || typeof copy.to !== 'string') {
+      continue;
+    }
+    normalized[resource] = {
+      resource,
+      from: copy.from,
+      to: copy.to,
+      copiedAt: typeof copy.copiedAt === 'string' ? copy.copiedAt : '',
+    };
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 function slugPart(value: string): string {

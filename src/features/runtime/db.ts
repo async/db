@@ -19,9 +19,11 @@ import {
   forkRegistryPath,
   loadPersistedMigrationLocks,
   type MigrationLock,
+  type MigrationResourceCopy,
   migrationLocksPathForScope,
   normalizeScopedConfig,
   readJsonFile,
+  readJsonFileSync,
   routingPathForScope,
   scopedConfig,
   snapshotDirForScope,
@@ -71,8 +73,13 @@ type OpenDbOptions = Record<string, unknown> & {
 
 type RuntimeFacade = ReturnType<typeof createRuntime>;
 
+type ForkSource =
+  | 'main'
+  | { fork?: string | null; branch: string }
+  | { fork?: string | null; snapshot: string };
+
 type ForkCreateOptions = {
-  from?: string;
+  from?: ForkSource;
   kind?: string;
   metadata?: Record<string, unknown>;
 };
@@ -107,11 +114,6 @@ type ResourceMigrateOptions = {
   to: string;
 };
 
-type MigrationCopy = {
-  from: string;
-  to: string;
-};
-
 type SnapshotResult = {
   id: string;
   label?: string;
@@ -120,6 +122,23 @@ type SnapshotResult = {
   resources: string[];
   path: string;
 };
+
+type ResolvedForkSource =
+  | { kind: 'db'; label: string; db: Db }
+  | { kind: 'snapshot'; label: string; snapshotDir: string; resources: string[] };
+
+class DbResourceRegistry extends Map<string, DbResource> {
+  constructor(
+    entries: Array<[string, DbResource]>,
+    private readonly migrateResource: (name: string, options: ResourceMigrateOptions) => Promise<void>,
+  ) {
+    super(entries);
+  }
+
+  migrate(name: string, options: ResourceMigrateOptions): Promise<void> {
+    return this.migrateResource(name, options);
+  }
+}
 
 export async function openDb(options: OpenDbOptions | string = {}): Promise<Db> {
   const rawOptions = typeof options === 'string' ? { from: options } : options;
@@ -181,7 +200,7 @@ function isLoadedDbSchema(value: unknown): value is LoadedDbSchema {
 
 export class Db {
   config: DbConfig;
-  resources: Map<string, DbResource>;
+  resources: DbResourceRegistry;
   diagnostics: unknown[];
   schemaVersion: number;
   runtime: RuntimeFacade;
@@ -208,12 +227,14 @@ export class Db {
     set: (routes: Record<string, string>) => Promise<Record<string, string>>;
   };
   private migrationLocks: Map<string, MigrationLock>;
-  private migrationCopies: Map<string, MigrationCopy>;
 
   constructor(config: DbConfig, resources: DbResource[], diagnostics: unknown[] = [], scope?: DbScope) {
     const scoped = normalizeScopedConfig(config, scope);
     this.config = scoped.config as DbConfig;
-    this.resources = new Map(resources.map((resource) => [resource.name, resource]));
+    this.resources = new DbResourceRegistry(
+      resources.map((resource) => [resource.name, resource]),
+      (name, options) => this.migrateResource(name, options),
+    );
     assertNoResourceAliasCollisions(this.resources);
     this.diagnostics = diagnostics;
     this.schemaVersion = Date.now();
@@ -221,7 +242,6 @@ export class Db {
     this.runtime = createRuntime(this.config, resources);
     this.events = this.runtime.events;
     this.migrationLocks = loadPersistedMigrationLocks(this.scope);
-    this.migrationCopies = new Map();
     this.forks = {
       create: (name, options = {}) => this.createFork(name, options),
       list: () => this.listForks(),
@@ -242,10 +262,6 @@ export class Db {
     this.routing = {
       set: (routes) => this.setRouting(routes),
     };
-    (this.resources as Map<string, DbResource> & { migrate?: unknown }).migrate = (
-      name: string,
-      options: ResourceMigrateOptions,
-    ) => this.migrateResource(name, options);
   }
 
   collection(name: string): DbCollection {
@@ -269,6 +285,8 @@ export class Db {
 
   fork(name: string): Db {
     assertValidScopedName(name, 'fork');
+    this.assertForkExists(name);
+    this.assertBranchExists(name, 'main');
     return this.scopedDb({
       fork: name,
       branch: 'main',
@@ -291,6 +309,7 @@ export class Db {
         },
       );
     }
+    this.assertBranchExists(this.scope.fork, name);
     return this.scopedDb({
       fork: this.scope.fork,
       branch: name,
@@ -376,19 +395,36 @@ export class Db {
   private async createFork(name: string, options: ForkCreateOptions = {}): Promise<Db> {
     assertValidScopedName(name, 'fork');
     const now = new Date().toISOString();
+    const source = await this.resolveForkSource(options.from);
+    const target = this.scopedDb({
+      fork: name,
+      branch: 'main',
+      rootStateDir: this.scope.rootStateDir,
+    });
+
+    await copyForkSource(source, target, this.resourceNames());
+
     const registryPath = forkRegistryPath(this.scope.rootStateDir);
     const registry = await readJsonFile(registryPath, { forks: {} });
     registry.forks[name] = {
       id: name,
       kind: options.kind ?? 'fork',
       metadata: options.metadata ?? {},
-      from: options.from ?? 'main',
+      from: serializeForkSource(options.from),
       createdAt: now,
     };
     await writeJsonFile(registryPath, registry);
 
-    const target = this.fork(name);
-    await copyResources(this, target, this.resourceNames());
+    await this.writeBranchRegistry(name, {
+      main: {
+        id: 'main',
+        kind: 'main',
+        metadata: {},
+        from: source.label,
+        createdAt: now,
+      },
+    });
+
     return target;
   }
 
@@ -426,7 +462,11 @@ export class Db {
       );
     }
     const source = this.branch(options.from ?? this.scope.branch ?? 'main');
-    const target = this.branch(name);
+    const target = this.scopedDb({
+      fork: this.scope.fork,
+      branch: name,
+      rootStateDir: this.scope.rootStateDir,
+    });
     await copyResources(source, target, this.resourceNames());
 
     const registryPath = branchRegistryPath(this.scope.rootStateDir, this.scope.fork);
@@ -511,9 +551,7 @@ export class Db {
       startedAt: new Date().toISOString(),
     };
     this.migrationLocks.set(name, lock);
-    await writeJsonFile(this.migrationLocksPath(), {
-      locks: Object.fromEntries(this.migrationLocks),
-    });
+    await this.persistMigrationLocks();
     return lock;
   }
 
@@ -531,18 +569,21 @@ export class Db {
     }
     const migrationName = this.activeMigrationForResource(resource.name);
     if (migrationName) {
-      this.migrationCopies.set(`${migrationName}:${resource.name}`, {
+      await this.recordMigrationCopy(migrationName, resource.name, {
+        resource: resource.name,
         from: options.from,
         to: options.to,
+        copiedAt: new Date().toISOString(),
       });
     }
   }
 
   private async verifyMigration(name: string, options: MigrationVerifyOptions): Promise<void> {
     const checks = options.checks ?? ['count', 'schema', 'checksum'];
+    const lock = this.migrationLocks.get(name);
     for (const resourceName of options.resources) {
       const resource = this.resourceForName(resourceName);
-      const copy = this.migrationCopies.get(`${name}:${resource.name}`);
+      const copy = lock?.copies?.[resource.name];
       if (!copy) {
         throw dbError(
           'MIGRATION_VERIFY_FAILED',
@@ -575,14 +616,7 @@ export class Db {
 
   private async finishMigration(name: string): Promise<void> {
     this.migrationLocks.delete(name);
-    for (const key of [...this.migrationCopies.keys()]) {
-      if (key.startsWith(`${name}:`)) {
-        this.migrationCopies.delete(key);
-      }
-    }
-    await writeJsonFile(this.migrationLocksPath(), {
-      locks: Object.fromEntries(this.migrationLocks),
-    });
+    await this.persistMigrationLocks();
   }
 
   private async setRouting(routes: Record<string, string>): Promise<Record<string, string>> {
@@ -612,6 +646,183 @@ export class Db {
       }
     }
     return null;
+  }
+
+  private assertForkExists(name: string): void {
+    const registry = readJsonFileSync(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
+    if (configRecord(registry.forks)[name]) {
+      return;
+    }
+    throw dbError(
+      'DB_FORK_NOT_FOUND',
+      `Fork "${name}" was not found.`,
+      {
+        status: 404,
+        hint: 'Create the fork with db.forks.create(name) before opening it, or check the fork id.',
+        details: {
+          fork: name,
+        },
+      },
+    );
+  }
+
+  private assertBranchExists(fork: string, name: string): void {
+    const registry = readJsonFileSync(branchRegistryPath(this.scope.rootStateDir, fork), { branches: {} });
+    if (configRecord(registry.branches)[name]) {
+      return;
+    }
+    throw dbError(
+      'DB_BRANCH_NOT_FOUND',
+      `Branch "${name}" was not found in fork "${fork}".`,
+      {
+        status: 404,
+        hint: 'Create the branch with db.fork(name).branches.create(branch) before opening it, or check the branch id.',
+        details: {
+          fork,
+          branch: name,
+        },
+      },
+    );
+  }
+
+  private async resolveForkSource(from: ForkSource | undefined): Promise<ResolvedForkSource> {
+    if (from === undefined || from === 'main') {
+      return {
+        kind: 'db',
+        label: 'main',
+        db: this,
+      };
+    }
+
+    if (typeof from === 'string') {
+      throw dbError(
+        'DB_FORK_SOURCE_UNSUPPORTED',
+        `Unsupported fork source "${from}".`,
+        {
+          status: 400,
+          hint: 'Use from: "main", from: { fork, branch }, or from: { fork, snapshot } so the source is unambiguous.',
+          details: {
+            from,
+          },
+        },
+      );
+    }
+
+    if ('snapshot' in from) {
+      const sourceScope = this.sourceScope(from.fork ?? this.scope.fork ?? null, this.scope.branch);
+      const snapshot = String(from.snapshot);
+      assertValidSnapshotId(snapshot);
+      const snapshotDir = snapshotDirForScope(sourceScope, snapshot);
+      const manifest = await readJsonFile(path.join(snapshotDir, 'manifest.json'), null);
+      if (!manifest) {
+        throw dbError(
+          'DB_SNAPSHOT_NOT_FOUND',
+          `Snapshot "${snapshot}" was not found.`,
+          {
+            status: 404,
+            hint: 'Create the snapshot before using it as a fork source, or pass the fork that owns the snapshot.',
+            details: {
+              snapshot,
+              fork: sourceScope.fork,
+            },
+          },
+        );
+      }
+      const manifestRecord = configRecord(manifest);
+      return {
+        kind: 'snapshot',
+        label: `snapshot:${snapshot}`,
+        snapshotDir,
+        resources: Array.isArray(manifestRecord.resources)
+          ? manifestRecord.resources.map(String)
+          : this.resourceNames(),
+      };
+    }
+
+    const sourceBranch = from.branch;
+    if (typeof sourceBranch !== 'string') {
+      throw dbError(
+        'DB_FORK_SOURCE_UNSUPPORTED',
+        'Fork branch sources must include a branch name.',
+        {
+          status: 400,
+          hint: 'Use from: { fork: "tenant_id", branch: "main" } when copying from another fork branch.',
+          details: {
+            from,
+          },
+        },
+      );
+    }
+    const sourceScope = this.sourceScope(from.fork ?? this.scope.fork ?? null, sourceBranch);
+    if (sourceScope.fork) {
+      this.assertForkExists(sourceScope.fork);
+      this.assertBranchExists(sourceScope.fork, sourceScope.branch);
+    } else if (sourceScope.branch !== 'main') {
+      throw dbError(
+        'DB_BRANCH_REQUIRES_FORK',
+        `Cannot use root branch "${sourceScope.branch}" as a fork source.`,
+        {
+          status: 400,
+          hint: 'Only root main can be used without a fork. Use from: { fork, branch } for branch sources.',
+          details: {
+            branch: sourceScope.branch,
+          },
+        },
+      );
+    }
+
+    return {
+      kind: 'db',
+      label: sourceScope.fork
+        ? `fork:${sourceScope.fork}/branch:${sourceScope.branch}`
+        : sourceScope.branch,
+      db: this.scopedDb(sourceScope),
+    };
+  }
+
+  private sourceScope(fork: string | null, branch = 'main'): DbScope {
+    if (fork) {
+      assertValidScopedName(fork, 'fork');
+    }
+    assertValidScopedName(branch, 'branch');
+    return {
+      fork,
+      branch,
+      rootStateDir: this.scope.rootStateDir,
+    };
+  }
+
+  private async writeBranchRegistry(fork: string, branches: Record<string, Record<string, unknown>>): Promise<void> {
+    const registryPath = branchRegistryPath(this.scope.rootStateDir, fork);
+    const registry = await readJsonFile(registryPath, { branches: {} });
+    registry.branches = {
+      ...configRecord(registry.branches),
+      ...branches,
+    };
+    await writeJsonFile(registryPath, registry);
+  }
+
+  private async recordMigrationCopy(
+    migrationName: string,
+    resourceName: string,
+    copy: MigrationResourceCopy,
+  ): Promise<void> {
+    const lock = this.migrationLocks.get(migrationName);
+    if (!lock) {
+      return;
+    }
+    lock.copies = {
+      ...(lock.copies ?? {}),
+      [resourceName]: copy,
+    };
+    this.migrationLocks.set(migrationName, lock);
+    await this.persistMigrationLocks();
+  }
+
+  private async persistMigrationLocks(): Promise<void> {
+    await writeJsonFile(this.migrationLocksPath(), {
+      locks: Object.fromEntries(this.migrationLocks),
+    });
   }
 
   resourceForName(name: string): DbResource {
@@ -657,6 +868,21 @@ async function copyResources(source: Db, target: Db, resourceNames: string[]): P
   }
 }
 
+async function copyForkSource(source: ResolvedForkSource, target: Db, resourceNames: string[]): Promise<void> {
+  if (source.kind === 'db') {
+    await copyResources(source.db, target, resourceNames);
+    return;
+  }
+
+  for (const resourceName of source.resources) {
+    const resource = target.resourceForName(resourceName);
+    const value = await readJsonFile(path.join(source.snapshotDir, 'resources', `${resource.name}.json`), undefined);
+    if (value !== undefined) {
+      await writeResourceValue(target, resource, value);
+    }
+  }
+}
+
 async function readResourceValue(db: Db, resource: DbResource): Promise<unknown> {
   return db.runtime.adapterFor(resource).readResource?.(resource, fallbackForResource(resource));
 }
@@ -695,6 +921,10 @@ function countValue(value: unknown): number {
 
 function stableJson(value: unknown): string {
   return JSON.stringify(sortJson(value));
+}
+
+function serializeForkSource(from: ForkSource | undefined): unknown {
+  return from ?? 'main';
 }
 
 function sortJson(value: unknown): unknown {

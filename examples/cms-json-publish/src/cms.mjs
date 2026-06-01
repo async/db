@@ -3,8 +3,6 @@ import { fileURLToPath } from 'node:url';
 import { openDb } from '@async/db';
 
 export function createCms(db, { tenantId }) {
-  const tenant = db.fork(tenantId);
-
   return {
     async setup() {
       await db.forks.create(tenantId, {
@@ -14,11 +12,13 @@ export function createCms(db, { tenantId }) {
           app: 'cms-json-publish',
         },
       });
+      const tenant = db.fork(tenantId);
       await tenant.branches.create('draft', { from: 'main', kind: 'draft' });
       await tenant.branches.create('published', { from: 'main', kind: 'published' });
     },
 
     async saveDraft(pageId, changes) {
+      const tenant = db.fork(tenantId);
       const draft = tenant.branch('draft');
       return draft.collection('pages').patch(pageId, {
         ...changes,
@@ -28,6 +28,7 @@ export function createCms(db, { tenantId }) {
     },
 
     async createPreview(previewId) {
+      const tenant = db.fork(tenantId);
       await tenant.branches.create(previewId, {
         from: 'draft',
         kind: 'preview',
@@ -37,6 +38,7 @@ export function createCms(db, { tenantId }) {
     },
 
     async publish({ label = 'publish' } = {}) {
+      const tenant = db.fork(tenantId);
       const draft = tenant.branch('draft');
       const published = tenant.branch('published');
       const snapshot = await draft.snapshots.create({
@@ -65,6 +67,7 @@ export function createCms(db, { tenantId }) {
     },
 
     async listPublishedPages() {
+      const tenant = db.fork(tenantId);
       return tenant.branch('published').collection('pages').all();
     },
   };
