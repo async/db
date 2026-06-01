@@ -540,12 +540,12 @@ Runtime forks are package API state, not `db.config.mjs` fixture folders. Use `d
 ```js
 const tenant = await db.forks.ensure('tenant_acme', {
   from: 'main',
-  kind: 'tenant',
+  metadata: { purpose: 'tenant' },
 });
 
 const draft = await tenant.branches.ensure('draft', {
   from: 'main',
-  kind: 'draft',
+  metadata: { purpose: 'draft' },
 });
 ```
 

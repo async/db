@@ -9,6 +9,8 @@
 - `snapshot`: immutable captured state of a fork branch.
 - `migration`: app-controlled move of one resource from one store to another.
 
+Fork and branch records keep app labels in `metadata`. Core does not have a top-level `kind` field for lifecycle records because concepts like `tenant`, `debug`, `draft`, or `preview` are app-owned.
+
 The default root database already points at `main`, so simple apps can call resources and operations directly:
 
 ```js
@@ -21,7 +23,7 @@ When an app has tenants or sandboxes, open or ensure the fork. A fork handle sta
 ```js
 const tenant = await db.forks.ensure('tenant_acme', {
   from: 'main',
-  kind: 'tenant',
+  metadata: { purpose: 'tenant' },
 });
 
 await tenant.query('projects.list');
@@ -82,8 +84,8 @@ Debugging a production issue should not mutate production data:
 export async function createDebugForkFromSnapshot({ snapshotId, ticketId }) {
   return db.forks.create(`debug_${ticketId}`, {
     from: { snapshot: snapshotId },
-    kind: 'debug',
     metadata: {
+      purpose: 'debug',
       ticketId,
       ttl: '24h',
     },

@@ -182,9 +182,9 @@ const contentSchema = collection({
 
 const dbPromise: Promise<Db<DbTypes>> = openDb<DbTypes>(options);
 void dbPromise.then(async (db) => {
-  await db.forks.create('tenant_acme', { from: 'main', kind: 'tenant' });
+  await db.forks.create('tenant_acme', { from: 'main', metadata: { purpose: 'tenant' } });
   const tenant = await db.forks.open('tenant_acme');
-  await tenant.branches.ensure('preview', { from: 'main', kind: 'preview' });
+  await tenant.branches.ensure('preview', { from: 'main', metadata: { purpose: 'preview' } });
   const preview = await tenant.branches.open('preview');
   const branchList = await tenant.branches.list();
   await preview.snapshots.create({ resources: ['users'] });
@@ -373,6 +373,15 @@ test('public declarations expose stable operation handler API', async () => {
   assert.match(declarations, /executeRequest\(ref: string, body\?: DbOperationRequestBody \| null\): Promise<DbOperationResult>;/);
   assert.doesNotMatch(declarations, /execute\(ref: string, variables\?: Record<string, unknown>, options\?: unknown\)/);
   assert.doesNotMatch(declarations, /executeRequest\(ref: string, body\?: .*options\?: unknown\)/);
+});
+
+test('public declarations keep fork and branch purpose in metadata', async () => {
+  const declarations = await readFile(path.resolve('dist/index.d.ts'), 'utf8');
+
+  assert.match(declarations, /export type DbForkCreateOptions = \{\s+from\?: DbForkSource;\s+metadata\?: Record<string, unknown>;\s+\};/);
+  assert.match(declarations, /export type DbBranchCreateOptions = \{\s+from\?: string;\s+metadata\?: Record<string, unknown>;\s+\};/);
+  assert.doesNotMatch(declarations, /DbForkCreateOptions = \{[\s\S]*?kind\?: string;/);
+  assert.doesNotMatch(declarations, /DbBranchCreateOptions = \{[\s\S]*?kind\?: string;/);
 });
 
 test('public JSON declarations expose file database helpers', async () => {

@@ -24,8 +24,8 @@ export async function openUpgradeDemoDb() {
 export async function upgradeTenantToPaid({ db, tenantId }) {
   const tenant = await db.forks.ensure(tenantId, {
     from: 'main',
-    kind: 'tenant',
     metadata: {
+      purpose: 'tenant',
       plan: 'free',
     },
   });

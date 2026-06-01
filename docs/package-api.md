@@ -100,8 +100,8 @@ Fork and branch usage:
 ```ts
 const tenant = await db.forks.ensure('tenant_acme', {
   from: 'main',
-  kind: 'tenant',
   metadata: {
+    purpose: 'tenant',
     plan: 'free',
   },
 });
