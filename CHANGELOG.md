@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0](https://github.com/async-framework/async-db/releases/tag/v0.2.0) - 2026-06-01
+
+### Added
+
+- Added first-class `@async/db/json` production helpers, diagnostics, and JSON store examples for file-suitable app resources.
+- Added logical fork, branch, snapshot, routing, and migration primitives for tenant isolation, preview branches, debug copies, and store graduation workflows.
+- Added production JSON guidance and examples for feature flags, settings, CMS publishing, free-plan upgrades, debug snapshots, policy sandboxes, prompt experiments, and mixed JSON/database resources.
+
+### Changed
+
+- Replaced the unused legacy fixture-folder fork model with explicit fork and branch lifecycle APIs.
+- Moved fork and branch classification into user-owned metadata instead of a separate `kind` field.
+- Tightened lifecycle behavior so scoped fork/branch access requires created registry entries.
+
+### Fixed
+
+- Fixed CI and release workflows so they install pinned pnpm dependencies before running package checks.
+
 ## [0.1.0](https://github.com/async-framework/async-db/releases/tag/v0.1.0) - 2026-05-28
 
 First public release of `@async/db`.
