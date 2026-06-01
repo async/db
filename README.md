@@ -46,6 +46,7 @@ Other useful paths:
 - [`examples/data-first`](./examples/data-first): plain fixtures before schemas exist.
 - [`examples/content-collections`](./examples/content-collections): docs and blog folders as static content collections.
 - [`examples/computed-fields`](./examples/computed-fields): computed field patterns across several schema-backed models.
+- [`examples/production-json`](./examples/production-json): feature flags and settings in the JSON store behind registered operations.
 - [`examples/rest-client`](./examples/rest-client): calling @async/db from app or test code.
 - [`examples/schema-manifest`](./examples/schema-manifest): schema metadata for admin/CMS UI.
 - [`examples/standard-schema`](./examples/standard-schema): Standard Schema validators with Async DB metadata overlays.
@@ -404,6 +405,7 @@ The examples are a learning path. Run any example with `npm run db -- sync --cwd
 | Schema JSON to simple CMS UI templates | [`examples/schema-ui`](./examples/schema-ui) | `serve.mjs` SSR view/editor HTML from manifest + mirror (`node ./examples/schema-ui/serve.mjs`); `/templates` route keeps static placeholders |
 | Standard Schema validators | [`examples/standard-schema`](./examples/standard-schema) | Dependency-free Standard Schema validation, `field.meta(...)` overlays, async write validation, computed fields, and conservative type fallback |
 | Diagnostics for schema/data drift | [`examples/diagnostics`](./examples/diagnostics) | Warnings surfaced without breaking unrelated resources |
+| Production-suitable JSON control data | [`examples/production-json`](./examples/production-json) | Feature flags, app settings, explicit schemas, and registered operation refs |
 | Several advanced features together | [`examples/advanced`](./examples/advanced) | `.schema.mjs`, mixed mode, defaults, nested objects |
 | Hono auth and write hooks | [`examples/hono-auth`](./examples/hono-auth) | Optional Hono integration with auth lifecycle hooks |
 

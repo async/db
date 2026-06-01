@@ -24,6 +24,8 @@ Use the JSON store for small low-write resources that are naturally files:
 
 These are control-plane resources. They are valuable in production when they stay easy to review, snapshot, diff, and promote between environments.
 
+See [examples/production-json](../examples/production-json/README.md) for a runnable feature flags and app settings example that keeps JSON as the store while browser traffic uses registered operation refs.
+
 ## Hard Limits
 
 Do not use the JSON store as the primary production store for:
@@ -51,17 +53,13 @@ For production-facing traffic:
 4. Use `server.expose.rest: 'registered-only'` when raw REST should be blocked.
 5. Add app-owned auth, authorization, rate limits, and monitoring around the mounted API.
 
-The browser should call the data contract, not the JSON files:
+The browser should call the data contract, not the JSON files. With the built-in operation system, that means calling generated operation refs:
 
 ```ts
-const flags = await db.query('flags.evaluate', {
-  env: 'production',
-  userId,
-  orgId,
-});
+const flags = await db.query(operationRefs.operations.ListFeatureFlags.ref);
 ```
 
-The operation resolver can read JSON today and later read SQLite, Postgres, Redis, or a remote service while the client call stays the same.
+The operation template can read JSON today and later point at a SQLite, Postgres, Redis, or custom-backed resource while the client call stays the same. App-owned servers can also wrap the operation route with auth, rate limits, policy checks, and flag evaluation before returning a client-safe result.
 
 ## Public JSON Helpers
 

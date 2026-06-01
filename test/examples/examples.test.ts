@@ -22,6 +22,7 @@ import {
 } from '../../scripts/serve-examples.js';
 import { executeGraphql as typedExecuteGraphql } from '../../src/graphql/execute.js';
 import { loadConfig as typedLoadConfig, openDb as typedOpenDb, syncDb as typedSyncDb } from '../../src/index.js';
+import { buildOperationManifest as typedBuildOperationManifest, createDbOperationHandler as typedCreateDbOperationHandler } from '../../src/operations.js';
 import { handleRestRequest as typedHandleRestRequest } from '../../src/rest/handler.js';
 
 const execFileAsync = promisify(execFile);
@@ -30,6 +31,8 @@ const loadConfig = async (options: unknown): Promise<any> => typedLoadConfig(opt
 const syncDb = async (...args: any[]): Promise<any> => typedSyncDb(args[0] as never, args[1] as never) as Promise<any>;
 const openDb = async (options: unknown): Promise<any> => typedOpenDb(options as never) as Promise<any>;
 const executeGraphql = async (...args: any[]): Promise<any> => typedExecuteGraphql(args[0] as never, args[1] as never) as Promise<any>;
+const buildOperationManifest = async (...args: any[]): Promise<any> => typedBuildOperationManifest(args[0] as never, args[1] as never) as Promise<any>;
+const createDbOperationHandler = (...args: any[]): any => typedCreateDbOperationHandler(args[0] as never, args[1] as never);
 const handleRestRequest = async (...args: any[]): Promise<void> => typedHandleRestRequest(args[0], args[1], args[2], args[3]);
 const { renderRecordDetailPage } = await import(pathToFileURL(path.resolve('examples/schema-ui/src/cms-ssr.mjs')).href);
 
@@ -46,6 +49,7 @@ test('examples launcher can discover repo examples and render an index page', as
     'data-first',
     'diagnostics',
     'hono-auth',
+    'production-json',
     'relations',
     'rest-client',
     'schema-first',
@@ -75,6 +79,7 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /csv/);
   assert.match(html, /diagnostics/);
   assert.match(html, /Hono Auth/);
+  assert.match(html, /Production JSON/);
   assert.match(html, /REST Client/);
   assert.match(html, /client/);
   assert.match(html, /relations/);
@@ -434,6 +439,7 @@ test('new onboarding examples sync expected resources', async () => {
     'hono-auth': ['pages', 'users'],
     'content-collections': ['authors', 'blog', 'docs', 'site'],
     'computed-fields': ['orders', 'posts', 'products', 'users'],
+    'production-json': ['appSettings', 'featureFlags'],
     'rest-client': ['settings', 'users'],
     relations: ['posts', 'users'],
     'schema-manifest': ['projects', 'users'],
@@ -447,6 +453,46 @@ test('new onboarding examples sync expected resources', async () => {
 
     assert.deepEqual(Object.keys(result.schema.resources), resources, `${name} resources`);
   }
+
+  const productionJsonCwd = await copyExampleProject('production-json');
+  const productionJsonConfig = await loadConfig({ cwd: productionJsonCwd });
+  await syncDb(productionJsonConfig);
+  const { refs } = await buildOperationManifest(productionJsonConfig, {
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    write: false,
+  });
+  const productionJsonDb = await openDb({ cwd: productionJsonCwd, syncOnOpen: false });
+  await productionJsonDb.runtime.hydrate();
+  const productionJsonOperations = createDbOperationHandler(productionJsonDb);
+
+  const settings = await productionJsonOperations.execute(refs.operations.ReadPublicSettings.ref);
+  assert.equal(settings.status, 200);
+  assert.equal(settings.body.appName, 'Launch Console');
+  assert.equal(settings.body.maintenanceMode, false);
+
+  const billingFlag = await productionJsonOperations.execute(refs.operations.GetFeatureFlag.ref, {
+    id: 'flag_billing_v2',
+  });
+  assert.equal(billingFlag.status, 200);
+  assert.deepEqual(billingFlag.body, {
+    id: 'flag_billing_v2',
+    key: 'billing.v2',
+    enabled: true,
+    audience: 'beta',
+    rolloutPercent: 25,
+    description: 'Expose the new billing flow to beta accounts.',
+    owner: 'growth',
+    updatedAt: '2026-05-01T12:00:00Z',
+  });
+
+  const controlPlane = await productionJsonOperations.execute(refs.operations.GetControlPlane.ref);
+  assert.equal(controlPlane.status, 200);
+  assert.equal(controlPlane.body.data.appSettings.appName, 'Launch Console');
+  assert.equal(controlPlane.body.data.featureFlags.length, 3);
+  await assert.rejects(
+    () => productionJsonOperations.execute('ReadPublicSettings'),
+    (error: any) => error.code === 'OPERATION_NOT_FOUND',
+  );
 
   const manifestCwd = await copyExampleProject('schema-manifest');
   await syncDb(await loadConfig({ cwd: manifestCwd }));

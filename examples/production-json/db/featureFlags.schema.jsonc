@@ -1,0 +1,84 @@
+{
+  "kind": "collection",
+  "description": "Low-write production feature flags that control app behavior.",
+  "idField": "id",
+  "fields": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "description": "Stable flag id used by operations and review notes."
+    },
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "description": "Stable application flag key."
+    },
+    "enabled": {
+      "type": "boolean",
+      "required": true,
+      "default": false,
+      "description": "Global default before app-owned targeting runs."
+    },
+    "audience": {
+      "type": "enum",
+      "values": ["everyone", "staff", "beta", "enterprise"],
+      "required": true,
+      "default": "staff",
+      "description": "Coarse audience label consumed by the app policy layer."
+    },
+    "rolloutPercent": {
+      "type": "number",
+      "required": true,
+      "default": 0,
+      "description": "Default rollout percentage for app-owned evaluation."
+    },
+    "description": {
+      "type": "string",
+      "required": true,
+      "description": "Human review note explaining the flag."
+    },
+    "owner": {
+      "type": "string",
+      "required": true,
+      "description": "Team or person responsible for changing this flag."
+    },
+    "updatedAt": {
+      "type": "string",
+      "required": true,
+      "description": "ISO timestamp for the last reviewed flag change."
+    }
+  },
+  "seed": [
+    {
+      "id": "flag_billing_v2",
+      "key": "billing.v2",
+      "enabled": true,
+      "audience": "beta",
+      "rolloutPercent": 25,
+      "description": "Expose the new billing flow to beta accounts.",
+      "owner": "growth",
+      "updatedAt": "2026-05-01T12:00:00Z"
+    },
+    {
+      "id": "flag_enterprise_dashboard",
+      "key": "dashboard.enterprise",
+      "enabled": true,
+      "audience": "enterprise",
+      "rolloutPercent": 100,
+      "description": "Show enterprise reporting navigation.",
+      "owner": "platform",
+      "updatedAt": "2026-05-03T09:30:00Z"
+    },
+    {
+      "id": "flag_editor_command_palette",
+      "key": "editor.commandPalette",
+      "enabled": false,
+      "audience": "staff",
+      "rolloutPercent": 0,
+      "description": "Internal preview of command palette shortcuts.",
+      "owner": "product",
+      "updatedAt": "2026-05-05T16:45:00Z"
+    }
+  ]
+}

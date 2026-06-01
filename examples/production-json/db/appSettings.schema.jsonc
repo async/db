@@ -1,0 +1,41 @@
+{
+  "kind": "document",
+  "description": "Small production settings that are safe to keep as reviewed JSON.",
+  "fields": {
+    "appName": {
+      "type": "string",
+      "required": true,
+      "description": "Public product name shown by the app shell."
+    },
+    "environment": {
+      "type": "enum",
+      "values": ["development", "staging", "production"],
+      "required": true,
+      "description": "Deployment lane this settings file belongs to."
+    },
+    "maintenanceMode": {
+      "type": "boolean",
+      "required": true,
+      "default": false,
+      "description": "Whether the public app should show maintenance UI."
+    },
+    "defaultLocale": {
+      "type": "string",
+      "required": true,
+      "default": "en-US",
+      "description": "Fallback locale for unauthenticated visitors."
+    },
+    "supportEmail": {
+      "type": "string",
+      "required": true,
+      "description": "Public support contact shown in product chrome."
+    }
+  },
+  "seed": {
+    "appName": "Launch Console",
+    "environment": "production",
+    "maintenanceMode": false,
+    "defaultLocale": "en-US",
+    "supportEmail": "support@example.test"
+  }
+}
