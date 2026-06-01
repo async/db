@@ -68,9 +68,9 @@ npm run db -- serve --cwd ./examples/basic
 `package.json` includes:
 
 ```txt
-src/**/*.js
-src/**/*.d.ts
-scripts
+dist/**/*.js
+dist/**/*.d.ts
+!dist/**/*.test.js
 examples/*/README.md
 examples/*/example.json
 examples/*/package.json
@@ -130,11 +130,11 @@ The first check confirms the README stayed compact. The second highlights same-p
 
 Release pull requests and npm publication are handled by `.github/workflows/release.yml`.
 
-- Every push to `main` runs Release Please.
-- After `0.1.0`, Release Please opens or updates a release PR with the next version, `package.json`, `.release-please-manifest.json`, and `CHANGELOG.md`.
-- Merging a release PR creates the GitHub release.
-- When a Release Please release is created, the same workflow checks out the release commit, runs `npm run release:check`, packs the package, publishes `@async/db` to npm, and uploads the tarball to the GitHub release.
-- The first `0.1.0` release is seeded in `.release-please-manifest.json`; publish it by pushing the existing `v0.1.0` tag, or by running the `Release` workflow manually with `v0.1.0` after the tag exists.
+- The Release Please job is opt-in behind the repository variable `RELEASE_PLEASE_CREATE_PR=true`. Keep it disabled when the organization blocks GitHub Actions from creating pull requests.
+- When enabled, Release Please opens or updates a release PR with the next version, `package.json`, `.release-please-manifest.json`, and `CHANGELOG.md`.
+- The tag path runs when a `v*.*.*` tag is pushed, or when the workflow is dispatched with an existing tag.
+- The tag path validates that `package.json` matches the tag, runs `npm run release:check`, packs the package, publishes `@async/db` to npm when that exact version is not already present, creates the GitHub release if needed, and uploads the tarball.
+- Rerunning a partially completed tag release is safe: if npm already has the package version, the workflow skips `npm publish` and still reconciles the GitHub release asset.
 
 The release workflow uses npm Trusted Publishing through GitHub Actions OIDC. Before the first automated publish, configure npm for:
 
@@ -153,16 +153,25 @@ npm publish --access public
 
 If Trusted Publishing is not configured yet, the release workflow can create the release PR and GitHub release, but npm publish will fail until npm trusts this repository and workflow.
 
-## First Release
-
-The first public package version is already recorded as `0.1.0` in `package.json`, `CHANGELOG.md`, and `.release-please-manifest.json`. After npm Trusted Publishing is configured:
+If Trusted Publishing is not configured and the npm publish step fails, publish manually from an npm account with `@async` scope write access, then rerun the tag workflow to reconcile the GitHub release:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+npm login --scope=@async --registry=https://registry.npmjs.org --auth-type=web
+npm run release:check
+npm pack
+npm publish --access public async-db-<version>.tgz
 ```
 
-The tag publish path validates that the tag matches `package.json`, runs `npm run release:check`, publishes the tarball, creates the GitHub release if needed, and uploads the tarball as a release asset.
+## Tag Release
+
+For a manual patch release, update `package.json`, `.release-please-manifest.json`, and `CHANGELOG.md`, then merge to `main` and tag the release commit:
+
+```bash
+git tag v<version>
+git push origin v<version>
+```
+
+Use `NPM_CONFIG_USERCONFIG=/dev/null npm view @async/db version` when checking public npm visibility from this machine, because local npm user config may set conservative install cutoffs.
 
 ## Manual Release Checks
 
