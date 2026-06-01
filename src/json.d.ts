@@ -1,3 +1,5 @@
+import type { DbCustomStoreFactory } from './index.js';
+
 export type JsonStoreCapabilities = {
   writable: true;
   persistence: 'local-file';
@@ -15,8 +17,37 @@ export type JsonStateResource = {
   name: string;
 };
 
+export type JsonFileStorage = {
+  kind: 'file';
+  root: string;
+};
+
+export type JsonS3Storage = {
+  kind: 's3';
+  bucket: string;
+  prefix?: string;
+  client?: unknown;
+  encryption?: unknown;
+};
+
+export type JsonRecordFilesLayout = {
+  mode: 'record-files';
+  key: string;
+};
+
+export type JsonStoreOptions = {
+  storage?: JsonFileStorage | JsonS3Storage;
+  durability?: 'current' | 'versioned' | string;
+  encryption?: unknown;
+  resources?: Record<string, JsonRecordFilesLayout>;
+};
+
 export const jsonStoreCapabilities: JsonStoreCapabilities;
 
+export function fileStorage(root: string): JsonFileStorage;
+export function s3Storage(options: Omit<JsonS3Storage, 'kind'>): JsonS3Storage;
+export function recordFiles(options: { key: string }): JsonRecordFilesLayout;
+export function jsonStore(options?: JsonStoreOptions): DbCustomStoreFactory;
 export function jsonStatePathForResource(config: JsonStateConfig, resource: string | JsonStateResource): string;
 export function readJsonState<T>(filePath: string, fallback: T): Promise<T>;
 export function writeJsonState(filePath: string, value: unknown): Promise<boolean>;

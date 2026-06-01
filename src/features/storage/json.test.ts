@@ -4,7 +4,15 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { atomicWriteJson, readJsonState, withJsonStateWrite } from './json.js';
+import {
+  atomicWriteJson,
+  fileStorage,
+  jsonStore,
+  readJsonState,
+  recordFiles,
+  s3Storage,
+  withJsonStateWrite,
+} from './json.js';
 
 test('atomicWriteJson writes complete pretty JSON documents', async () => {
   const dir = await mkdir(path.join(tmpdir(), `db-atomic-${Date.now()}-`), { recursive: true });
@@ -71,4 +79,63 @@ test('withJsonStateWrite continues after a failed queued write', async () => {
   );
 
   assert.equal(await withJsonStateWrite(filePath, async () => 'after'), 'after');
+});
+
+test('jsonStore file storage writes resources under fork branch storage', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-store-${Date.now()}-`), { recursive: true });
+  const storeFactory = jsonStore({
+    storage: fileStorage(dir),
+    durability: 'versioned',
+    resources: {
+      pages: recordFiles({ key: 'slug' }),
+    },
+  });
+  const store = storeFactory({
+    config: {
+      cwd: dir,
+      stateDir: dir,
+      __asyncDbScope: {
+        fork: 'tenant_acme',
+        branch: 'published',
+        rootStateDir: dir,
+      },
+    },
+    resources: [],
+    storeName: 'json',
+  });
+  const resource = { name: 'pages', kind: 'collection' };
+
+  await store.writeResource(resource, [{ id: 'home', slug: 'home', title: 'Home' }]);
+
+  assert.deepEqual(await store.readResource(resource, []), [
+    { id: 'home', slug: 'home', title: 'Home' },
+  ]);
+  assert.equal(
+    await readFile(path.join(dir, 'forks/tenant_acme/branches/published/resources/pages.json'), 'utf8'),
+    `[
+  {
+    "id": "home",
+    "slug": "home",
+    "title": "Home"
+  }
+]
+`,
+  );
+  assert.deepEqual(store.capabilities.layout.resources.pages, {
+    mode: 'record-files',
+    key: 'slug',
+  });
+});
+
+test('s3Storage returns an object storage descriptor without bundling an SDK', () => {
+  assert.deepEqual(s3Storage({
+    bucket: 'app-json-db',
+    prefix: 'prod',
+    encryption: { mode: 'sse-kms', keyId: 'alias/app-json-db' },
+  }), {
+    kind: 's3',
+    bucket: 'app-json-db',
+    prefix: 'prod',
+    encryption: { mode: 'sse-kms', keyId: 'alias/app-json-db' },
+  });
 });

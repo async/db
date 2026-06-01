@@ -91,14 +91,27 @@ export function createRuntime(config: RuntimeConfig, resources: RuntimeResource[
     strategyFor(resource: RuntimeResource): string {
       const resourceConfig = storeRecord(resourceConfigValue(config.resources, resource.name));
       const storeName = String(resourceConfig?.store ?? config.stores?.default ?? 'json');
-      const configured = storeDefinitions.has(storeName)
-        ? storeName
-        : config.stores?.[storeName] ?? storeName;
-      if (!adapters.has(storeName) && config.stores?.[storeName] === undefined) {
-        throw missingStoreError(resource, storeName, config, adapters);
+      return strategyForStoreName(resource, storeName, config, adapters, storeDefinitions);
+    },
+    adapterForStore(resource: RuntimeResource, storeName: string): RuntimeAdapter {
+      const strategy = strategyForStoreName(resource, storeName, config, adapters, storeDefinitions);
+      const adapter = adapters.get(strategy);
+      if (!adapter) {
+        throw dbError(
+          'STORE_DRIVER_NOT_FOUND',
+          `Store driver "${strategy}" is not registered for resource "${resource.name}".`,
+          {
+            status: 500,
+            hint: `Register one of: ${listChoices([...adapters.keys()])}.`,
+            details: {
+              resource: resource.name,
+              store: strategy,
+              availableStores: [...adapters.keys()],
+            },
+          },
+        );
       }
-      const configuredRecord = storeRecord(configured);
-      return typeof configured === 'string' ? configured : configuredRecord?.driver ?? storeName;
+      return adapter;
     },
     adapterFor(resource: RuntimeResource): RuntimeAdapter {
       const strategy = this.strategyFor(resource);
@@ -148,6 +161,23 @@ export function createRuntime(config: RuntimeConfig, resources: RuntimeResource[
       events.close();
     },
   };
+}
+
+function strategyForStoreName(
+  resource: RuntimeResource,
+  storeName: string,
+  config: RuntimeConfig,
+  adapters: Map<string, RuntimeAdapter>,
+  storeDefinitions: Map<string, CustomStore>,
+): string {
+  const configured = storeDefinitions.has(storeName)
+    ? storeName
+    : config.stores?.[storeName] ?? storeName;
+  if (!adapters.has(storeName) && config.stores?.[storeName] === undefined) {
+    throw missingStoreError(resource, storeName, config, adapters);
+  }
+  const configuredRecord = storeRecord(configured);
+  return typeof configured === 'string' ? configured : configuredRecord?.driver ?? storeName;
 }
 
 function customStoreAdapter(storeName: string, store: CustomStore, queues: Map<string, Promise<unknown>>): RuntimeAdapter {
