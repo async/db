@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.0.0](https://github.com/async-framework/async-db/compare/v0.2.0...v1.0.0) (2026-06-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** fork and branch create options no longer expose top-level kind; put app-owned labels under metadata instead.
+* **runtime:** fork and branch create now reject existing lifecycle entries; use ensure for idempotent setup or open for existing scopes.
+* **runtime:** db.fork(name) and branch(name) now require registered lifecycle state, and non-main string fork sources are rejected.
+* config forks/templates, HTTP client fork routing, fixture fork server routes, and json recordFiles layout helper were removed so forks only mean runtime logical database instances.
+
+### Features
+
+* **examples:** add production json control-plane example ([5cae543](https://github.com/async-framework/async-db/commit/5cae543ab3f7ea2bc3f4edd63359df29bc178a57))
+* **runtime:** add explicit fork branch lifecycle APIs ([30f8f95](https://github.com/async-framework/async-db/commit/30f8f95336bde0565797e477cdc0f2b4461ae445))
+* **runtime:** add fork branch migration and json store APIs ([1677b9d](https://github.com/async-framework/async-db/commit/1677b9d6cf3cabe0b14418a702559df8439af8c8))
+* **server:** add request tracing ([ed9b643](https://github.com/async-framework/async-db/commit/ed9b643584d067967d1a4afdbe2329787090fadf))
+
+
+### Bug Fixes
+
+* **ci:** install dependencies before package checks ([eebde38](https://github.com/async-framework/async-db/commit/eebde38e6fbb41c9fe156de373bd8a4f943f38e2))
+* **ci:** set up pnpm before package checks ([36c3b10](https://github.com/async-framework/async-db/commit/36c3b104dd98803b2ee9be0c0ad2a8e7b15d8aee))
+* **json:** report corrupt state files ([b3c051e](https://github.com/async-framework/async-db/commit/b3c051e1a5e1b624df0462ec230eb14982cfb8dd))
+* **runtime:** enforce fork branch lifecycle ([a105ad6](https://github.com/async-framework/async-db/commit/a105ad68eadf0781190f46fec11778a3c3516f56))
+
+
+### Code Refactoring
+
+* remove legacy fixture forks ([2c6a3db](https://github.com/async-framework/async-db/commit/2c6a3db9b32e770c22c45adc205bcb0f56b59fec))
+* **runtime:** move lifecycle purpose into metadata ([5c9a174](https://github.com/async-framework/async-db/commit/5c9a174c739977397de7042d4f3fb172b5b6ee80))
+
 ## [0.2.0](https://github.com/async-framework/async-db/releases/tag/v0.2.0) - 2026-06-01
 
 ### Added
