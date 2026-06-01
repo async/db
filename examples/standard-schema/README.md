@@ -5,8 +5,8 @@ This example shows the dependency-free integration path for validators that impl
 Run it:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/standard-schema
-node ./src/cli.js serve --cwd ./examples/standard-schema
+npm run db -- sync --cwd ./examples/standard-schema
+npm run db -- serve --cwd ./examples/standard-schema
 ```
 
 `db/users.schema.mjs` uses a small local Standard Schema-compatible validator. It lowercases email addresses during writes, exposes a Standard JSON Schema converter for field inference, and then layers Async DB metadata on top.
@@ -47,7 +47,7 @@ export default collection(UserSchema, {
 The validator can be async. Package API, REST, and GraphQL writes await it and store the returned `value`.
 
 ```bash
-node ./src/cli.js create users '{"id":"u_2","email":" GRACE@EXAMPLE.COM ","firstName":"Grace","lastName":"Hopper"}' --cwd ./examples/standard-schema
+npm run db -- create users '{"id":"u_2","email":" GRACE@EXAMPLE.COM ","firstName":"Grace","lastName":"Hopper"}' --cwd ./examples/standard-schema
 ```
 
 The stored email becomes `grace@example.com`.

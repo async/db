@@ -21,8 +21,8 @@ This example does not install `content-collections`, a frontmatter package, or a
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/content-collections
-node ./src/cli.js serve --cwd ./examples/content-collections
+npm run db -- sync --cwd ./examples/content-collections
+npm run db -- serve --cwd ./examples/content-collections
 ```
 
 Open the viewer:
@@ -68,7 +68,7 @@ GraphQL selections use the same computed fields:
 Aggregate bundle writes a root schema registry and keeps seed data out of that root file:
 
 ```bash
-node ./src/cli.js schema bundle --all --cwd ./examples/content-collections --out db.schema.mjs
+npm run db -- schema bundle --all --cwd ./examples/content-collections --out db.schema.mjs
 ```
 
 Because `db/site.schema.jsonc` has embedded seed and no `db/site.json`, the command first writes `db/site.json`, then writes `db.schema.mjs`. Folder collection source globs are rebased so the root file points back to `files('./db/docs/**/*.mdx', { read: 'frontmatter' })` and `files('./db/blog/**/*.mdx', { read: 'frontmatter' })`.

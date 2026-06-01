@@ -2,65 +2,79 @@
   "name": "@async/db",
   "version": "0.1.0",
   "description": "The Async data workflow package for fixtures, generated types, local APIs, runtime stores, and database-backed graduation.",
-  "type": "module",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/async-framework/async-db.git"
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp src/*.d.ts dist/",
+    "build:test": "tsc -p tsconfig.test.json",
+    "check": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/check-syntax.js",
+    "test": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/run-tests.js",
+    "release:check": "npm run check && npm test && npm pack --dry-run",
+    "release:pack": "npm pack",
+    "release:publish": "npm publish --access public",
+    "dev": "node ./scripts/tasks/dev.js",
+    "watch": "node ./scripts/tasks/watch.js",
+    "examples": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/serve-examples.js",
+    "view:examples": "npm run examples",
+    "cli": "node ./dist/cli.js",
+    "db": "npm run build --silent && node ./dist/cli.js",
+    "prepack": "npm run build"
   },
-  "bugs": {
-    "url": "https://github.com/async-framework/async-db/issues"
-  },
-  "homepage": "https://github.com/async-framework/async-db#readme",
   "bin": {
-    "async-db": "./src/cli.js"
+    "async-db": "./dist/cli.js"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.4",
+    "typescript": "6.0.3"
   },
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./schema": {
-      "types": "./src/schema.d.ts",
-      "default": "./src/schema-builders.js"
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema-builders.js"
     },
     "./config": {
-      "types": "./src/config.d.ts",
-      "default": "./src/config-public.js"
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config-public.js"
     },
     "./client": {
-      "types": "./src/index.d.ts",
-      "default": "./src/client.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./json": {
+      "types": "./dist/json.d.ts",
+      "default": "./dist/json.js"
     },
     "./hono": {
-      "types": "./src/hono.d.ts",
-      "default": "./src/hono.js"
+      "types": "./dist/hono.d.ts",
+      "default": "./dist/hono.js"
     },
     "./sqlite": {
-      "types": "./src/sqlite.d.ts",
-      "default": "./src/sqlite.js"
+      "types": "./dist/sqlite.d.ts",
+      "default": "./dist/sqlite.js"
     },
     "./postgres": {
-      "types": "./src/postgres.d.ts",
-      "default": "./src/postgres.js"
+      "types": "./dist/postgres.d.ts",
+      "default": "./dist/postgres.js"
     },
     "./kv": {
-      "types": "./src/kv.d.ts",
-      "default": "./src/kv.js"
+      "types": "./dist/kv.d.ts",
+      "default": "./dist/kv.js"
     },
     "./redis": {
-      "types": "./src/redis.d.ts",
-      "default": "./src/redis.js"
+      "types": "./dist/redis.d.ts",
+      "default": "./dist/redis.js"
     },
     "./vite": {
-      "types": "./src/vite.d.ts",
-      "default": "./src/vite.js"
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
     }
   },
   "files": [
-    "src/**/*.js",
-    "src/**/*.d.ts",
-    "!src/**/*.test.js",
-    "scripts",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "!dist/**/*.test.js",
     "examples/*/README.md",
     "examples/*/example.json",
     "examples/*/package.json",
@@ -74,18 +88,17 @@
     "README.md",
     "SPEC.md"
   ],
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/async-framework/async-db.git"
+  },
+  "bugs": {
+    "url": "https://github.com/async-framework/async-db/issues"
+  },
+  "homepage": "https://github.com/async-framework/async-db#readme",
   "publishConfig": {
     "access": "public"
-  },
-  "scripts": {
-    "check": "node ./scripts/check-syntax.js",
-    "test": "node ./scripts/run-tests.js",
-    "release:check": "npm run check && npm test && npm pack --dry-run",
-    "release:pack": "npm pack",
-    "release:publish": "npm publish --access public",
-    "examples": "node ./scripts/serve-examples.js",
-    "view:examples": "node ./scripts/serve-examples.js",
-    "db": "node ./src/cli.js"
   },
   "engines": {
     "node": ">=20"

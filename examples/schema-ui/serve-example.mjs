@@ -2,23 +2,21 @@
  * Examples launcher hook — mounted by `scripts/serve-examples.js` when present.
  * Keeps db REST / `/__db` wiring local to this example.
  */
-import { startSchemaUiServer } from './src/start-schema-ui-server.mjs';
+import { createSchemaUiRuntime } from './src/start-schema-ui-server.mjs';
 
-/** @param {{ cwd: string; host: string; port: number; repoRoot: string }} context */
-export async function startExampleServer(context) {
-  const { cwd, host, port } = context;
-
-  const app = await startSchemaUiServer({
+/** @param {{ cwd: string; url: string; repoRoot: string }} context */
+export async function createExampleRuntime(context) {
+  const { cwd, basePath, url } = context;
+  const runtime = await createSchemaUiRuntime({
     cwd,
-    host,
-    port,
+    basePath,
     skipSync: false,
   });
 
   return {
-    ...app,
-    viewerUrl: `${app.url}/__db`,
-    demoUrl: `${app.url}/`,
+    ...runtime,
+    viewerUrl: `${url}/__db`,
+    demoUrl: `${url}/`,
     demoLinks: [
       { label: 'Static templates', href: '/templates' },
     ],

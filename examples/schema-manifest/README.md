@@ -16,9 +16,9 @@ Use this when an app wants committed schema metadata for admin, CMS, or form-bui
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/schema-manifest
-node ./src/cli.js schema manifest --cwd ./examples/schema-manifest --out ./src/generated/db.schema.json
-node ./src/cli.js serve --cwd ./examples/schema-manifest
+npm run db -- sync --cwd ./examples/schema-manifest
+npm run db -- schema manifest --cwd ./examples/schema-manifest --out ./src/generated/db.schema.json
+npm run db -- serve --cwd ./examples/schema-manifest
 ```
 
 ## Expected Result

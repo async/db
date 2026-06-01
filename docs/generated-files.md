@@ -8,7 +8,7 @@ Default sync output:
 
 ```txt
 .db/schema.generated.json
-.db/types/index.ts
+.db/types/index.d.ts
 .db/state/*.json
 ```
 
@@ -36,7 +36,7 @@ Source fixtures stay unchanged by default. For resources bound to the `sourceFil
 Default generated TypeScript output:
 
 ```txt
-.db/types/index.ts
+.db/types/index.d.ts
 ```
 
 Use `outputs.committedTypes` when TypeScript imports should work before anyone runs sync:
@@ -46,7 +46,7 @@ import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   outputs: {
-    committedTypes: './src/generated/db.types.ts',
+    committedTypes: './src/generated/db.types.d.ts',
   },
 });
 ```
@@ -66,11 +66,13 @@ export type User = {
 Selected examples intentionally commit generated type output:
 
 ```txt
-examples/advanced/src/generated/db.types.ts
-examples/basic/src/generated/db.types.ts
-examples/schema-first/src/generated/db.types.ts
-examples/schema-manifest/src/generated/db.types.ts
-examples/schema-ui/src/generated/db.types.ts
+examples/advanced/src/generated/db.types.d.ts
+examples/basic/src/generated/db.types.d.ts
+examples/computed-fields/src/generated/db.types.d.ts
+examples/content-collections/src/generated/db.types.d.ts
+examples/schema-first/src/generated/db.types.d.ts
+examples/schema-manifest/src/generated/db.types.d.ts
+examples/schema-ui/src/generated/db.types.d.ts
 ```
 
 ## Schema Manifest Output

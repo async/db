@@ -7,17 +7,23 @@
 @async/db is:
 
 - local development and test infrastructure
+- a simple JSON file database for scoped low-write production resources
 - data-first by default
 - REST-first by default
 - dependency-light in the core package
 - useful before the real database or backend contract is settled
+- a stable API/data layer while selected resources graduate to SQLite, Postgres, or custom stores
 
 @async/db is not:
 
-- a production database
+- a hosted production database service
+- a multi-writer transactional database
 - an auth or permission system
+- an ORM
 - broad JSON Schema compatibility
 - a replacement for application-owned validation in production services
+
+The JSON store is appropriate in production only for small, low-write, file-suitable resources such as settings, feature flags, content, templates, policy rules, and seed data. Use SQLite, Postgres, or another app-owned store for high-write records, transactional data, analytics/events, chat/messages, ledgers, inventory counters, multi-instance writes, and compliance-heavy data.
 
 ## Data-First
 
@@ -89,6 +95,8 @@ db/users.json              source fixture
 ```
 
 This is the safest default for local development because tests, demos, and UI prototyping do not rewrite committed fixtures.
+
+It is also the first-party JSON file database for production resources that should remain small, reviewable, and low-write. Keep production app traffic behind @async/db resources or registered operations so a resource can later move from JSON to SQLite, Postgres, or a custom store without rewriting frontend data access.
 
 Bind a resource to a different store when runtime state belongs somewhere else:
 

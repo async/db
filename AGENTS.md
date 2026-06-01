@@ -36,8 +36,8 @@ Important files:
 - `src/hono.js`: optional Hono integration using dynamic `hono` import.
 - `src/sqlite.js`: optional SQLite adapter using dynamic `node:sqlite` import.
 - `src/client.js`: tiny HTTP client with GraphQL and REST batching support.
-- `scripts/serve-examples.js`: assigns ports and renders the examples index while launching each example stack.
-- `scripts/example-launcher.js`: resolves `examples/*/serve-example.mjs` hooks so an example can compose middleware ahead of db; defaults to `startDbServer`.
+- `scripts/serve-examples.js`: binds one examples host, renders the examples index, and lazily starts example runtimes when opened.
+- `scripts/example-launcher.js`: resolves `examples/*/serve-example.mjs` hooks so an example can compose middleware ahead of db; defaults to a stock db request runtime.
 - `src/schema-builders.js`: `.schema.mjs` authoring helpers exported as `@async/db/schema`.
 - `test/helpers.js`: shared test project helpers.
 - `test/**/*.test.js`: general Node test runner suite.
@@ -55,9 +55,20 @@ Common edit paths:
 - GraphQL parsing or execution: start in `src/graphql/parser.js` and `src/graphql/execute.js`.
 - Built-in viewer behavior: start in `src/web/viewer.js`.
 - CLI command behavior: start in `src/cli/index.js` and `src/cli/commands/`.
-- Example discovery and the examples index: start in `scripts/serve-examples.js`, `scripts/example-launcher.js`, and `examples/*/example.json`. Optional per-example `serve-example.mjs` exports `startExampleServer({ cwd, host, port, repoRoot })`.
+- Example discovery and the examples index: start in `scripts/serve-examples.js`, `scripts/example-launcher.js`, and `examples/*/example.json`. Optional per-example `serve-example.mjs` exports `createExampleRuntime({ cwd, basePath, url, repoRoot })`.
 
 ## Commands
+
+Use these while actively editing the package:
+
+```bash
+npm run dev          # watch src and relaunch all examples
+npm run examples     # one-shot all examples server for smoke checks
+npm run watch        # compile dist and test-build in watch mode only
+npm run cli -- sync --cwd ./examples/basic
+```
+
+Keep npm task entrypoints under `scripts/tasks/`. Keep reusable helper scripts directly under `scripts/`.
 
 Run these before handing off changes:
 

@@ -15,8 +15,8 @@ Use this when local fixtures need related records but you still want plain ids i
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/relations
-node ./src/cli.js serve --cwd ./examples/relations
+npm run db -- sync --cwd ./examples/relations
+npm run db -- serve --cwd ./examples/relations
 ```
 
 Open the viewer:

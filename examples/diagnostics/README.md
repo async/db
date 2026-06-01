@@ -15,8 +15,8 @@ Use this when you want to see how db reports local fixture drift. It intentional
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/diagnostics
-node ./src/cli.js serve --cwd ./examples/diagnostics
+npm run db -- sync --cwd ./examples/diagnostics
+npm run db -- serve --cwd ./examples/diagnostics
 ```
 
 Open the viewer:

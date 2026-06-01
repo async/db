@@ -10,12 +10,17 @@ Supported built-in source formats:
 .csv
 .schema.json
 .schema.jsonc
+.schema.js
 .schema.mjs
+db.schema.js
 db.schema.mjs
+index.schema.js
 index.schema.mjs
 ```
 
-TypeScript schema files are intentionally not loaded directly in v1 because Node.js does not execute TypeScript without an explicit loader or build step.
+`.schema.js` and `db.schema.js` use normal Node.js ESM rules. If the project root `package.json` is already `"type": "module"`, no extra marker is needed. If the root is not ESM, @async/db creates `db/package.json` with `"type": "module"` before loading `.schema.js` files inside the configured fixture folder. Set `schema.autoModulePackageJson: false` to manage that file yourself.
+
+TypeScript schema files are intentionally not loaded directly in v1 because Node.js does not execute TypeScript without an explicit loader or build step. See [TypeScript Schema Sources](./typescript-schema-sources.md) for the supported compile-to-JavaScript workflow.
 
 ## Data-First JSON Or JSONC
 
@@ -128,11 +133,11 @@ export default collection({
 });
 ```
 
-`.schema.mjs` files execute as trusted local project JavaScript.
+`.schema.js` files execute as trusted local project JavaScript. If the root package is not ESM, @async/db creates the fixture-folder package marker described at the top of this guide.
 
 ## Standard Schema Validators
 
-`.schema.mjs` files can also use any object that implements the Standard Schema
+Executable schema modules can also use any object that implements the Standard Schema
 v1 contract. @async/db imports your trusted schema module, recognizes
 `value['~standard'].version === 1`, and calls
 `value['~standard'].validate(...)` during schema helpers and runtime writes.
@@ -205,7 +210,7 @@ export default collection(UserSchema, {
 ```
 
 Set `schema.standardSchema: true` in `db.config.mjs` when generated
-`.schema.mjs` files should prefer that validator-first form for resources that
+executable schema files should prefer that validator-first form for resources that
 have a Standard Schema validator. Detection still works without the config flag;
 the flag only changes generated authoring output.
 
@@ -238,7 +243,7 @@ dependency-free example.
 
 ## Root Schema Registry
 
-Use `db.schema.mjs` at the project root when you want one canonical schema registry:
+Use `db.schema.js` at the project root when you want one canonical schema registry:
 
 ```js
 import { collection, field } from '@async/db/schema';
@@ -258,9 +263,7 @@ export default {
 };
 ```
 
-When `db.schema.mjs` exists it is authoritative for explicit schemas. Per-resource
-`db/**/*.schema.*` files are not auto-discovered as live schemas, though the root
-schema may import them like normal JavaScript.
+When `db.schema.js` or `db.schema.mjs` exists it is authoritative for explicit schemas. `db.schema.js` follows the root package `type` setting, so use root `"type": "module"` for that file. If both root files exist, `db.schema.mjs` wins and @async/db emits a duplicate-root warning. Per-resource `db/**/*.schema.*` files are not auto-discovered as live schemas, though the root schema may import them like normal JavaScript.
 
 ## Computed Fields
 
@@ -320,7 +323,7 @@ Server code can call the same field resolvers without opening writable stores:
 ```ts
 import { loadDbSchema } from '@async/db';
 
-const schema = await loadDbSchema({ from: './db.schema.mjs' });
+const schema = await loadDbSchema({ from: './db.schema.js' });
 const userResolvers = schema.resolver('users', {
   value: input,
   context: {
@@ -338,11 +341,11 @@ their own use case.
 
 ## Folder Content Collections
 
-Use `index.schema.mjs` as an explicit folder-as-collection marker. The collection
+Use `index.schema.js` as an explicit folder-as-collection marker. The collection
 name comes from the folder:
 
 ```txt
-db/docs/index.schema.mjs
+db/docs/index.schema.js
 db/docs/intro.mdx
 db/docs/getting-started.mdx
 ```
@@ -402,25 +405,31 @@ If you omit the resource in an interactive terminal, the CLI prompts for either
 Aggregate root schema output is schema-only and never embeds seed/data fixtures:
 
 ```bash
-npm run db -- schema bundle --all --out db.schema.mjs
+npm run db -- schema bundle --all
 npm run db -- schema unbundle --all --schema-dir db
 ```
 
 If aggregate bundling finds non-empty `seed` embedded in a schema source and no
 separate data fixture is loaded, it first writes that seed to
-`db/<resource>.json`, then writes `db.schema.mjs` without seed.
+`db/<resource>.json`, then writes the root schema without seed. The default root
+schema output is `db.schema.js` when the project root package is ESM, and
+`db.schema.mjs` otherwise.
 
 Folder collection source globs are rebased for the generated root file. For
 example, `source: files('./**/*.mdx', { read: 'frontmatter' })` inside
-`db/blog/index.schema.mjs` becomes
+`db/blog/index.schema.js` becomes
 `source: files('./db/blog/**/*.mdx', { read: 'frontmatter' })` in
-`db.schema.mjs`, so the root registry can load the same content files.
+the root schema, so the registry can load the same content files.
 
 When aggregate bundling sees computed resolvers or Standard Schema validators
-from existing `.schema.mjs` files, the generated root schema imports the
+from existing executable schema modules, the generated root schema imports the
 original module, references its validator, and emits inline named resolver
-wrappers to preserve behavior. Aggregate unbundle writes `.schema.mjs` files for
-resources with executable validators or resolvers. Schema, manifest, type,
+wrappers to preserve behavior. Aggregate unbundle writes `.schema.js` files for
+resources with executable validators or resolvers when the output folder can be
+ESM. For the default `db/` folder, @async/db creates `db/package.json` with
+`"type": "module"` when the root package is not already ESM and
+`schema.autoModulePackageJson` is enabled. If `.js` would not load safely,
+unbundle falls back to `.schema.mjs`. Schema, manifest, type,
 doctor, bundle, unbundle, and generated starter commands import trusted schema
 modules for metadata but do not call computed resolvers.
 

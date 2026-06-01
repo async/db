@@ -10,15 +10,15 @@ Use this when you want to see several ways to model computed fields with `.schem
 - [db/posts.schema.mjs](./db/posts.schema.mjs): object form with `resolveMany` for reading time.
 - [db/products.schema.mjs](./db/products.schema.mjs): arrow resolver for simple price formatting.
 - [db/orders.schema.mjs](./db/orders.schema.mjs): normal function resolver that uses `this.get('db')` to read product prices.
-- [src/generated/db.types.ts](./src/generated/db.types.ts): committed generated types where computed fields are optional read-only projections.
+- [src/generated/db.types.d.ts](./src/generated/db.types.d.ts): committed generated types where computed fields are optional read-only projections.
 
 ## Run It
 
 From the repository root:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/computed-fields
-node ./src/cli.js serve --cwd ./examples/computed-fields
+npm run db -- sync --cwd ./examples/computed-fields
+npm run db -- serve --cwd ./examples/computed-fields
 ```
 
 Open the viewer:

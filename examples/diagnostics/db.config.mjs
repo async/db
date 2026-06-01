@@ -5,7 +5,7 @@ export default defineConfig({
   dbDir: './db',
   outputs: {
     stateDir: './.db',
-    types: './.db/types/index.ts',
+    types: './.db/types/index.d.ts',
   },
   types: {
     enabled: true,

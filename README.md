@@ -1,6 +1,6 @@
 # @async/db
 
-`@async/db` gives frontend teams a gradual path from mock JSON to real persistence. You can keep easy fixture files where they work, make some resources locally writable, and move others to SQLite, Postgres, or custom stores as they get serious. The app keeps talking to one data layer while persistence changes behind each resource.
+`@async/db` gives frontend teams a gradual path from mock JSON to production data contracts. You can keep easy fixture files where they work, use the first-party JSON file database for small low-write resources, and move other resources to SQLite, Postgres, or custom stores as they get serious. The app keeps talking to one data layer while persistence changes behind each resource.
 
 Use it to:
 
@@ -8,7 +8,7 @@ Use it to:
 - Infer schema contracts and generate TypeScript types from fixtures and schemas.
 - Serve local REST routes and a lightweight viewer while the backend contract is still forming.
 - Upgrade persistence per resource without rewriting frontend data access.
-- Keep static fixtures, writable local JSON, SQLite, Postgres, KV/Redis-like stores, and custom stores behind the same app-facing resource model.
+- Keep static fixtures, the first-party JSON file database, SQLite, Postgres, KV/Redis-like stores, and custom stores behind the same app-facing resource model.
 - Emit schema metadata for admin, CMS, or form-building screens.
 
 `@async/db` is not a universal key/value driver layer; storage is one boundary inside the fixture-to-contract workflow.
@@ -18,11 +18,11 @@ Use it to:
 | Files | Purpose |
 | --- | --- |
 | `db/*.json`, `db/*.jsonc`, `db/*.csv` | Fixture data |
-| `db/*.schema.json`, `db/*.schema.jsonc`, `db/*.schema.mjs` | Optional stricter schema contracts |
-| `db.schema.mjs` | Optional root schema registry for all resources |
-| `db/<resource>/index.schema.mjs` | Folder-backed content collection marker |
+| `db/*.schema.json`, `db/*.schema.jsonc`, `db/*.schema.js` | Optional stricter schema contracts |
+| `db.schema.js` | Optional root schema registry for all resources |
+| `db/<resource>/index.schema.js` | Folder-backed content collection marker |
 | `.db/state/*` | Generated writable JSON store state |
-| `.db/schema.generated.json`, `.db/types/index.ts` | Generated metadata and types |
+| `.db/schema.generated.json`, `.db/types/index.d.ts` | Generated metadata and types |
 
 ## Quick Summary
 
@@ -33,7 +33,7 @@ Most projects can start with the defaults:
 3. Run `async-db serve` to start the local API and viewer.
 4. Open `http://127.0.0.1:7331/__db`.
 5. Call REST routes like `GET /db/users.json` and `POST /db/users`.
-6. Add per-resource schemas or `db.schema.mjs` only when the fixture shape needs a clearer contract.
+6. Add per-resource schemas or `db.schema.js` only when the fixture shape needs a clearer contract.
 
 The default server is REST-first. GraphQL is available at `/graphql`, but you do not need it for the core workflow.
 
@@ -84,7 +84,7 @@ If you need an unreleased fix, pin a reviewed GitHub commit or release tag inste
 }
 ```
 
-The package import name is `@async/db`; helpers are available from `@async/db/config`, `@async/db/schema`, and `@async/db/client`. The root package exports runtime helpers such as `openDb()` and schema contract helpers such as `loadDbSchema()`.
+The package import name is `@async/db`; helpers are available from `@async/db/config`, `@async/db/schema`, `@async/db/client`, and `@async/db/json`. The root package exports runtime helpers such as `openDb()` and schema contract helpers such as `loadDbSchema()`.
 
 ## Five-Minute Start
 
@@ -139,7 +139,7 @@ The default sync output is generated:
 
 ```txt
 .db/schema.generated.json
-.db/types/index.ts
+.db/types/index.d.ts
 .db/state/users.json
 ```
 
@@ -159,10 +159,12 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 | Generated output | `.db/` is runtime output and normally stays uncommitted. |
 | Schema contract API | `loadDbSchema({ from })` loads metadata only by default; `openDb({ schema })` opens the runtime database from the same schema locator. |
 | Local server | Binds to `127.0.0.1:7331` by default and exposes writable local development endpoints. |
-| Trusted code | `.schema.mjs`, `db.config.mjs`, source readers, and manifest hooks execute as local project code. |
+| Trusted code | `.schema.js`, `db.config.mjs`, source readers, and manifest hooks execute as local project code. |
 | Mock latency | Responses include a small `30-100ms` delay by default so loading states are visible. |
 
-@async/db is local development/test infrastructure. It is not a production database, not an auth layer, and not a broad JSON Schema compatibility project.
+The built-in JSON store is production-appropriate only for file-suitable resources: app settings, feature flags, content, templates, plan definitions, policy rules, seed data, and other small low-write data that can safely live with a single writer. Keep high-write user data, chat/messages, analytics/events, ledgers, inventory counters, multi-writer data, and compliance-heavy transactional records in SQLite, Postgres, or another app-owned store.
+
+@async/db is not an auth layer, an ORM, a hosted database service, or a broad JSON Schema compatibility project. For production-facing APIs, put app traffic behind registered operations, app-owned auth/authorization, rate limits, and observability. See [Production JSON Database](./docs/json-production.md) and [Prototype To Production REST Guide](./docs/prototype-to-production.md).
 
 ## Add Schema When It Pays For It
 
@@ -174,7 +176,7 @@ npm run db -- schema infer users
 npm run db -- schema infer users --out db/users.schema.jsonc
 ```
 
-Add `db/users.schema.json`, `db/users.schema.jsonc`, or `db/users.schema.mjs` when you need stricter behavior:
+Add `db/users.schema.json`, `db/users.schema.jsonc`, or `db/users.schema.js` when you need stricter behavior:
 
 ```json
 {
@@ -208,7 +210,7 @@ In mixed mode, schema files define the contract and data files provide seed reco
 
 Schema defaults fill omitted fields on create and safe additive runtime hydration. Updates, patches, and document puts preserve omitted fields; include a field in the write body when you want to change it.
 
-Executable `.schema.mjs` files can also accept Standard Schema-compatible validators:
+Executable `.schema.js` files can also accept Standard Schema-compatible validators:
 
 ```js
 import { collection, field } from '@async/db/schema';
@@ -234,7 +236,7 @@ resolver access without opening stores:
 ```ts
 import { loadDbSchema, openDb } from '@async/db';
 
-const schema = await loadDbSchema({ from: './db.schema.mjs' });
+const schema = await loadDbSchema({ from: './db.schema.js' });
 const input = schema.validator('users', { unknownFields: 'strip' }).assert(await request.json());
 
 const userResolvers = schema.resolver('users', {
@@ -321,7 +323,7 @@ With the `db` script from the install snippet:
 npm run db -- sync
 npm run db -- types
 npm run db -- types --watch
-npm run db -- types --out ./src/generated/db.types.ts
+npm run db -- types --out ./src/generated/db.types.d.ts
 npm run db -- schema
 npm run db -- schema users
 npm run db -- schema infer users
@@ -386,7 +388,7 @@ routes, see the
 
 ## Which Example Should I Start With?
 
-The examples are a learning path. Run any example with `node ./src/cli.js sync --cwd ./examples/<name>` and `node ./src/cli.js serve --cwd ./examples/<name>`, or run `npm run examples` to start every viewer from one index.
+The examples are a learning path. Run any example with `npm run db -- sync --cwd ./examples/<name>` and `npm run db -- serve --cwd ./examples/<name>`, or run `npm run examples` to open one lazy examples index. The examples index binds to `127.0.0.1` by default; use `npm run examples -- --tailscale-serve` when you want Tailscale Serve to proxy that local port over HTTPS for devices in your tailnet.
 
 | If you want to learn... | Start with | What it shows |
 | --- | --- | --- |
@@ -416,6 +418,7 @@ Each example README is the runnable authority for that example.
 | Author fixtures and schemas | [docs/fixtures-and-schemas.md](./docs/fixtures-and-schemas.md) |
 | Manage generated output | [docs/generated-files.md](./docs/generated-files.md) |
 | Configure @async/db | [docs/configuration.md](./docs/configuration.md) |
+| Use JSON in production safely | [docs/json-production.md](./docs/json-production.md) |
 | Serve local data and use REST/GraphQL/viewer | [docs/server-and-viewer.md](./docs/server-and-viewer.md) |
 | Graduate REST prototypes to production API routes | [docs/prototype-to-production.md](./docs/prototype-to-production.md) |
 | Use the package API, CLI, or exports | [docs/package-api.md](./docs/package-api.md) |

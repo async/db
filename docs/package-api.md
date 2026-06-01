@@ -10,7 +10,7 @@ With a package script like `"db": "async-db"`:
 npm run db -- sync
 npm run db -- types
 npm run db -- types --watch
-npm run db -- types --out ./src/generated/db.types.ts
+npm run db -- types --out ./src/generated/db.types.d.ts
 npm run db -- schema
 npm run db -- schema users
 npm run db -- schema infer users
@@ -21,8 +21,9 @@ npm run db -- viewer manifest --out ./src/generated/db.viewer.json
 npm run db -- operations build
 npm run db -- operations build --out ./src/generated/db.operations.json --refs-out ./src/generated/db.operation-refs.json
 npm run db -- doctor
+npm run db -- doctor --production
 npm run db -- doctor --json
-npm run db -- check --strict
+npm run db -- check --strict --production
 npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
 npm run db -- serve
 npm run db -- generate hono
@@ -38,7 +39,8 @@ async-db schema validate
 async-db viewer manifest --out ./src/generated/db.viewer.json
 async-db operations build
 async-db doctor
-async-db check --strict
+async-db doctor --production
+async-db check --strict --production
 async-db serve
 async-db generate hono
 ```
@@ -93,13 +95,13 @@ await settings.set('/theme', 'dark');
 const value = await settings.get('/theme');
 ```
 
-Import generated `DbTypes` from `.db/types/index.ts` or from a committed output file when typed collection names and records should be available to TypeScript.
+Import generated `DbTypes` from `.db/types/index.d.ts` or from a committed output file when typed collection names and records should be available to TypeScript.
 
 ## Schema Contract API
 
 Use `loadDbSchema({ from })` when app code needs the schema contract without
 opening runtime stores or reading source records. `from` can point at a project
-root, a `db/` folder, the root `db.schema.mjs`, or one resource schema file.
+root, a `db/` folder, the root `db.schema.mjs` / `db.schema.js`, or one resource schema file.
 
 ```ts
 import { loadDbSchema, openDb } from '@async/db';
@@ -323,9 +325,10 @@ The helper is also attached to the default client as `db.fork('legacy-demo')`.
 | Export | Use |
 | --- | --- |
 | `@async/db` | Runtime API such as `openDb`. |
-| `@async/db/schema` | `.schema.mjs` authoring helpers. |
+| `@async/db/schema` | `.schema.mjs` and `.schema.js` authoring helpers. |
 | `@async/db/config` | `defineConfig` and manifest helpers. |
 | `@async/db/client` | HTTP client with REST, GraphQL, and batching helpers. |
+| `@async/db/json` | First-party JSON file database capabilities and safe JSON state helpers. |
 | `@async/db/vite` | Optional Vite dev server plugin. |
 | `@async/db/hono` | Optional Hono route registration helpers. |
 | `@async/db/sqlite` | Optional SQLite adapter helpers. |
@@ -335,6 +338,12 @@ The helper is also attached to the default client as `db.fork('legacy-demo')`.
 
 The core package stays dependency-light. Optional integrations use dynamic
 imports, generated app dependencies, or injected database clients.
+
+`@async/db/json` is the first-party JSON file database subpath. It exposes the
+JSON store capability metadata and safe file-state helpers for tooling,
+diagnostics, exports, and migrations. Most app code should still use `openDb()`,
+`createDbClient()`, and registered operations so resources can graduate from
+JSON to SQLite, Postgres, or custom stores without changing client calls.
 
 The root export also includes `hashOperation()`, `buildOperationManifest()`,
 and `createDbOperationHandler()` for tools and framework adapters that want to
@@ -380,4 +389,16 @@ Run every repo example and open an index of their viewers:
 npm run examples
 ```
 
-The examples index starts each example on its own port and lists links to each `/__db` viewer.
+The examples index runs on one loopback port and starts each example runtime lazily when you open its demo or `/__db` viewer.
+
+To get an HTTPS URL for the examples index inside your tailnet, opt in to
+Tailscale Serve:
+
+```bash
+npm run examples -- --tailscale-serve
+```
+
+This runs `tailscale serve --bg <port>` after the local examples host starts.
+@async/db does not call `tailscale cert`, manage local certificate files, or
+change tailnet settings directly. If MagicDNS or HTTPS certificates still need
+admin setup, the Tailscale CLI output is shown so you can follow its prompt.

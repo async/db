@@ -10,9 +10,11 @@ This folder is the durable markdown manual for @async/db. The root [README](../R
 
 ## Build Local Data
 
-- [Fixtures And Schemas](./fixtures-and-schemas.md): JSON, JSONC, CSV, schema files, `.schema.mjs`, Standard Schema validators, computed fields, source readers, nested folders, inference, and validation.
+- [Fixtures And Schemas](./fixtures-and-schemas.md): JSON, JSONC, CSV, schema files, `.schema.js`, Standard Schema validators, computed fields, source readers, nested folders, inference, and validation.
+- [TypeScript Schema Sources](./typescript-schema-sources.md): JavaScript ESM schemas and TypeScript-authored schemas compiled to supported runtime files.
 - [Generated Files](./generated-files.md): `.db/`, state, generated TypeScript, committed generated outputs, schema manifests, and cleanup rules.
 - [Configuration](./configuration.md): `db.config.mjs`, fixture folders, resource naming, strictness, registered operations, mock delay/errors, server options, and forks.
+- [Production JSON Database](./json-production.md): scoped production use for `@async/db/json`, hard limits, operation boundaries, and mixed-store graduation.
 - [Schema UI example](../examples/schema-ui/README.md): manifest-driven CMS HTML with **`serve.mjs`** SSR from live mirror rows (`node ./examples/schema-ui/serve.mjs`).
 
 ## Serve And Integrate

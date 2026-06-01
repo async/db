@@ -13,7 +13,7 @@ Important write surfaces:
 - Viewer CSV import writes CSV files into the configured `dbDir`.
 - Resources bound to the `sourceFile` store may write supported changes back to source fixtures.
 
-Config and schema JavaScript are trusted project code. Do not treat `.schema.mjs` or config hooks as untrusted data.
+Config and schema JavaScript are trusted project code. Do not treat `.schema.mjs`, `.schema.js`, or config hooks as untrusted data.
 
 ## Request Tracing
 

@@ -5,8 +5,8 @@ export default defineConfig({
   dbDir: './db',
   outputs: {
     stateDir: './.db',
-    types: './.db/types/index.ts',
-    committedTypes: './src/generated/db.types.ts',
+    types: './.db/types/index.d.ts',
+    committedTypes: './src/generated/db.types.d.ts',
     schemaManifest: './src/generated/db.schema.json',
   },
   types: {

@@ -14,8 +14,8 @@ Use this when product, customer, or spreadsheet-like data starts as CSV. db scan
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/csv
-node ./src/cli.js serve --cwd ./examples/csv
+npm run db -- sync --cwd ./examples/csv
+npm run db -- serve --cwd ./examples/csv
 ```
 
 Open the viewer:

@@ -3,11 +3,12 @@
  * @param {unknown} manifest
  * @param {Record<string, unknown[]>} recordsByCollection
  */
-export function renderHomePage(manifest, recordsByCollection) {
+export function renderHomePage(manifest, recordsByCollection, options = {}) {
+  const basePath = normalizeBasePath(options.basePath);
   const collections = Object.values(manifest.collections ?? {}).filter((c) => c.kind === 'collection');
   const links = collections.map((resource) => {
     const count = recordsByCollection[resource.name]?.length ?? 0;
-    return `<li><a href="/cms/${escapeHtml(resource.name)}">${escapeHtml(resource.editor?.title ?? resource.name)}</a> — ${count} record${count === 1 ? '' : 's'}</li>`;
+    return `<li><a href="${escapeHtml(joinPaths(basePath, `/cms/${resource.name}`))}">${escapeHtml(resource.editor?.title ?? resource.name)}</a> — ${count} record${count === 1 ? '' : 's'}</li>`;
   });
 
   return pageShell({
@@ -16,7 +17,7 @@ export function renderHomePage(manifest, recordsByCollection) {
     <h1>CMS home</h1>
     <p>Resources from <code>src/generated/db.schema.json</code>, records loaded from the db mirror.</p>
     <ul>${links.join('\n')}</ul>
-    <p><a href="/templates">Static component templates</a> (no live data).</p>`,
+    <p><a href="${escapeHtml(joinPaths(basePath, '/templates'))}">Static component templates</a> (no live data).</p>`,
   });
 }
 
@@ -25,7 +26,8 @@ export function renderHomePage(manifest, recordsByCollection) {
  * @param {string} collectionName
  * @param {unknown[]} records
  */
-export function renderCollectionListPage(manifest, collectionName, records) {
+export function renderCollectionListPage(manifest, collectionName, records, options = {}) {
+  const basePath = normalizeBasePath(options.basePath);
   const resource = manifest.collections?.[collectionName];
   if (!resource || resource.kind !== 'collection') {
     return null;
@@ -35,13 +37,13 @@ export function renderCollectionListPage(manifest, collectionName, records) {
   const rows = records.map((record) => {
     const id = record?.[resource.idField ?? 'id'];
     const label = pickListLabel(record, resource);
-    return `<li><a href="/cms/${escapeHtml(collectionName)}/${encodeURIComponent(String(id))}">${escapeHtml(label)}</a> <small>(<code>${escapeHtml(String(id))}</code>)</small></li>`;
+    return `<li><a href="${escapeHtml(joinPaths(basePath, `/cms/${collectionName}/${encodeURIComponent(String(id))}`))}">${escapeHtml(label)}</a> <small>(<code>${escapeHtml(String(id))}</code>)</small></li>`;
   });
 
   return pageShell({
     title: `Schema UI · ${title}`,
     body: `
-    <p><a href="/">← Home</a></p>
+    <p><a href="${escapeHtml(joinPaths(basePath, '/'))}">← Home</a></p>
     <h1>${escapeHtml(title)}</h1>
     ${resource.editor?.description ? `<p>${escapeHtml(resource.editor.description)}</p>` : ''}
     <ul>${rows.join('\n')}</ul>`,
@@ -54,7 +56,8 @@ export function renderCollectionListPage(manifest, collectionName, records) {
  * @param {Record<string, unknown> | null} record
  * @param {Record<string, unknown[]>} recordsByCollection
  */
-export function renderRecordDetailPage(manifest, collectionName, record, recordsByCollection) {
+export function renderRecordDetailPage(manifest, collectionName, record, recordsByCollection, options = {}) {
+  const basePath = normalizeBasePath(options.basePath);
   const resource = manifest.collections?.[collectionName];
   if (!resource || resource.kind !== 'collection' || !record) {
     return null;
@@ -62,7 +65,7 @@ export function renderRecordDetailPage(manifest, collectionName, record, records
 
   const title = resource.editor?.title ?? collectionName;
   const fields = Object.entries(resource.fields ?? {});
-  const viewBlocks = fields.map(([fieldName, field]) => renderFieldBlock('view', fieldName, field, record[fieldName], recordsByCollection));
+  const viewBlocks = fields.map(([fieldName, field]) => renderFieldBlock('view', fieldName, field, record[fieldName], recordsByCollection, { basePath }));
   const editorBlocks = fields.map(([fieldName, field]) => renderFieldBlock('editor', fieldName, field, record[fieldName], recordsByCollection));
 
   const id = record[resource.idField ?? 'id'];
@@ -70,7 +73,7 @@ export function renderRecordDetailPage(manifest, collectionName, record, records
   return pageShell({
     title: `Schema UI · ${title} · ${id}`,
     body: `
-    <p><a href="/">← Home</a> · <a href="/cms/${escapeHtml(collectionName)}">← ${escapeHtml(title)}</a></p>
+    <p><a href="${escapeHtml(joinPaths(basePath, '/'))}">← Home</a> · <a href="${escapeHtml(joinPaths(basePath, `/cms/${collectionName}`))}">← ${escapeHtml(title)}</a></p>
     <h1>${escapeHtml(String(record.title ?? record.name ?? id))}</h1>
     ${resource.editor?.description ? `<p>${escapeHtml(resource.editor.description)}</p>` : ''}
     <section class="cms-live-view">
@@ -129,11 +132,11 @@ function pickListLabel(record, resource) {
 /**
  * @param {'view' | 'editor'} mode
  */
-function renderFieldBlock(mode, fieldName, field, value, recordsByCollection) {
+function renderFieldBlock(mode, fieldName, field, value, recordsByCollection, options = {}) {
   const component = field.ui?.component ?? 'text';
   const label = field.ui?.label ?? labelFromFieldName(fieldName);
   const inner = mode === 'view'
-    ? renderViewField(component, fieldName, field, value, recordsByCollection)
+    ? renderViewField(component, fieldName, field, value, recordsByCollection, options)
     : renderEditorField(component, fieldName, field, value, recordsByCollection);
 
   return `      <div class="field-block" data-component="${escapeHtml(component)}" data-field="${escapeHtml(fieldName)}">
@@ -142,7 +145,7 @@ function renderFieldBlock(mode, fieldName, field, value, recordsByCollection) {
       </div>`;
 }
 
-function renderViewField(component, fieldName, field, value, recordsByCollection) {
+function renderViewField(component, fieldName, field, value, recordsByCollection, options = {}) {
   switch (component) {
     case 'email': {
       const text = scalarText(value);
@@ -155,7 +158,7 @@ function renderViewField(component, fieldName, field, value, recordsByCollection
     case 'segmented-control':
       return `<span>${escapeHtml(scalarText(value))}</span>${hint(field)}`;
     case 'relationSelect':
-      return `${relationAnchor(field, value, recordsByCollection)}${hint(field)}`;
+      return `${relationAnchor(field, value, recordsByCollection, options)}${hint(field)}`;
     case 'text':
     default:
       if (field.ui?.readonly) {
@@ -195,14 +198,14 @@ function renderEditorField(component, fieldName, field, value, recordsByCollecti
   }
 }
 
-function relationAnchor(field, foreignKey, recordsByCollection) {
+function relationAnchor(field, foreignKey, recordsByCollection, options = {}) {
   const keyText = scalarText(foreignKey);
   if (!field.relation?.to || keyText === '') {
     return `<span>${escapeHtml(keyText)}</span>`;
   }
   const label = relationDisplayLabel(field, foreignKey, recordsByCollection);
   const targetCollection = field.relation.to;
-  return `<a href="/cms/${escapeHtml(targetCollection)}/${encodeURIComponent(keyText)}">${escapeHtml(label)}</a>`;
+  return `<a href="${escapeHtml(joinPaths(options.basePath, `/cms/${targetCollection}/${encodeURIComponent(keyText)}`))}">${escapeHtml(label)}</a>`;
 }
 
 function relationSelect(field, fieldName, selectedKey, recordsByCollection) {
@@ -248,6 +251,19 @@ function labelFromFieldName(fieldName) {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function normalizeBasePath(basePath) {
+  if (!basePath || basePath === '/') {
+    return '';
+  }
+  return `/${String(basePath).replace(/^\/+|\/+$/gu, '')}`;
+}
+
+function joinPaths(basePath, childPath) {
+  const normalizedBase = normalizeBasePath(basePath);
+  const normalizedChild = `/${String(childPath).replace(/^\/+/u, '')}`;
+  return `${normalizedBase}${normalizedChild}`;
 }
 
 export function escapeHtml(value) {

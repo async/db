@@ -12,6 +12,8 @@ db/
 
   users.schema.json          optional schema/type source (strict JSON)
   users.schema.jsonc         optional schema/type source (JSON with comments)
+  users.schema.mjs           optional executable schema source
+  users.schema.js            optional executable schema source when package type is module
   posts.schema.jsonc
   settings.schema.jsonc
 
@@ -21,14 +23,14 @@ db/
   migrations/
   schema.generated.json
   types/
-    index.ts                 generated TypeScript types
+    index.d.ts               generated TypeScript declarations
 ```
 
 Projects can also opt into committed generated types:
 
 ```txt
 src/generated/
-  db.types.ts            committed generated types
+  db.types.d.ts            committed generated types
 ```
 
 ## Developer Workflows
@@ -213,7 +215,7 @@ export default {
 By default, generated TypeScript types are written to:
 
 ```txt
-.db/types/index.ts
+.db/types/index.d.ts
 ```
 
 Projects can customize the output location:
@@ -244,11 +246,11 @@ export default {
     enabled: true,
 
     // Default gitignored output.
-    outFile: './.db/types/index.ts',
+    outFile: './.db/types/index.d.ts',
 
     // Optional committed output.
     // If set, generate the same types here too.
-    commitOutFile: './src/generated/db.types.ts',
+    commitOutFile: './src/generated/db.types.d.ts',
 
     // Optional.
     useReadonly: false,
@@ -366,6 +368,7 @@ JSONC is useful, but a JavaScript schema file can be more expressive while stayi
 
 ```txt
 db/users.schema.mjs
+db/users.schema.js
 ```
 
 ```js
@@ -419,9 +422,10 @@ For v1, support:
 .schema.json
 .schema.jsonc
 .schema.mjs
+.schema.js
 ```
 
-Avoid `.ts` schema sources in v1 unless the project adds a build step or TypeScript loader. Node.js does not execute TypeScript directly in the same way it executes `.mjs`.
+Use `.schema.js` only with normal Node ESM rules: the nearest `package.json` must declare `"type": "module"`. Avoid direct `.ts` schema sources in v1; projects that author schemas in TypeScript should compile to `.schema.js` or `.schema.mjs`.
 
 ## Source Readers
 
@@ -434,6 +438,7 @@ All built-in source loading should use the same reader pipeline:
 .schema.json
 .schema.jsonc
 .schema.mjs
+.schema.js
 ```
 
 Projects may add `sources.readers` in `db.config.mjs` to parse custom files into raw db inputs:
@@ -644,8 +649,8 @@ export default {
 
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
-    commitOutFile: './src/generated/db.types.ts',
+    outFile: './.db/types/index.d.ts',
+    commitOutFile: './src/generated/db.types.d.ts',
     useReadonly: false,
     emitComments: true,
   },
@@ -698,7 +703,7 @@ Add type-specific commands:
 ```bash
 async-db types
 async-db types --watch
-async-db types --out ./src/generated/db.types.ts
+async-db types --out ./src/generated/db.types.d.ts
 ```
 
 Add schema commands:
@@ -718,8 +723,8 @@ Expected output:
 Loaded db/users.schema.jsonc
 Loaded db/posts.json
 Generated .db/schema.generated.json
-Generated .db/types/index.ts
-Generated src/generated/db.types.ts
+Generated .db/types/index.d.ts
+Generated src/generated/db.types.d.ts
 Generated src/generated/db.schema.json
 Synced runtime store
 ```
@@ -1066,7 +1071,7 @@ Add automatic TypeScript type generation.
 By default, generated types should be written to:
 
 ```txt
-.db/types/index.ts
+.db/types/index.d.ts
 ```
 
 Also support a configurable committed output file:
@@ -1075,8 +1080,8 @@ Also support a configurable committed output file:
 export default {
   types: {
     enabled: true,
-    outFile: './.db/types/index.ts',
-    commitOutFile: './src/generated/db.types.ts',
+    outFile: './.db/types/index.d.ts',
+    commitOutFile: './src/generated/db.types.d.ts',
     emitComments: true,
     useReadonly: false
   }
@@ -1220,6 +1225,7 @@ db/users.jsonc             data-first fixture with comments
 db/users.csv               data-first collection fixture
 db/users.schema.jsonc      schema/type-first fixture
 db/users.schema.mjs        schema/type-first fixture using JS helpers
+db/users.schema.js         schema/type-first fixture using JS helpers in type: module projects
 ```
 
 The main source JSON/JSONC/CSV fixture can be used to infer schema and generate types.
@@ -1248,7 +1254,7 @@ A `.schema.jsonc` file can define a resource without seed data:
 }
 ```
 
-Support `.schema.mjs` files for richer authoring:
+Support `.schema.mjs` and `.schema.js` files for richer authoring:
 
 ```js
 import { collection, field } from '@async/db/schema';
@@ -1270,7 +1276,7 @@ export default collection({
 });
 ```
 
-Support a root `db.schema.mjs` registry for one-file schema authoring:
+Support a root `db.schema.mjs` or `db.schema.js` registry for one-file schema authoring:
 
 ```js
 import { collection, field } from '@async/db/schema';
@@ -1302,17 +1308,18 @@ computed resolvers.
 
 The package API should expose `loadDbSchema({ from })` for metadata-only schema
 loading from a project root, `db/` folder, `db.schema.mjs`, or individual schema
-file. Loaded schemas expose `schema.validator(resource, options)` for endpoint
+file. `db.schema.js` follows the same locator rules when the project uses `"type": "module"`. Loaded schemas expose `schema.validator(resource, options)` for endpoint
 input validation and `schema.resolver(resourceOrField, options)` for direct
 computed field execution. Validators reject computed/read-only fields, default
 unknown fields to `error`, and support `strip`, `allow`, `warn`, and patch/replace
 validation modes. `openDb({ schema })` accepts a loaded schema object and opens
 runtime stores from the same locator.
 
-Folder-backed content collections use `index.schema.mjs` as an explicit marker:
+Folder-backed content collections use `index.schema.mjs` or `index.schema.js` as an explicit marker:
 
 ```txt
 db/docs/index.schema.mjs
+db/docs/index.schema.js
 db/docs/intro.mdx
 ```
 
@@ -1322,12 +1329,12 @@ belongs in `db.config.mjs` through `resources.<name>.store`; use `store: 'static
 there when file-backed content should be read-only. Core only parses frontmatter
 plus raw `.md` / `.mdx` body text. MDX compilation remains app-owned.
 
-Do not require TypeScript execution for schema files in v1. Use `.mjs` for executable schema definitions.
+Do not require TypeScript execution for schema files in v1. Use `.mjs` for package-type-independent executable schema definitions, or compile TypeScript-authored schema files to `.schema.js` / `.schema.mjs`.
 
 Rules:
 
 1. If only `users.json` exists, infer schema from data.
-2. If only `users.schema.json`, `users.schema.jsonc`, or `users.schema.mjs` exists, create the collection from schema and optional seed/default data.
+2. If only `users.schema.json`, `users.schema.jsonc`, `users.schema.mjs`, or `users.schema.js` exists, create the collection from schema and optional seed/default data.
 3. If both `users.json` and `users.schema.*` exist, the schema file is authoritative for types and validation, while the JSON file provides seed data.
 4. Additive fields are safe and automatic.
 5. Removed fields and type changes require explicit approval.
@@ -1339,7 +1346,7 @@ Add CLI commands:
 ```bash
 async-db types
 async-db types --watch
-async-db types --out ./src/generated/db.types.ts
+async-db types --out ./src/generated/db.types.d.ts
 async-db schema
 async-db schema validate
 async-db schema unbundle users
@@ -1405,7 +1412,7 @@ Acceptance criteria:
 * Schema-only fixtures generate TypeScript types.
 * JSONC schema comments are allowed.
 * Field descriptions become JSDoc in generated TypeScript.
-* `types.outFile` writes to `.db/types/index.ts` by default.
+* `types.outFile` writes to `.db/types/index.d.ts` by default.
 * `types.commitOutFile` writes to a custom importable location.
 * Package API can be typed with the generated `DbTypes`.
 ````

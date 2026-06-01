@@ -16,7 +16,7 @@ The demo composes **SSR CMS routes ahead of the stock db handler**, so the same 
 - [src/schema-ui-ssr-handler.mjs](./src/schema-ui-ssr-handler.mjs): SSR routing layer (middleware-style); hands off other paths to db.
 - [src/start-schema-ui-server.mjs](./src/start-schema-ui-server.mjs): wires SSR handler + `createDbRequestHandler` + file watching.
 - [serve.mjs](./serve.mjs): CLI entry; same stack as the examples launcher hook.
-- [serve-example.mjs](./serve-example.mjs): **`npm run examples`** hook — exports `startExampleServer` so `scripts/example-launcher.js` can mount this example without hard-coding it.
+- [serve-example.mjs](./serve-example.mjs): **`npm run examples`** hook — exports `createExampleRuntime` so `scripts/example-launcher.js` can mount this example without hard-coding it.
 - [src/generated/db.schema.json](./src/generated/db.schema.json): committed manifest input after sync.
 
 ## Run It
@@ -35,7 +35,7 @@ Open **http://127.0.0.1:7342/** — CMS home with links into each collection. Th
 npm run examples
 ```
 
-Pick **Schema UI** on the index page; it uses **`serve-example.mjs`** automatically (see `scripts/example-launcher.js`).
+Pick **Schema UI** on the index page; it uses **`serve-example.mjs`** automatically and starts only after you open it (see `scripts/example-launcher.js`).
 
 Routes:
 
@@ -61,7 +61,7 @@ node ./examples/schema-ui/serve.mjs --no-sync
 ### Print Static Templates To A File
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/schema-ui
+npm run db -- sync --cwd ./examples/schema-ui
 node ./examples/schema-ui/src/render-admin.mjs > /tmp/db-schema-ui.html
 ```
 
@@ -82,7 +82,7 @@ curl 'http://127.0.0.1:7342/db/pages.json?expand=author&select=id,title,status,a
 Or run the CLI server alone:
 
 ```bash
-node ./src/cli.js serve --cwd ./examples/schema-ui
+npm run db -- serve --cwd ./examples/schema-ui
 curl 'http://127.0.0.1:7331/db/pages.json?expand=author&select=id,title,status,author.name'
 ```
 

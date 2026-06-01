@@ -9,15 +9,15 @@ Use this when you know the local contract before you have real records. It defin
 - [db/users.schema.jsonc](./db/users.schema.jsonc): collection with seed data.
 - [db/settings.schema.jsonc](./db/settings.schema.jsonc): singleton document schema.
 - [db/auditEvents.schema.jsonc](./db/auditEvents.schema.jsonc): schema-only collection with an empty runtime state.
-- [src/generated/db.types.ts](./src/generated/db.types.ts): committed generated types.
+- [src/generated/db.types.d.ts](./src/generated/db.types.d.ts): committed generated types.
 
 ## Run It
 
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-node ./src/cli.js sync --cwd ./examples/schema-first
-node ./src/cli.js serve --cwd ./examples/schema-first
+npm run db -- sync --cwd ./examples/schema-first
+npm run db -- serve --cwd ./examples/schema-first
 ```
 
 Open the viewer:

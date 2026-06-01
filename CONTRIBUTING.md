@@ -60,6 +60,16 @@ node ./src/cli.js create users '{"id":"u_2","name":"Grace Hopper","email":"grace
 npm run examples
 ```
 
+To share the examples index with HTTPS inside your tailnet, opt in to
+Tailscale Serve:
+
+```bash
+npm run examples -- --tailscale-serve
+```
+
+The package still serves plain HTTP on `127.0.0.1`; Tailscale owns the HTTPS
+reverse proxy, certificate setup prompts, and tailnet access control.
+
 The local server binds a loopback port and keeps running until stopped:
 
 ```bash
