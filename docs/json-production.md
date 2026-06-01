@@ -41,6 +41,8 @@ The default JSON store writes complete resource files under `.db/state`. Writes 
 
 Treat 1,000 collection records as a review point. `async-db doctor` already warns when a JSON-backed collection has more than 1,000 seed records without index metadata. For fast-changing or query-heavy collections, graduate the resource before users depend on it.
 
+If a JSON state file is corrupt or only partially recoverable, `@async/db/json` reports `JSON_STATE_INVALID` with the file path and parser message. Restore that file from a known-good snapshot, delete it only when rehydrating from seed data is safe, or fix the JSON syntax before restarting the app.
+
 ## Production API Boundary
 
 Do not expose local `async-db serve` as an unauthenticated public database API.
@@ -112,6 +114,7 @@ For the full resource-by-resource migration path, see [Resource Graduation And M
 - Prefer `schema.unknownFields: 'error'` when drift should fail.
 - Keep JSON-backed writes low-volume and single-writer.
 - Snapshot or back up `.db/state` before deployments and migrations.
+- Practice recovery for `JSON_STATE_INVALID` by restoring a known-good state snapshot.
 - Keep browser traffic behind registered operations when exposing production APIs.
 - Return evaluated feature flags or policy decisions to the browser, not sensitive rule internals.
 - Move a resource to SQLite, Postgres, or a custom store when write rate, size, query needs, or concurrency exceed file-backed JSON limits.

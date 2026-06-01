@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { dbError } from '../../errors.js';
 import { applyDefaultsToSeed } from '../sync/defaults.js';
 import { seedForRuntimeState } from '../sync/synthetic-seed.js';
 import { updateSourceMetadataResource, type SourceMetadata } from './source-metadata.js';
@@ -78,6 +79,20 @@ export async function readJsonState<T>(filePath: string, fallback: T): Promise<T
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return fallback;
+    }
+    if (error instanceof SyntaxError) {
+      throw dbError(
+        'JSON_STATE_INVALID',
+        `JSON state file is not valid JSON: ${filePath}`,
+        {
+          status: 500,
+          hint: 'Restore this file from a known-good snapshot, delete it to rehydrate from seed data when safe, or fix the JSON syntax before restarting.',
+          details: {
+            filePath,
+            parserMessage: error.message,
+          },
+        },
+      );
     }
     throw error;
   }
