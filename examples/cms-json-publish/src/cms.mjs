@@ -7,13 +7,13 @@ export function createCms(db, { tenantId }) {
     async setup() {
       const tenant = await db.forks.ensure(tenantId, {
         from: 'main',
-        kind: 'tenant',
         metadata: {
+          purpose: 'tenant',
           app: 'cms-json-publish',
         },
       });
-      await tenant.branches.ensure('draft', { from: 'main', kind: 'draft' });
-      await tenant.branches.ensure('published', { from: 'main', kind: 'published' });
+      await tenant.branches.ensure('draft', { from: 'main', metadata: { purpose: 'draft' } });
+      await tenant.branches.ensure('published', { from: 'main', metadata: { purpose: 'published' } });
     },
 
     async saveDraft(pageId, changes) {
@@ -30,7 +30,7 @@ export function createCms(db, { tenantId }) {
       const tenant = await db.forks.open(tenantId);
       return tenant.branches.create(previewId, {
         from: 'draft',
-        kind: 'preview',
+        metadata: { purpose: 'preview' },
       });
     },
 

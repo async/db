@@ -687,13 +687,11 @@ export type DbForkSource =
 
 export type DbForkCreateOptions = {
   from?: DbForkSource;
-  kind?: string;
   metadata?: Record<string, unknown>;
 };
 
 export type DbBranchCreateOptions = {
   from?: string;
-  kind?: string;
   metadata?: Record<string, unknown>;
 };
 

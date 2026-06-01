@@ -80,13 +80,11 @@ type ForkSource =
 
 type ForkCreateOptions = {
   from?: ForkSource;
-  kind?: string;
   metadata?: Record<string, unknown>;
 };
 
 type BranchCreateOptions = {
   from?: string;
-  kind?: string;
   metadata?: Record<string, unknown>;
 };
 
@@ -438,7 +436,6 @@ export class Db {
       ...configRecord(registry.forks),
       [name]: {
         id: name,
-        kind: options.kind ?? 'fork',
         metadata: options.metadata ?? {},
         from: serializeForkSource(options.from),
         createdAt: now,
@@ -449,7 +446,6 @@ export class Db {
     await this.writeBranchRegistry(name, {
       main: {
         id: 'main',
-        kind: 'main',
         metadata: {},
         from: source.label,
         createdAt: now,
@@ -537,7 +533,6 @@ export class Db {
       ...configRecord(registry.branches),
       [name]: {
         id: name,
-        kind: options.kind ?? 'branch',
         metadata: options.metadata ?? {},
         from: options.from ?? this.scope.branch ?? 'main',
         createdAt: new Date().toISOString(),
