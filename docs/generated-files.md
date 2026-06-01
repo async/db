@@ -70,6 +70,7 @@ examples/advanced/src/generated/db.types.d.ts
 examples/basic/src/generated/db.types.d.ts
 examples/computed-fields/src/generated/db.types.d.ts
 examples/content-collections/src/generated/db.types.d.ts
+examples/production-json/src/generated/db.types.d.ts
 examples/schema-first/src/generated/db.types.d.ts
 examples/schema-manifest/src/generated/db.types.d.ts
 examples/schema-ui/src/generated/db.types.d.ts

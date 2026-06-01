@@ -1,0 +1,6 @@
+{
+  "name": "GetControlPlane",
+  "kind": "graphql",
+  "operationName": "GetControlPlane",
+  "query": "query GetControlPlane { appSettings { appName environment maintenanceMode defaultLocale supportEmail } featureFlags { id key enabled audience rolloutPercent description owner updatedAt } }"
+}

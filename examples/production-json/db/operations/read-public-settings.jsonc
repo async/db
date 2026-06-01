@@ -1,0 +1,8 @@
+{
+  "name": "ReadPublicSettings",
+  "method": "GET",
+  "path": "/app-settings.json",
+  "query": {
+    "select": "appName,environment,maintenanceMode,defaultLocale,supportEmail"
+  }
+}

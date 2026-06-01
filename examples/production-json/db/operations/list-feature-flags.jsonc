@@ -1,0 +1,8 @@
+{
+  "name": "ListFeatureFlags",
+  "method": "GET",
+  "path": "/feature-flags.json",
+  "query": {
+    "select": "id,key,enabled,audience,rolloutPercent,description,owner,updatedAt"
+  }
+}
