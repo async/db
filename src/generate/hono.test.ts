@@ -5,10 +5,129 @@ import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 import { loadConfig } from '../config.js';
-import { generateHonoStarter } from './hono.js';
+import { generateHonoStarter, renderHonoStarter } from './hono.js';
 import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
 
 const execFileAsync = promisify(execFile);
+
+function generatedFileContent(files: Array<{ path: string; content: string }>, filePath: string): string {
+  const file = files.find((candidate) => candidate.path === filePath);
+  assert(file, `expected generated file ${filePath}`);
+  return file.content;
+}
+
+test('render hono starter locks the standalone REST GraphQL fixture seed contract', () => {
+  const files = renderHonoStarter({
+    diagnostics: [],
+    resources: [
+      {
+        name: 'users',
+        kind: 'collection',
+        idField: 'id',
+        fields: {
+          id: { type: 'string', required: true },
+          email: { type: 'string', required: true },
+          role: { type: 'enum', values: ['admin', 'user'], default: 'user' },
+        },
+        seed: [{ id: 'u_1', email: 'ada@example.com' }],
+      },
+      {
+        name: 'settings',
+        kind: 'document',
+        fields: {
+          theme: { type: 'string', default: 'light' },
+        },
+        seed: { theme: 'dark' },
+      },
+    ],
+    schema: {
+      resources: {
+        users: {
+          name: 'users',
+          kind: 'collection',
+          routePath: '/users',
+          idField: 'id',
+          fields: {
+            id: { type: 'string', required: true },
+            email: { type: 'string', required: true },
+            role: { type: 'enum', values: ['admin', 'user'], default: 'user' },
+          },
+        },
+        settings: {
+          name: 'settings',
+          kind: 'document',
+          routePath: '/settings',
+          fields: {
+            theme: { type: 'string', default: 'light' },
+          },
+        },
+      },
+      graphql: 'type User { id: String! email: String! }',
+    },
+  }, {
+    api: ['rest', 'graphql'],
+    seed: 'fixtures',
+    app: 'standalone',
+  });
+
+  assert.deepEqual(files.map((file) => file.path).sort(), [
+    'README.md',
+    'migrations/0001_initial.sql',
+    'package.json',
+    'src/app.ts',
+    'src/graphql.ts',
+    'src/repository.ts',
+    'src/rest.ts',
+    'src/schema.ts',
+    'src/seed.ts',
+    'src/server.ts',
+    'src/sqlite.ts',
+    'src/validators.ts',
+    'tsconfig.json',
+  ]);
+
+  const appSource = generatedFileContent(files, 'src/app.ts');
+  assert.match(appSource, /import \{ registerDbRoutes \} from '\.\/rest\.js';/);
+  assert.match(appSource, /import \{ registerGraphqlRoutes \} from '\.\/graphql\.js';/);
+  assert.match(appSource, /export const repository = openSqliteRepository\(\);/);
+  assert.match(appSource, /registerDbRoutes\(app, repository\);/);
+  assert.match(appSource, /registerGraphqlRoutes\(app, repository\);/);
+
+  const graphqlSource = generatedFileContent(files, 'src/graphql.ts');
+  assert.match(graphqlSource, /import \{ executeGraphql \} from '@async\/db';/);
+  assert.match(graphqlSource, /const graphqlSdl = "type User \{ id: String! email: String! \}";/);
+  assert.match(graphqlSource, /app\.post\(path, async \(c\) => executeGraphql\(createDbFacade\(repository\), await c\.req\.json\(\)\)/);
+
+  const restSource = generatedFileContent(files, 'src/rest.ts');
+  assert.match(restSource, /app\.get\(resource\.routePath, async \(c\) => c\.json\(await repository\.collection\(resourceName\)\.all\(\)\)\);/);
+  assert.match(restSource, /app\.patch\(resource\.routePath \+ '\/:id', async \(c\) => \{/);
+  assert.match(restSource, /app\.put\(resource\.routePath, async \(c\) => c\.json\(await repository\.document\(resourceName\)\.put\(await c\.req\.json\(\)\)\)\);/);
+
+  const schemaSource = generatedFileContent(files, 'src/schema.ts');
+  assert.match(schemaSource, /export const resources = \{/);
+  assert.match(schemaSource, /"users": \{/);
+  assert.match(schemaSource, /export const seedData = \{/);
+  assert.match(schemaSource, /"settings": \{/);
+
+  const sqliteSource = generatedFileContent(files, 'src/sqlite.ts');
+  assert.match(sqliteSource, /import \{ seedData \} from '\.\/schema\.js';/);
+  assert.match(sqliteSource, /migrate\(db\);\n  seedFixtures\(db\);/);
+  assert.match(sqliteSource, /function seedFixtures\(db: DatabaseSync\) \{/);
+  assert.match(sqliteSource, /CREATE TABLE IF NOT EXISTS \\"_db_documents\\"/);
+
+  const migration = generatedFileContent(files, 'migrations/0001_initial.sql');
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS "users"/);
+  assert.match(migration, /"id" TEXT PRIMARY KEY/);
+  assert.match(migration, /"email" TEXT NOT NULL/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS "_db_documents"/);
+
+  assert.equal(generatedFileContent(files, 'src/seed.ts'), [
+    '// This file is generated by db. Edit it freely after generation.',
+    '',
+    "export { seedData } from './schema.js';",
+    '',
+  ].join('\n'));
+});
 
 test('generate hono creates a REST standalone SQLite starter from schema fixtures', async () => {
   const cwd = await makeProject();

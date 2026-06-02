@@ -244,11 +244,28 @@ void contentSchema;
 
 test('package metadata exposes @async/db with the async-db CLI', async () => {
   const packageJson = JSON.parse(await readFile(path.resolve('package.json'), 'utf8'));
+  const expectedExports = {
+    '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+    './schema': { types: './dist/schema.d.ts', default: './dist/schema-builders.js' },
+    './config': { types: './dist/config.d.ts', default: './dist/config-public.js' },
+    './client': { types: './dist/index.d.ts', default: './dist/client.js' },
+    './json': { types: './dist/json.d.ts', default: './dist/json.js' },
+    './hono': { types: './dist/hono.d.ts', default: './dist/hono.js' },
+    './sqlite': { types: './dist/sqlite.d.ts', default: './dist/sqlite.js' },
+    './postgres': { types: './dist/postgres.d.ts', default: './dist/postgres.js' },
+    './kv': { types: './dist/kv.d.ts', default: './dist/kv.js' },
+    './redis': { types: './dist/redis.d.ts', default: './dist/redis.js' },
+    './vite': { types: './dist/vite.d.ts', default: './dist/vite.js' },
+  };
 
   assert.equal(packageJson.name, '@async/db');
   assert.deepEqual(packageJson.bin, {
     'async-db': './dist/cli.js',
   });
+  assert.deepEqual(Object.keys(packageJson.exports).sort(), Object.keys(expectedExports).sort());
+  for (const [subpath, exportEntry] of Object.entries(expectedExports)) {
+    assert.deepEqual(packageJson.exports[subpath], exportEntry);
+  }
   assert.equal(packageJson.exports['.'].default, './dist/index.js');
   assert.equal(packageJson.exports['.'].types, './dist/index.d.ts');
   assert.equal(packageJson.exports['./schema'].default, './dist/schema-builders.js');
