@@ -7,6 +7,11 @@ import { generateSchemaManifest } from '../../schema-manifest.js';
 import { isHelpRequested, valueAfter } from '../args.js';
 import { printDiagnostic, printSchemaHelp } from '../output.js';
 import { promptForSchemaTarget } from '../schema-prompt.js';
+import {
+  preflightSchemaOutput as preflightOutput,
+  writeSchemaOutput as writeOutput,
+  type SchemaWriteOptions as WriteOptions,
+} from './schema/output.js';
 
 type CliConfig = {
   cwd?: string;
@@ -113,13 +118,6 @@ type RenderSchemaModuleOptions = FieldRenderOptions & {
 
 type BundleOptions = {
   force?: boolean;
-};
-
-type WriteOptions = BundleOptions & {
-  existsCode?: string;
-  existsHint?: string;
-  command?: string;
-  resource?: string;
 };
 
 type PlannedWrite = {
@@ -1343,77 +1341,6 @@ async function fileExists(filePath: string): Promise<boolean> {
     }
     throw error;
   }
-}
-
-async function writeOutput(filePath: string, content: string, config: CliConfig, options: WriteOptions = {}): Promise<boolean> {
-  const result = await preflightOutput(filePath, content, config, options);
-  if (!result.shouldWrite) {
-    return false;
-  }
-
-  await writeText(filePath, content);
-  return true;
-}
-
-async function preflightOutput(filePath: string, content: string, config: CliConfig, options: WriteOptions = {}): Promise<{ shouldWrite: boolean }> {
-  if (options.force) {
-    return { shouldWrite: true };
-  }
-
-  if (!options.force) {
-    try {
-      const existing = await readText(filePath);
-      if (contentMatches(existing, content)) {
-        return { shouldWrite: false };
-      }
-
-      const relative = path.relative(config.cwd, filePath);
-      const code = options.existsCode ?? 'SCHEMA_OUTPUT_EXISTS';
-      throw dbError(
-        code,
-        `${code}: ${relative} already exists with different content.`,
-        {
-          hint: options.existsHint ?? 'Review the existing file, choose a different output path, or pass --force to overwrite it.',
-          details: {
-            command: options.command,
-            resource: options.resource,
-            file: relative,
-            severity: 'error',
-          },
-        },
-      );
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        throw error;
-      }
-    }
-  }
-
-  return { shouldWrite: true };
-}
-
-function contentMatches(existing: string, next: string): boolean {
-  if (existing === next) {
-    return true;
-  }
-
-  try {
-    return stableJsonStringify(JSON.parse(existing)) === stableJsonStringify(JSON.parse(next));
-  } catch {
-    return false;
-  }
-}
-
-function stableJsonStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableJsonStringify(item)).join(',')}]`;
-  }
-
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJsonStringify(value[key])}`).join(',')}}`;
-  }
-
-  return JSON.stringify(value);
 }
 
 function isEmptySeed(seed: unknown, kind: unknown): boolean {
