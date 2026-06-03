@@ -53,8 +53,6 @@ See [db.config.example.mjs](../db.config.example.mjs) for a commented config wit
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  dbDir: './db',
-
   outputs: {
     stateDir: './.db',
     types: './.db/types/index.d.ts',
@@ -160,7 +158,7 @@ Use `dbDir` when fixtures live somewhere other than `./db`:
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  dbDir: './db',
+  dbDir: './fixtures',
 });
 ```
 
@@ -170,18 +168,31 @@ Existing `sourceDir` configs still work; `dbDir` is the shorter fixture-folder n
 
 Source fixtures and runtime persistence are separate concerns. By default, source fixtures stay unchanged and app writes go to the generated JSON store under `.db/state`.
 
-Use `resources.<name>.store` to bind a resource to a different store:
+Use `stores.default` when every resource should use the same runtime store:
 
 ```js
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
   stores: {
-    default: 'json',
+    default: 'sourceFile',
+  },
+});
+```
+
+With that config, writes to plain JSON resources update `db/<resource>.json` directly. This is useful for small local web apps where the project folder should contain the saved app state. JSONC and CSV files remain source inputs; they cannot use `sourceFile` as writable state.
+
+Use `resources.<name>.store` to override the default for one resource:
+
+```js
+import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  stores: {
+    default: 'sourceFile',
   },
   resources: {
-    users: { store: 'sourceFile' },
-    activityEvents: {
+    importedRows: {
       store: 'json',
       indexes: [
         { fields: ['observedAt'] },

@@ -59,7 +59,6 @@ pnpm db serve
 import { openDb } from '@async/db';
 
 const db = await openDb({
-  dbDir: './db',
   outputs: {
     stateDir: './.db',
   },

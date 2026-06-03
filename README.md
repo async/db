@@ -48,6 +48,7 @@ Other useful paths:
 - [`examples/computed-fields`](./examples/computed-fields): computed field patterns across several schema-backed models.
 - [`examples/production-json`](./examples/production-json): feature flags and settings in the JSON store behind registered operations.
 - [`examples/rest-client`](./examples/rest-client): calling @async/db from app or test code.
+- [`examples/local-web-app`](./examples/local-web-app): loopback app state saved directly to `db/*.json`.
 - [`examples/schema-manifest`](./examples/schema-manifest): schema metadata for admin/CMS UI.
 - [`examples/standard-schema`](./examples/standard-schema): Standard Schema validators with Async DB metadata overlays.
 - [`examples/hono-auth`](./examples/hono-auth): optional Hono auth and write hooks.
@@ -166,6 +167,55 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 The built-in JSON store is production-appropriate only for file-suitable resources: app settings, feature flags, content, templates, plan definitions, policy rules, seed data, and other small low-write data that can safely live with a single writer. Keep high-write user data, chat/messages, analytics/events, ledgers, inventory counters, multi-writer data, and compliance-heavy transactional records in SQLite, Postgres, or another app-owned store.
 
 @async/db is not an auth layer, an ORM, a hosted database service, or a broad JSON Schema compatibility project. For production-facing APIs, put app traffic behind registered operations, app-owned auth/authorization, rate limits, and observability. See [Production JSON Database](./docs/json-production.md), [Resource Graduation And Mixed Stores](./docs/store-graduation.md), and [Prototype To Production REST Guide](./docs/prototype-to-production.md).
+
+## Save Directly To `db/*.json`
+
+The default `json` store keeps source fixtures unchanged and writes app edits to
+the generated mirror under `.db/state`. For small local apps where saved state
+should live in the project folder, use the `sourceFile` store:
+
+```js
+import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  stores: {
+    default: 'sourceFile',
+  },
+});
+```
+
+Now writes to plain JSON resources update `db/<resource>.json` directly.
+Override individual resources when some data should still use the mirror:
+
+```js
+export default defineConfig({
+  stores: {
+    default: 'sourceFile',
+  },
+  resources: {
+    importedRows: { store: 'json' },
+  },
+});
+```
+
+See [`examples/local-web-app`](./examples/local-web-app) for a loopback app that
+saves on blur/change, keeps server state canonical, and uses browser storage
+only for transient reload recovery.
+
+For simple local websites, keep the shape boring:
+
+```txt
+db/          saved JSON documents and seed data
+src/         browser HTML, CSS, and app code
+server/      loopback request handlers and @async/db mounting
+framework/   small reload, draft, and DOM helpers
+```
+
+Run `async-db sync` in that loop even when every resource uses `sourceFile`.
+Sync still validates the fixture folder, infers the schema, and writes generated
+metadata/types for tools. The difference is that app writes go back to plain
+`db/*.json` instead of the `.db/state` mirror, so the project folder contains
+the state you want to save, copy, or commit.
 
 ## Add Schema When It Pays For It
 
@@ -389,7 +439,7 @@ routes, see the
 
 ## Which Example Should I Start With?
 
-The examples are a learning path. Run any example with `npm run db -- sync --cwd ./examples/<name>` and `npm run db -- serve --cwd ./examples/<name>`, or run `npm run examples` to open one lazy examples index. The examples index binds to `127.0.0.1` by default; use `npm run examples -- --tailscale-serve` when you want Tailscale Serve to proxy that local port over HTTPS for devices in your tailnet.
+The examples are a learning path. Run most examples with `npm run db -- sync --cwd ./examples/<name>` and `npm run db -- serve --cwd ./examples/<name>`, or run `npm run examples` to open one lazy examples index. Use `npm run examples` for examples with custom app routes such as `local-web-app` and `schema-ui`. The examples index binds to `127.0.0.1` by default; use `npm run examples -- --tailscale-serve` when you want Tailscale Serve to proxy that local port over HTTPS for devices in your tailnet.
 
 | If you want to learn... | Start with | What it shows |
 | --- | --- | --- |
@@ -399,6 +449,7 @@ The examples are a learning path. Run any example with `npm run db -- sync --cwd
 | Different computed field patterns | [`examples/computed-fields`](./examples/computed-fields) | Shorthand resolvers, `resolveMany`, formatting, and runtime-context lookups |
 | Contract-first resources | [`examples/schema-first`](./examples/schema-first) | Schema-only resources, empty seed records, committed types |
 | Calling @async/db from app or test code | [`examples/rest-client`](./examples/rest-client) | `createDbClient`, direct REST calls, REST batching |
+| Local app state saved in the project | [`examples/local-web-app`](./examples/local-web-app) | `stores.default: 'sourceFile'`, blur/change saves, transient reload state, custom example runtime |
 | Related local records | [`examples/relations`](./examples/relations) | Relation metadata, `expand`, and nested `select` |
 | CSV as the source of truth | [`examples/csv`](./examples/csv) | CSV inference, source hashes, mirror refreshes |
 | Admin/CMS-style field metadata | [`examples/schema-manifest`](./examples/schema-manifest) | `outputs.schemaManifest` and manifest customization |

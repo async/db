@@ -1,0 +1,5 @@
+{
+  "title": "Local Web App",
+  "description": "A tiny loopback web app that treats @async/db server state as canonical, saves form edits on blur, and writes directly to db/*.json.",
+  "tags": ["local-app", "source-file", "live-reload"]
+}
