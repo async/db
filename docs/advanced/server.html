@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="overflow-x-hidden">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Server routes | @async/db</title>
-    <meta name="description" content="@async/db server route guide for local viewer routes, app data paths, REST, GraphQL, route exposure, and request tracing.">
+    <meta name="description" content="@async/db server route guide for local viewer routes, REST endpoints, response formats, GraphQL, operation refs, and route exposure.">
     <script>
       const storedTheme = localStorage.getItem("async-db-docs-theme");
       const requestedTheme = new URLSearchParams(location.search).get("theme");
@@ -12,48 +12,269 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
-  <body class="min-h-screen overflow-x-hidden bg-[#020917] text-slate-100 antialiased selection:bg-cyan-300 selection:text-slate-950 [.light_&]:bg-slate-50 [.light_&]:text-slate-950">
-    <header class="sticky top-0 z-40 border-b border-cyan-950/80 bg-[#020917]/95 backdrop-blur [.light_&]:border-slate-200 [.light_&]:bg-white/95">
-      <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <a class="flex items-center gap-3 text-slate-50 [.light_&]:text-slate-950" href="../index.html"><span class="grid size-8 grid-cols-2 gap-1" aria-hidden="true"><span class="rounded-sm border border-cyan-300"></span><span class="rounded-sm border border-emerald-300"></span><span class="rounded-sm border border-amber-300"></span><span class="rounded-sm border border-sky-500"></span></span><span class="text-base font-semibold tracking-tight">@async/db</span></a>
-        <nav class="hidden items-center gap-1 text-sm font-medium text-slate-300 md:flex [.light_&]:text-slate-700"><a class="rounded-full px-4 py-2" href="./index.html">Advanced</a><a class="rounded-full px-4 py-2 text-cyan-100 [.light_&]:text-cyan-900" href="./server.html">Server routes</a><a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="./operations.html">Operations</a></nav>
-        <button class="rounded-full border border-cyan-400/70 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-cyan-700 [.light_&]:text-cyan-900 [.light_&]:hover:bg-cyan-700 [.light_&]:hover:text-white" type="button" data-theme-toggle>Light mode</button>
+  <body class="min-h-screen max-w-full overflow-x-hidden bg-[#020917] text-slate-100 antialiased selection:bg-cyan-300 selection:text-slate-950 [.light_&]:bg-slate-50 [.light_&]:text-slate-950">
+    <header class="sticky top-0 z-40 w-full max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#020917]/95 backdrop-blur [.light_&]:border-slate-200 [.light_&]:bg-white/95">
+      <div class="mx-auto flex w-full max-w-7xl min-w-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <a class="flex min-w-0 items-center gap-3 text-slate-50 [.light_&]:text-slate-950" href="../index.html" aria-label="@async/db docs home">
+          <span class="grid size-8 shrink-0 grid-cols-2 gap-1" aria-hidden="true"><span class="rounded-sm border border-cyan-300"></span><span class="rounded-sm border border-emerald-300"></span><span class="rounded-sm border border-amber-300"></span><span class="rounded-sm border border-sky-500"></span></span>
+          <span class="truncate text-base font-semibold">@async/db</span>
+        </a>
+        <nav class="hidden items-center gap-1 text-sm font-medium text-slate-300 md:flex [.light_&]:text-slate-700" aria-label="Primary">
+          <a class="rounded-full px-4 py-2" href="./index.html">Advanced</a>
+          <a class="rounded-full px-4 py-2 text-cyan-100 [.light_&]:text-cyan-900" href="./server.html">Server routes</a>
+          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="./operations.html">Operations</a>
+        </nav>
+        <button class="shrink-0 rounded-full border border-cyan-400/70 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 sm:px-4 sm:text-sm [.light_&]:border-cyan-700 [.light_&]:text-cyan-900 [.light_&]:hover:bg-cyan-700 [.light_&]:hover:text-white" type="button" data-theme-toggle>Light mode</button>
       </div>
     </header>
-    <main class="mx-auto grid max-w-7xl min-w-0 gap-8 px-5 py-10 sm:px-8 lg:grid-cols-[16rem_1fr]">
-      <aside class="lg:sticky lg:top-24 lg:self-start">
-        <nav class="grid gap-2 rounded-lg border border-cyan-900/80 bg-[#071427] p-4 text-sm text-slate-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-700"><a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100" href="./configuration.html">Configuration</a><a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100" href="./schema.html">Schema contracts</a><a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100" href="./runtime-stores.html">Runtime stores</a><a class="rounded-md bg-cyan-300/10 px-3 py-2 font-semibold text-cyan-100 [.light_&]:bg-cyan-50 [.light_&]:text-cyan-900" href="./server.html">Server routes</a><a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100" href="./operations.html">Operations</a><a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100" href="./mocking.html">Mocking</a><a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100" href="./generated-files.html">Generated files</a></nav>
+    <main class="mx-auto grid w-full max-w-7xl min-w-0 gap-8 overflow-hidden px-5 py-10 sm:px-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <aside class="order-2 min-w-0 max-w-full lg:order-1 lg:sticky lg:top-24 lg:self-start">
+        <nav class="grid gap-2 rounded-lg border border-cyan-900/80 bg-[#071427] p-4 text-sm text-slate-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-700" aria-label="Advanced pages">
+          <a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-cyan-900" href="./configuration.html">Configuration</a>
+          <a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-cyan-900" href="./schema.html">Schema contracts</a>
+          <a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-cyan-900" href="./runtime-stores.html">Runtime stores</a>
+          <a class="rounded-md bg-cyan-300/10 px-3 py-2 font-semibold text-cyan-100 [.light_&]:bg-cyan-50 [.light_&]:text-cyan-900" href="./server.html">Server routes</a>
+          <a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-cyan-900" href="./operations.html">Operations</a>
+          <a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-cyan-900" href="./mocking.html">Mocking</a>
+          <a class="rounded-md px-3 py-2 hover:bg-slate-800 hover:text-cyan-100 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-cyan-900" href="./generated-files.html">Generated files</a>
+        </nav>
       </aside>
-      <article class="grid min-w-0 gap-8">
-        <section class="rounded-xl border border-cyan-900/80 bg-[#071427] p-6 [.light_&]:border-slate-200 [.light_&]:bg-white">
+      <article class="order-1 grid w-full min-w-0 max-w-full gap-8 overflow-hidden lg:order-2">
+        <section class="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-cyan-900/80 bg-[#071427] p-6 [.light_&]:border-slate-200 [.light_&]:bg-white">
           <p class="font-mono text-sm font-bold text-sky-200 [.light_&]:text-sky-800">serve</p>
-          <h1 class="mt-3 max-w-3xl text-4xl font-black leading-tight tracking-[-0.03em] text-slate-50 text-balance [.light_&]:text-slate-950">Separate dev-tool routes from app-facing data routes.</h1>
-          <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-300 [.light_&]:text-slate-700">The built-in server binds to loopback by default. It is local development infrastructure for REST, GraphQL, viewer metadata, CSV import, schema inspection, and live diagnostics.</p>
+          <h1 class="mt-3 max-w-3xl break-words text-4xl font-black leading-tight text-slate-50 [.light_&]:text-slate-950">Use REST as the local app contract. Keep dev tools on their own route base.</h1>
+          <p class="mt-5 max-w-3xl text-lg leading-8 text-slate-300 [.light_&]:text-slate-700">The server starts from fixture-backed resources, exposes readable REST routes, supports local writes, and keeps viewer, schema, manifest, import, batch, log, GraphQL, and operation routes explicit. File-like suffixes such as <code class="font-mono">.json</code> and <code class="font-mono">.md</code> choose response formats for the same shaped data.</p>
+          <div class="mt-6 grid min-w-0 gap-3 md:grid-cols-3">
+            <div class="rounded-md bg-cyan-300/10 p-4 [.light_&]:bg-cyan-50">
+              <p class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">/db/*</p>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">App-facing REST alias for fixture-like reads and writes.</p>
+            </div>
+            <div class="rounded-md bg-emerald-300/10 p-4 [.light_&]:bg-emerald-50">
+              <p class="font-mono text-sm font-bold text-emerald-200 [.light_&]:text-emerald-800">/__db/*</p>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Viewer, schema, manifest, import, batch, logs, events, and scoped REST.</p>
+            </div>
+            <div class="rounded-md bg-amber-300/10 p-4 [.light_&]:bg-amber-50">
+              <p class="font-mono text-sm font-bold text-amber-200 [.light_&]:text-amber-800">/graphql</p>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Optional GraphQL route for local queries and mutations.</p>
+            </div>
+          </div>
         </section>
-        <section class="rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
-          <h2 class="text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Route families</h2>
-          <div class="mt-4 min-w-0 max-w-full overflow-x-auto">
-            <table class="w-full min-w-[680px] text-left text-sm">
-              <thead class="border-b border-cyan-900/80 text-slate-400 [.light_&]:border-slate-200 [.light_&]:text-slate-600"><tr><th class="py-2 pr-4">Route</th><th class="py-2 pr-4">Default</th><th class="py-2">Use</th></tr></thead>
+
+        <section class="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">endpoint map</p>
+              <h2 class="mt-2 text-2xl font-black text-slate-50 [.light_&]:text-slate-950">Route families</h2>
+            </div>
+            <p class="max-w-sm text-sm leading-6 text-slate-400 [.light_&]:text-slate-600">Defaults shown for <code class="font-mono">127.0.0.1:7331</code>.</p>
+          </div>
+
+          <div class="mt-5 grid gap-3 md:hidden">
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">GET /__db</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Built-in viewer shell.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">GET /__db/schema</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Normalized schema metadata.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">GET /__db/manifest[.json|.html|.md]</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Viewer/API manifest in negotiated or explicit format.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">GET /__db/events</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Live event stream for viewer refreshes.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">GET /__db/log</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Runtime log and request trace output.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">POST /__db/import</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">CSV import endpoint used by the viewer.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">POST /__db/batch</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Sequential REST batch execution.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">/__db/rest/*</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Scoped REST when the app data alias is disabled or not desired.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">/db/*</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">App-facing REST alias controlled by <code class="font-mono">server.dataPath</code>.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">POST /graphql</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">GraphQL subset endpoint.</p></div>
+            <div class="rounded-md bg-slate-950/60 p-4 [.light_&]:bg-slate-100"><p class="font-mono text-sm font-bold text-cyan-100 [.light_&]:text-cyan-900">POST /__db/operations/:ref</p><p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Allowlisted registered operation execution.</p></div>
+          </div>
+
+          <div class="mt-5 hidden min-w-0 max-w-full overflow-x-auto md:block">
+            <table class="w-full table-fixed text-left text-sm">
+              <thead class="border-b border-cyan-900/80 text-slate-400 [.light_&]:border-slate-200 [.light_&]:text-slate-600">
+                <tr><th class="w-[32%] py-2 pr-4">Route</th><th class="w-[24%] py-2 pr-4">Method</th><th class="w-[44%] py-2">Use</th></tr>
+              </thead>
               <tbody class="divide-y divide-cyan-950/80 text-slate-300 [.light_&]:divide-slate-200 [.light_&]:text-slate-700">
-                <tr><td class="py-3 pr-4 font-mono">/__db</td><td class="py-3 pr-4">tool route base</td><td class="py-3">Viewer, schema, manifest, batch, import, log, and events.</td></tr>
-                <tr><td class="py-3 pr-4 font-mono">/db/users.json</td><td class="py-3 pr-4">app data alias</td><td class="py-3">Fixture-like REST reads from synced runtime state.</td></tr>
-                <tr><td class="py-3 pr-4 font-mono">/graphql</td><td class="py-3 pr-4">GraphQL endpoint</td><td class="py-3">Dependency-free GraphQL subset for local data reads and mutations.</td></tr>
-                <tr><td class="py-3 pr-4 font-mono">/__db/operations/:ref</td><td class="py-3 pr-4">operation execution</td><td class="py-3">Allowlisted REST or GraphQL templates when operations are enabled.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db</td><td class="py-3 pr-4">GET</td><td class="py-3">Built-in viewer shell.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/schema</td><td class="py-3 pr-4">GET</td><td class="py-3">Normalized schema metadata.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/manifest[.json|.html|.md]</td><td class="py-3 pr-4">GET</td><td class="py-3">Viewer/API manifest in negotiated or explicit format.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/events</td><td class="py-3 pr-4">GET</td><td class="py-3">Live event stream for viewer refreshes.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/log</td><td class="py-3 pr-4">GET</td><td class="py-3">Runtime log and request trace output.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/import</td><td class="py-3 pr-4">POST</td><td class="py-3">CSV import endpoint used by the viewer.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/batch</td><td class="py-3 pr-4">POST</td><td class="py-3">Sequential REST batch execution.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/rest/*</td><td class="py-3 pr-4">GET, POST, PATCH, PUT, DELETE</td><td class="py-3">Scoped REST when the app data alias is disabled or not desired.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/db/*</td><td class="py-3 pr-4">GET, POST, PATCH, PUT, DELETE</td><td class="py-3">App-facing REST alias controlled by <code class="font-mono">server.dataPath</code>.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/graphql</td><td class="py-3 pr-4">POST</td><td class="py-3">GraphQL subset endpoint.</td></tr>
+                <tr><td class="break-all py-3 pr-4 font-mono">/__db/operations/:ref</td><td class="py-3 pr-4">POST</td><td class="py-3">Allowlisted registered operation execution.</td></tr>
               </tbody>
             </table>
           </div>
         </section>
-        <section class="grid gap-4 md:grid-cols-[1fr_1fr]">
-          <div class="rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white"><h2 class="text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Move route bases deliberately</h2><pre class="mt-4 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>export default defineConfig({
+
+        <section class="grid w-full min-w-0 max-w-full gap-4 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div class="min-w-0 max-w-full rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+            <p class="font-mono text-sm font-bold text-emerald-200 [.light_&]:text-emerald-800">collections</p>
+            <h2 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Resource CRUD endpoints</h2>
+            <div class="mt-4 grid gap-2 text-sm">
+              <div class="grid gap-1 rounded-md bg-emerald-300/10 p-3 [.light_&]:bg-emerald-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-emerald-100 [.light_&]:text-emerald-900">GET</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/users.json</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">List the collection.</span></div>
+              <div class="grid gap-1 rounded-md bg-emerald-300/10 p-3 [.light_&]:bg-emerald-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-emerald-100 [.light_&]:text-emerald-900">GET</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/users/u_1.json</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Read one record by id.</span></div>
+              <div class="grid gap-1 rounded-md bg-emerald-300/10 p-3 [.light_&]:bg-emerald-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-emerald-100 [.light_&]:text-emerald-900">POST</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/users</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Create a record with a JSON body.</span></div>
+              <div class="grid gap-1 rounded-md bg-emerald-300/10 p-3 [.light_&]:bg-emerald-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-emerald-100 [.light_&]:text-emerald-900">PATCH</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/users/u_1</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Merge fields into an existing record.</span></div>
+              <div class="grid gap-1 rounded-md bg-emerald-300/10 p-3 [.light_&]:bg-emerald-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-emerald-100 [.light_&]:text-emerald-900">DELETE</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/users/u_1</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Delete one record.</span></div>
+            </div>
+          </div>
+
+          <div class="min-w-0 max-w-full rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+            <p class="font-mono text-sm font-bold text-amber-200 [.light_&]:text-amber-800">documents</p>
+            <h2 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Singleton endpoints</h2>
+            <div class="mt-4 grid gap-2 text-sm">
+              <div class="grid gap-1 rounded-md bg-amber-300/10 p-3 [.light_&]:bg-amber-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-amber-100 [.light_&]:text-amber-900">GET</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/settings.json</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Read the document.</span></div>
+              <div class="grid gap-1 rounded-md bg-amber-300/10 p-3 [.light_&]:bg-amber-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-amber-100 [.light_&]:text-amber-900">GET</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/settings.md</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Render the same data as Markdown.</span></div>
+              <div class="grid gap-1 rounded-md bg-amber-300/10 p-3 [.light_&]:bg-amber-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-amber-100 [.light_&]:text-amber-900">GET</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/settings.html</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Render a browser-readable view.</span></div>
+              <div class="grid gap-1 rounded-md bg-amber-300/10 p-3 [.light_&]:bg-amber-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-amber-100 [.light_&]:text-amber-900">PUT</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/settings</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Replace the document.</span></div>
+              <div class="grid gap-1 rounded-md bg-amber-300/10 p-3 [.light_&]:bg-amber-50 sm:grid-cols-[9rem_1fr]"><span class="font-mono font-bold text-amber-100 [.light_&]:text-amber-900">PATCH</span><span class="break-all font-mono text-slate-300 [.light_&]:text-slate-700">/db/settings</span><span class="sm:col-start-2 text-slate-400 [.light_&]:text-slate-600">Merge fields into the document.</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+          <p class="font-mono text-sm font-bold text-sky-200 [.light_&]:text-sky-800">formats</p>
+          <h2 class="mt-2 text-2xl font-black text-slate-50 [.light_&]:text-slate-950">What a suffix means on a REST route</h2>
+          <div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div class="min-w-0 rounded-md bg-sky-300/10 p-4 [.light_&]:bg-sky-50">
+              <h3 class="text-base font-bold text-slate-50 [.light_&]:text-slate-950">It selects an output format</h3>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Adding <code class="font-mono">.json</code>, <code class="font-mono">.md</code>, <code class="font-mono">.html</code>, or a registered custom extension to a <code class="font-mono">GET</code> route renders the same resource after REST shaping. It does not fetch a different source file.</p>
+            </div>
+            <div class="min-w-0 rounded-md bg-sky-300/10 p-4 [.light_&]:bg-sky-50">
+              <h3 class="text-base font-bold text-slate-50 [.light_&]:text-slate-950">Query shaping happens first</h3>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700"><code class="font-mono">select</code>, <code class="font-mono">expand</code>, <code class="font-mono">offset</code>, and <code class="font-mono">limit</code> run before the renderer. <code class="font-mono">/db/users.md?select=id,name</code> is Markdown for the selected fields.</p>
+            </div>
+            <div class="min-w-0 rounded-md bg-sky-300/10 p-4 [.light_&]:bg-sky-50">
+              <h3 class="text-base font-bold text-slate-50 [.light_&]:text-slate-950">Extensionless reads negotiate</h3>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700"><code class="font-mono">GET /db/users</code> uses the configured default or a registered <code class="font-mono">Accept</code> media type. Unsupported <code class="font-mono">Accept</code> values fall back to the default format.</p>
+            </div>
+            <div class="min-w-0 rounded-md bg-sky-300/10 p-4 [.light_&]:bg-sky-50">
+              <h3 class="text-base font-bold text-slate-50 [.light_&]:text-slate-950">Writes stay extensionless</h3>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Use <code class="font-mono">POST /db/users</code>, <code class="font-mono">PATCH /db/users/u_1</code>, <code class="font-mono">PUT /db/settings</code>, and <code class="font-mono">PATCH /db/settings</code> for JSON request bodies. Suffixes are for read rendering.</p>
+            </div>
+          </div>
+          <div class="mt-5 rounded-md border border-sky-400/30 bg-slate-950/60 p-4 [.light_&]:border-sky-200 [.light_&]:bg-white">
+            <p class="text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Source file extensions and REST response extensions are separate. Built-in source readers load <code class="font-mono">db/*.json</code>, <code class="font-mono">db/*.jsonc</code>, and <code class="font-mono">db/*.csv</code>. Built-in response formats are <code class="font-mono">.json</code>, <code class="font-mono">.html</code>, and <code class="font-mono">.md</code>. Add source formats through <code class="font-mono">sources.readers</code>; add REST response formats through <code class="font-mono">rest.formats</code>.</p>
+          </div>
+        </section>
+
+        <section class="grid w-full min-w-0 max-w-full gap-4 overflow-hidden lg:grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)]">
+          <div class="min-w-0 max-w-full rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+            <p class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">curl</p>
+            <h2 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">REST examples</h2>
+            <pre class="mt-4 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>curl http://127.0.0.1:7331/db/users.json
+curl 'http://127.0.0.1:7331/db/users.json?select=id,name&amp;offset=0&amp;limit=20'
+curl 'http://127.0.0.1:7331/db/users.json?id=u_1&amp;select=id,name'
+curl http://127.0.0.1:7331/db/users/u_1.json
+curl http://127.0.0.1:7331/db/users/u_1.md
+curl http://127.0.0.1:7331/db/settings.html
+
+curl -X POST http://127.0.0.1:7331/db/users \
+  -H 'content-type: application/json' \
+  -d '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
+
+curl -X PATCH http://127.0.0.1:7331/db/users/u_2 \
+  -H 'content-type: application/json' \
+  -d '{"name":"Rear Admiral Grace Hopper"}'
+
+curl -X DELETE http://127.0.0.1:7331/db/users/u_2</code></pre>
+          </div>
+
+          <div class="min-w-0 max-w-full rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+            <p class="font-mono text-sm font-bold text-emerald-200 [.light_&]:text-emerald-800">batch + scoped rest</p>
+            <h2 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Same contract, different base</h2>
+            <pre class="mt-4 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>curl http://127.0.0.1:7331/__db/rest/users.json
+
+curl -X POST http://127.0.0.1:7331/__db/batch \
+  -H 'content-type: application/json' \
+  -d '[
+    { "method": "GET", "path": "/db/users.json" },
+    {
+      "method": "PATCH",
+      "path": "/db/settings",
+      "body": { "theme": "dark" }
+    }
+  ]'
+
+curl -X POST http://127.0.0.1:7331/__db/operations/users.get \
+  -H 'content-type: application/json' \
+  -d '{"params":{"id":"u_1"}}'</code></pre>
+          </div>
+        </section>
+
+        <section class="grid w-full min-w-0 max-w-full gap-4 overflow-hidden lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)]">
+          <div class="min-w-0 max-w-full rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+            <p class="font-mono text-sm font-bold text-amber-200 [.light_&]:text-amber-800">custom extensions</p>
+            <h2 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Add output formats in config</h2>
+            <p class="mt-4 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">A custom format adds routes like <code class="font-mono">/db/users.yaml</code> and media negotiation for extensionless routes. Use object syntax when the format also needs manifest support.</p>
+            <pre class="mt-4 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  rest: {
+    formats: {
+      default: 'json',
+      yaml: {
+        mediaTypes: ['application/yaml', 'text/yaml'],
+        contentType: 'application/yaml; charset=utf-8',
+        render({ data }) {
+          return stringifyYaml(data);
+        },
+        renderManifest({ data }) {
+          return stringifyYaml(data);
+        },
+      },
+    },
+  },
+});</code></pre>
+          </div>
+
+          <div class="min-w-0 max-w-full rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+            <p class="font-mono text-sm font-bold text-amber-200 [.light_&]:text-amber-800">custom sources</p>
+            <h2 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Add input formats separately</h2>
+            <p class="mt-4 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">If a project wants to load fixtures from a new file type, register a source reader. That changes how Async DB discovers input files; it does not automatically add a matching REST suffix.</p>
+            <pre class="mt-4 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  sources: {
+    readers: [
+      {
+        name: 'ndjson-data',
+        match({ file }) {
+          return file.endsWith('.ndjson');
+        },
+        async read({ basename, readText }) {
+          const text = await readText();
+          return {
+            kind: 'data',
+            resourceName: basename,
+            format: 'ndjson',
+            data: text
+              .trim()
+              .split('\\n')
+              .filter(Boolean)
+              .map((line) => JSON.parse(line)),
+          };
+        },
+      },
+    ],
+  },
+});</code></pre>
+            <div class="mt-4 rounded-md bg-amber-300/10 p-4 text-sm leading-6 text-slate-300 [.light_&]:bg-amber-50 [.light_&]:text-slate-700">Example: <code class="font-mono">db/users.ndjson</code> can become the <code class="font-mono">users</code> resource, while <code class="font-mono">GET /db/users.md</code> still means “render users as Markdown.”</div>
+          </div>
+        </section>
+
+        <section class="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white">
+          <p class="font-mono text-sm font-bold text-sky-200 [.light_&]:text-sky-800">configuration</p>
+          <h2 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Move and lock down routes deliberately</h2>
+          <div class="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>export default defineConfig({
   server: {
     apiBase: '/__db',
     dataPath: '/db',
     host: '127.0.0.1',
     port: 7331,
   },
-});</code></pre></div>
-          <div class="rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-white"><h2 class="text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Harden exposure by route family</h2><pre class="mt-4 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>export default defineConfig({
+});</code></pre>
+            <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>export default defineConfig({
   server: {
     expose: {
       rest: 'registered-only',
@@ -63,11 +284,18 @@
       manifest: 'dev',
     },
   },
-});</code></pre></div>
+});</code></pre>
+          </div>
+          <p class="mt-4 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Set <code class="font-mono">server.dataPath: false</code> when an app should not receive the <code class="font-mono">/db</code> alias. The same REST resources remain available under <code class="font-mono">/__db/rest</code> for local tools, and standalone serve keeps root convenience routes for development.</p>
         </section>
       </article>
     </main>
-    <footer class="border-t border-cyan-950/80 bg-[#020917] px-5 py-8 text-sm text-slate-400 sm:px-8 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-600"><div class="mx-auto flex max-w-7xl justify-between gap-4"><a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="./runtime-stores.html">Previous: runtime stores</a><a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="./operations.html">Next: operations</a></div></footer>
+    <footer class="w-full max-w-full overflow-hidden border-t border-cyan-950/80 bg-[#020917] px-5 py-8 text-sm text-slate-400 sm:px-8 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-600">
+      <div class="mx-auto flex w-full max-w-7xl justify-between gap-4">
+        <a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="./runtime-stores.html">Previous: runtime stores</a>
+        <a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="./operations.html">Next: operations</a>
+      </div>
+    </footer>
     <script>
       const themeButtons = document.querySelectorAll("[data-theme-toggle]");
       function syncThemeButtons(){const isLight=document.documentElement.classList.contains("light");themeButtons.forEach((button)=>{button.textContent=isLight?"Dark mode":"Light mode";button.setAttribute("aria-pressed",String(isLight));});}
