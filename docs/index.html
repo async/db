@@ -17,42 +17,32 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
-  <body class="min-h-screen w-screen max-w-full overflow-x-hidden bg-[#020917] text-slate-100 antialiased selection:bg-cyan-300 selection:text-slate-950 [.light_&]:bg-slate-50 [.light_&]:text-slate-950">
-    <header class="sticky top-0 z-40 w-screen max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#020917]/95 backdrop-blur [.light_&]:border-slate-200 [.light_&]:bg-white/95">
+  <body class="min-h-screen w-full max-w-full overflow-x-hidden bg-[#020917] text-slate-100 antialiased selection:bg-cyan-300 selection:text-slate-950 [.light_&]:bg-slate-50 [.light_&]:text-slate-950">
+    <header class="sticky top-0 z-40 w-full max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#020917]/95 backdrop-blur [.light_&]:border-slate-200 [.light_&]:bg-white/95">
       <div class="mx-auto flex w-full max-w-7xl min-w-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <a class="flex items-center gap-3 text-slate-50 [.light_&]:text-slate-950" href="./index.html" aria-label="@async/db docs home">
-          <span class="grid size-8 grid-cols-2 gap-1" aria-hidden="true">
-            <span class="rounded-sm border border-cyan-300"></span>
-            <span class="rounded-sm border border-emerald-300"></span>
-            <span class="rounded-sm border border-amber-300"></span>
-            <span class="rounded-sm border border-sky-500"></span>
-          </span>
-          <span class="text-base font-semibold tracking-tight">@async/db</span>
+        <a class="flex min-w-0 items-center gap-3 text-slate-50 [.light_&]:text-slate-950" href="./index.html" aria-label="@async/db docs home">
+          <span class="grid size-8 shrink-0 grid-cols-2 gap-1" aria-hidden="true"><span class="rounded-sm border border-cyan-300"></span><span class="rounded-sm border border-emerald-300"></span><span class="rounded-sm border border-amber-300"></span><span class="rounded-sm border border-sky-500"></span></span>
+          <span class="truncate text-base font-semibold">@async/db</span>
         </a>
         <nav class="hidden items-center gap-1 text-sm font-medium text-slate-300 md:flex [.light_&]:text-slate-700" aria-label="Primary">
-          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="#advanced">Advanced</a>
-          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="#production">Production</a>
-          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="#examples">Examples</a>
+          <a class="rounded-full px-4 py-2 text-cyan-100 [.light_&]:text-cyan-900" href="./index.html">Docs</a>
+          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="./advanced/index.html">Advanced</a>
+          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="./advanced/server.html">Server</a>
+          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="./advanced/operations.html">Operations</a>
+          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950" href="./index.html#examples">Examples</a>
         </nav>
-        <button
-          class="shrink-0 rounded-full border border-cyan-400/70 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-cyan-700 [.light_&]:text-cyan-900 [.light_&]:hover:bg-cyan-700 [.light_&]:hover:text-white"
-          type="button"
-          data-theme-toggle
-          aria-pressed="false"
-        >
-          Light mode
-        </button>
+        <button class="shrink-0 rounded-full border border-cyan-400/70 px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 sm:px-4 sm:text-sm [.light_&]:border-cyan-700 [.light_&]:text-cyan-900 [.light_&]:hover:bg-cyan-700 [.light_&]:hover:text-white" type="button" data-theme-toggle aria-pressed="false">Light mode</button>
       </div>
     </header>
 
     <main>
-      <section class="w-screen max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#020917] [.light_&]:border-slate-200 [.light_&]:bg-white">
+      <section class="w-full max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#020917] [.light_&]:border-slate-200 [.light_&]:bg-white">
         <div class="mx-auto grid w-full max-w-7xl min-w-0 gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:py-24">
           <div class="flex min-w-0 max-w-full flex-col justify-center">
             <p class="mb-5 w-fit rounded-full border border-cyan-400/50 bg-cyan-300/10 px-3 py-1 text-sm font-semibold text-cyan-100 [.light_&]:border-cyan-700/40 [.light_&]:bg-cyan-50 [.light_&]:text-cyan-900">
               Fixture to contract workflow
             </p>
-            <h1 class="max-w-3xl text-4xl font-black leading-[1.02] tracking-[-0.03em] text-slate-50 text-balance sm:text-6xl [.light_&]:text-slate-950">
+            <h1 class="max-w-3xl text-4xl font-black leading-[1.02] text-slate-50 text-balance sm:text-6xl [.light_&]:text-slate-950">
               File-backed JSON data, from fixture to production contract.
             </h1>
             <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-300 text-pretty [.light_&]:text-slate-700">
@@ -65,6 +55,38 @@
               <a class="inline-flex items-center justify-center rounded-full border border-slate-600 px-5 py-3 text-sm font-bold text-slate-100 transition hover:border-cyan-300 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-slate-300 [.light_&]:text-slate-800 [.light_&]:hover:border-cyan-700 [.light_&]:hover:text-cyan-900" href="./advanced/operations.html">
                 Read operations guide
               </a>
+            </div>
+            <div class="mt-8 w-full max-w-2xl rounded-lg border border-cyan-900/80 bg-[#071427] p-4 [.light_&]:border-slate-200 [.light_&]:bg-white" data-install-tabs>
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">install</p>
+                  <h2 class="mt-1 text-xl font-black text-slate-50 [.light_&]:text-slate-950">Start from a package install.</h2>
+                </div>
+                <div class="flex w-fit rounded-full border border-cyan-900/80 bg-slate-950/70 p-1 text-sm [.light_&]:border-slate-200 [.light_&]:bg-slate-100" role="tablist" aria-label="Install method">
+                  <button class="rounded-full border border-transparent px-3 py-1.5 font-bold text-slate-300 transition data-[active=true]:border-cyan-300 data-[active=true]:bg-cyan-300 data-[active=true]:text-slate-950 [.light_&]:text-slate-700" type="button" role="tab" data-install-tab="pnpm" data-active="true" aria-selected="true">pnpm</button>
+                  <button class="rounded-full border border-transparent px-3 py-1.5 font-bold text-slate-300 transition data-[active=true]:border-cyan-300 data-[active=true]:bg-cyan-300 data-[active=true]:text-slate-950 [.light_&]:text-slate-700" type="button" role="tab" data-install-tab="npm" data-active="false" aria-selected="false">npm</button>
+                  <button class="rounded-full border border-transparent px-3 py-1.5 font-bold text-slate-300 transition data-[active=true]:border-cyan-300 data-[active=true]:bg-cyan-300 data-[active=true]:text-slate-950 [.light_&]:text-slate-700" type="button" role="tab" data-install-tab="codex" data-active="false" aria-selected="false">Codex</button>
+                </div>
+              </div>
+              <div class="mt-4" data-install-panel="pnpm" role="tabpanel">
+                <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>pnpm add @async/db
+pnpm exec async-db sync
+pnpm exec async-db serve</code></pre>
+                <p class="mt-3 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Keep <code class="font-mono">serve</code> running, then open <code class="font-mono">http://127.0.0.1:7331/__db</code>.</p>
+              </div>
+              <div class="mt-4 hidden" data-install-panel="npm" role="tabpanel">
+                <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>npm install @async/db
+npx async-db sync
+npx async-db serve</code></pre>
+                <p class="mt-3 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Use <code class="font-mono">npx</code> to run the local package binary after install.</p>
+              </div>
+              <div class="mt-4 hidden" data-install-panel="codex" role="tabpanel">
+                <p class="text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Ask Codex to install the package and wire up the first local data workflow:</p>
+                <pre class="mt-3 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>Install @async/db in this repo with the current package manager.
+Add scripts for db, db:sync, and db:serve.
+Create db/users.json with one seed user.
+Run async-db sync and report the viewer URL.</code></pre>
+              </div>
             </div>
           </div>
 
@@ -136,11 +158,11 @@
         </div>
       </section>
 
-      <section id="advanced" class="w-screen max-w-full overflow-hidden bg-[#06101f] py-14 [.light_&]:bg-slate-100">
+      <section id="advanced" class="w-full max-w-full overflow-hidden bg-[#06101f] py-14 [.light_&]:bg-slate-100">
         <div class="mx-auto max-w-7xl min-w-0 px-5 sm:px-8">
           <div class="grid min-w-0 gap-6 lg:grid-cols-[0.8fr_1.2fr]">
             <div class="min-w-0">
-              <h2 class="text-3xl font-black tracking-[-0.03em] text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">
+              <h2 class="text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">
                 Advanced pages for the settings that change production behavior.
               </h2>
               <p class="mt-4 max-w-xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
@@ -173,10 +195,10 @@
         </div>
       </section>
 
-      <section id="production" class="w-screen max-w-full overflow-hidden border-y border-cyan-950/80 bg-[#020917] py-14 [.light_&]:border-slate-200 [.light_&]:bg-white">
+      <section id="production" class="w-full max-w-full overflow-hidden border-y border-cyan-950/80 bg-[#020917] py-14 [.light_&]:border-slate-200 [.light_&]:bg-white">
         <div class="mx-auto grid max-w-7xl min-w-0 gap-6 px-5 sm:px-8 lg:grid-cols-[0.85fr_1.15fr]">
           <div class="min-w-0">
-            <h2 class="text-3xl font-black tracking-[-0.03em] text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">
+            <h2 class="text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">
               Keep local routes local, then expose reviewed operations.
             </h2>
             <p class="mt-4 max-w-xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
@@ -199,11 +221,11 @@
         </div>
       </section>
 
-      <section id="examples" class="w-screen max-w-full overflow-hidden bg-[#06101f] py-14 [.light_&]:bg-slate-100">
+      <section id="examples" class="w-full max-w-full overflow-hidden bg-[#06101f] py-14 [.light_&]:bg-slate-100">
         <div class="mx-auto max-w-7xl min-w-0 px-5 sm:px-8">
           <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 class="text-3xl font-black tracking-[-0.03em] text-slate-50 [.light_&]:text-slate-950">Example paths stay visible.</h2>
+              <h2 class="text-3xl font-black text-slate-50 [.light_&]:text-slate-950">Example paths stay visible.</h2>
               <p class="mt-3 max-w-2xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
                 The docs point readers toward concrete repo examples instead of abstract feature claims.
               </p>
@@ -254,6 +276,24 @@
         });
       });
       syncThemeButtons();
+
+      document.querySelectorAll("[data-install-tabs]").forEach((group) => {
+        const tabs = group.querySelectorAll("[data-install-tab]");
+        const panels = group.querySelectorAll("[data-install-panel]");
+        tabs.forEach((tab) => {
+          tab.addEventListener("click", () => {
+            const selected = tab.getAttribute("data-install-tab");
+            tabs.forEach((candidate) => {
+              const isActive = candidate.getAttribute("data-install-tab") === selected;
+              candidate.dataset.active = String(isActive);
+              candidate.setAttribute("aria-selected", String(isActive));
+            });
+            panels.forEach((panel) => {
+              panel.classList.toggle("hidden", panel.getAttribute("data-install-panel") !== selected);
+            });
+          });
+        });
+      });
     </script>
   </body>
 </html>
