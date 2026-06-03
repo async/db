@@ -51,6 +51,7 @@ test('examples launcher can discover repo examples and render an index page', as
     'diagnostics',
     'free-plan-upgrade',
     'hono-auth',
+    'local-web-app',
     'production-json',
     'relations',
     'rest-client',
@@ -83,6 +84,7 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /diagnostics/);
   assert.match(html, /Free Plan Upgrade/);
   assert.match(html, /Hono Auth/);
+  assert.match(html, /Local Web App/);
   assert.match(html, /Production JSON/);
   assert.match(html, /REST Client/);
   assert.match(html, /client/);
@@ -438,6 +440,96 @@ test('example runtime resolves schema-ui serve-example hook', async () => {
   await runtime.close();
 });
 
+test('local web app example saves server state to source JSON and restores transient drafts', async () => {
+  const cwd = await copyExampleProject('local-web-app');
+  const runtime = await createExampleRuntime({
+    cwd,
+    basePath: '/examples/local-web-app',
+    url: 'http://127.0.0.1:7329/examples/local-web-app',
+    repoRoot: path.resolve('.'),
+  });
+
+  try {
+    assert.equal(runtime.starterKind, 'custom');
+    assert.equal(runtime.demoUrl, 'http://127.0.0.1:7329/examples/local-web-app/');
+
+    const home = makeResponse();
+    await runtime.handleRequest(makeRequest('GET', undefined, '/examples/local-web-app/'), home);
+    assert.equal(home.statusCode, 200);
+    assert.match(home.body, /@async\/db Local Web App/);
+    assert.match(home.body, /window\.LOCAL_APP_BASE_PATH = "\/examples\/local-web-app"/);
+
+    const appScript = makeResponse();
+    await runtime.handleRequest(makeRequest('GET', undefined, '/examples/local-web-app/app.js'), appScript);
+    assert.equal(appScript.statusCode, 200);
+    assert.match(appScript.body, /\.\/framework\/state\.js/);
+
+    const frameworkScript = makeResponse();
+    await runtime.handleRequest(makeRequest('GET', undefined, '/examples/local-web-app/framework/state.js'), frameworkScript);
+    assert.equal(frameworkScript.statusCode, 200);
+    assert.match(frameworkScript.body, /TRANSIENT_STORAGE_KEY/);
+
+    const stateResponse = makeResponse();
+    await runtime.handleRequest(makeRequest('GET', undefined, '/examples/local-web-app/api/state'), stateResponse);
+    assert.equal(stateResponse.statusCode, 200);
+    assert.equal(stateResponse.json().state.title, 'Local App Notes');
+
+    const savedState = {
+      title: 'Blur saved title',
+      note: 'Saved after unfocus',
+      updatedAt: '2026-06-03T12:00:00.000Z',
+    };
+    const saveResponse = makeResponse();
+    await runtime.handleRequest(makeRequest('PUT', { state: savedState }, '/examples/local-web-app/api/state'), saveResponse);
+    assert.equal(saveResponse.statusCode, 200);
+    assert.deepEqual(saveResponse.json().state, savedState);
+    assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/appState.json'), 'utf8')), savedState);
+    await assert.rejects(
+      () => readFile(path.join(cwd, '.db/state/appState.json'), 'utf8'),
+      { code: 'ENOENT' },
+    );
+
+    const version = makeResponse();
+    await runtime.handleRequest(makeRequest('GET', undefined, '/examples/local-web-app/api/version'), version);
+    assert.equal(version.statusCode, 200);
+    assert.match(version.json().version, /^\d/);
+
+    const helpers = await import(pathToFileURL(path.join(cwd, 'framework/state.js')).href);
+    assert.equal(helpers.shouldCommitFieldEvent('input', 'draft', 'server'), false);
+    assert.equal(helpers.shouldCommitFieldEvent('blur', 'draft', 'server'), true);
+    assert.equal(helpers.shouldCommitFieldEvent('change', 'server', 'server'), false);
+    assert.deepEqual(helpers.applyTransientState(savedState, {
+      drafts: {
+        note: 'Unsaved note during reload',
+      },
+      active: {
+        field: 'note',
+        selectionStart: 7,
+        selectionEnd: 11,
+      },
+      scrollY: 240,
+    }), {
+      state: {
+        ...savedState,
+        note: 'Unsaved note during reload',
+      },
+      transient: {
+        drafts: {
+          note: 'Unsaved note during reload',
+        },
+        active: {
+          field: 'note',
+          selectionStart: 7,
+          selectionEnd: 11,
+        },
+        scrollY: 240,
+      },
+    });
+  } finally {
+    await runtime.close();
+  }
+});
+
 test('new onboarding examples sync expected resources', async () => {
   const expected = {
     'hono-auth': ['pages', 'users'],
@@ -445,6 +537,7 @@ test('new onboarding examples sync expected resources', async () => {
     'computed-fields': ['orders', 'posts', 'products', 'users'],
     'cms-json-publish': ['navigation', 'pages'],
     'free-plan-upgrade': ['appSettings', 'projects'],
+    'local-web-app': ['appState'],
     'production-json': ['appSettings', 'featureFlags'],
     'rest-client': ['settings', 'users'],
     relations: ['posts', 'users'],

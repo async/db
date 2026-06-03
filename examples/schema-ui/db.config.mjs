@@ -2,7 +2,6 @@
 import { defineConfig, mergeManifest } from '@async/db/config';
 
 export default defineConfig({
-  dbDir: './db',
   outputs: {
     stateDir: './.db',
     types: './.db/types/index.d.ts',

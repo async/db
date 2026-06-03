@@ -2,9 +2,6 @@
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  // Fixture source folder. Defaults to './db'.
-  dbDir: './db',
-
   // Generated output locations. Most committed outputs are opt-in.
   outputs: {
     stateDir: './.db',
@@ -33,8 +30,8 @@ export default defineConfig({
 
   // Runtime stores. The default json store writes app edits to
   // .db/state/<resource>.json while keeping source fixtures unchanged.
-  // Bind a resource to sourceFile only when supported writebacks should update
-  // a plain .json source fixture. Optional database stores such as
+  // Set stores.default to sourceFile when every plain .json resource should
+  // save directly back into db/<resource>.json. Optional database stores such as
   // @async/db/postgres, @async/db/kv, and @async/db/redis accept injected
   // clients so the core package stays dependency-light.
   stores: {

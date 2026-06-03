@@ -194,7 +194,6 @@ import { createDbHonoApp } from '@async/db/hono';
 
 const app = new Hono();
 app.route('/api', await createDbHonoApp({
-  dbDir: './db',
   storage: {
     kind: 'sqlite',
     file: './data/app.sqlite',

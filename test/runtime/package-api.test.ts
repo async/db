@@ -857,6 +857,80 @@ test('sourceFile store writes plain JSON fixture while json store remains defaul
   assert.equal(JSON.parse(await readFile(path.join(cwd, '.db/schema.generated.json'), 'utf8')).resources.settings.kind, 'document');
 });
 
+test('stores.default sourceFile writes all plain JSON fixtures directly', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({
+    theme: 'light',
+  }));
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'sourceFile'
+    }
+  };`);
+
+  const db = await openDb({ cwd });
+  await db.document('settings').update({ theme: 'dark' });
+  await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
+
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/settings.json'), 'utf8')), {
+    theme: 'dark',
+  });
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8')), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+    { id: 'u_2', name: 'Grace Hopper' },
+  ]);
+  await assert.rejects(
+    () => access(path.join(cwd, '.db/state/settings.json')),
+    { code: 'ENOENT' },
+  );
+  await assert.rejects(
+    () => access(path.join(cwd, '.db/state/users.json')),
+    { code: 'ENOENT' },
+  );
+});
+
+test('resource store overrides stores.default sourceFile', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({
+    theme: 'light',
+  }));
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'sourceFile'
+    },
+    resources: {
+      users: {
+        store: 'json'
+      }
+    }
+  };`);
+
+  const db = await openDb({ cwd });
+  await db.document('settings').update({ theme: 'dark' });
+  await db.collection('users').create({ id: 'u_2', name: 'Grace Hopper' });
+
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/settings.json'), 'utf8')), {
+    theme: 'dark',
+  });
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'db/users.json'), 'utf8')), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8')), [
+    { id: 'u_1', name: 'Ada Lovelace' },
+    { id: 'u_2', name: 'Grace Hopper' },
+  ]);
+  await assert.rejects(
+    () => access(path.join(cwd, '.db/state/settings.json')),
+    { code: 'ENOENT' },
+  );
+});
+
 test('sourceFile store rejects non-JSON source resources with structured diagnostics', async () => {
   const cases = [
     {
