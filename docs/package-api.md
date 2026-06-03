@@ -132,7 +132,7 @@ void snapshot;
 
 These are low-level database lifecycle APIs. App code decides whether a fork is a tenant, preview, debug copy, demo, or test environment.
 
-Import generated `DbTypes` from `.db/types/index.d.ts` or from a committed output file when typed collection names and records should be available to TypeScript.
+Import generated `DbTypes` from `.db/types/index.d.ts` or from a committed output file when typed collection names and records should be available to TypeScript. Apps can also add a TypeScript `paths` alias such as `#db/types` for the committed generated file; see [Generated Types](./generated-files.md#generated-types).
 
 ## Schema Contract API
 

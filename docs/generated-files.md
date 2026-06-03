@@ -51,6 +51,29 @@ export default defineConfig({
 });
 ```
 
+App code can hide the generated file path behind a TypeScript import alias:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "#db/types": ["./src/generated/db.types.d.ts"]
+    }
+  }
+}
+```
+
+Then import the generated contract through the alias:
+
+```ts
+import type { DbTypes } from '#db/types';
+```
+
+Keep this as a type-only import unless the same alias is also configured for
+your runtime or bundler. TypeScript `paths` helps the IDE and compiler resolve
+the generated declaration file, but it does not create a Node.js or browser
+runtime alias by itself.
+
 Field descriptions become TypeScript JSDoc:
 
 ```ts
