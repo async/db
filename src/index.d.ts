@@ -5,6 +5,37 @@ export type DbTypeMap = {
   documents: Record<string, unknown>;
 };
 
+export type DbFileSystemDirent = {
+  name: string;
+  isDirectory(): boolean;
+  isFile(): boolean;
+};
+
+export type DbFileSystemStats = {
+  isDirectory(): boolean;
+  isFile(): boolean;
+};
+
+export type DbFileSystem = {
+  readFile(filePath: string, encoding?: BufferEncoding | null): Promise<Buffer | string>;
+  readFileSync(filePath: string, encoding?: BufferEncoding | null): Buffer | string;
+  writeFile(filePath: string, data: string | Buffer | Uint8Array, encoding?: BufferEncoding): Promise<void>;
+  mkdir(filePath: string, options?: { recursive?: boolean }): Promise<unknown>;
+  readdir(filePath: string, options?: { withFileTypes?: false }): Promise<string[]>;
+  readdir(filePath: string, options: { withFileTypes: true }): Promise<DbFileSystemDirent[]>;
+  stat(filePath: string): Promise<DbFileSystemStats>;
+  access(filePath: string): Promise<void>;
+  rm(filePath: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
+  rename(oldPath: string, newPath: string): Promise<void>;
+};
+
+export type DbMemoryFileSystemOptions = {
+  cwd?: string;
+  files?: Record<string, string | Buffer | Uint8Array>;
+};
+
+export function createMemoryFs(options?: DbMemoryFileSystemOptions | Record<string, string | Buffer | Uint8Array>): DbFileSystem;
+
 export type DbSchemaLoadMode = 'schema' | 'data' | 'runtime';
 
 export type DbSchemaLocator = {
@@ -532,6 +563,8 @@ export type DbSchemaConfig = {
 export type DbOptions = {
   /** Project root used to resolve relative config paths. Defaults to process.cwd(). */
   cwd?: string;
+  /** Optional filesystem adapter used by openDb(), sync, generated outputs, and built-in local stores. */
+  fs?: DbFileSystem;
   /** Package API locator for a project root, db folder, root schema file, or individual schema file. */
   from?: string;
   /** Schema loading mode. Defaults to "data" for current low-level loaders and "runtime" for openDb. */
@@ -671,12 +704,14 @@ export type DbCollection<RecordType> = {
   replaceAll(records: RecordType[]): Promise<RecordType[]>;
 };
 
+export type DbDocumentPath = string | Array<string | number>;
+
 export type DbDocument<DocumentType> = {
   all(): Promise<DocumentType>;
   get(): Promise<DocumentType>;
-  get(pointer: string): Promise<unknown>;
+  get(path: DbDocumentPath): Promise<unknown>;
   put(value: DocumentType): Promise<DocumentType>;
-  set(pointer: string, value: unknown): Promise<unknown>;
+  set(path: DbDocumentPath, value: unknown): Promise<unknown>;
   update(patch: Partial<DocumentType>): Promise<DocumentType>;
 };
 

@@ -45,7 +45,7 @@ async function declarationFiles(directory: string): Promise<string[]> {
 
 test('consumer projects can import package APIs through the @async/db package', async () => {
   const cwd = await makeProject();
-  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, loadDbSchema, openDb } from '@async/db';
+  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, createMemoryFs, loadDbSchema, openDb } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
 import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
@@ -60,6 +60,7 @@ if (typeof openDb !== 'function') throw new Error('missing package API');
 if (typeof loadDbSchema !== 'function') throw new Error('missing schema API');
 if (typeof createDbOperationHandler !== 'function') throw new Error('missing operation handler API');
 if (typeof createDbRequestHandler !== 'function') throw new Error('missing request handler API');
+if (typeof createMemoryFs !== 'function') throw new Error('missing memory fs helper');
 if (typeof createDbClient !== 'function') throw new Error('missing client API');
 if (typeof createIndexedDbCacheStorage !== 'function') throw new Error('missing indexeddb cache API');
 if (typeof createClientIndexedDbCacheStorage !== 'function') throw new Error('missing client indexeddb cache API');
@@ -122,9 +123,12 @@ export type DbTypes = {
   createDbOperationHandler,
   createDbRequestHandler,
   createIndexedDbCacheStorage,
+  createMemoryFs,
   loadDbSchema,
   openDb,
   type Db,
+  type DbDocumentPath,
+  type DbFileSystem,
   type DbOptions,
 } from '@async/db';
 import { createDbClient, type DbClient } from '@async/db/client';
@@ -163,6 +167,17 @@ const config = defineConfig({
 }) satisfies DbConfig;
 
 const options: DbOptions = config;
+const memoryFs: DbFileSystem = createMemoryFs({
+  cwd: '.',
+  files: {
+    'db/users.json': '[]',
+  },
+});
+const memoryOptions: DbOptions = {
+  cwd: '.',
+  fs: memoryFs,
+};
+const documentPath: DbDocumentPath = ['ui', 'theme'];
 const usersSchema = collection({
   idField: 'id',
   fields: {
@@ -194,6 +209,8 @@ void dbPromise.then(async (db) => {
   const first: User | undefined = users[0];
   await db.collection('users').replaceAll(users);
   const settings = await db.document('settings').get();
+  await db.document('settings').set(documentPath, 'dark');
+  await db.document('settings').set('theme', 'dark');
   const requestHandler = createDbRequestHandler(db);
   const operationHandler = createDbOperationHandler(db);
   void tenant.query('users.get', { id: 'u_1' });
@@ -235,6 +252,9 @@ void kvStore({ client: { get: async () => null, set: async () => undefined } });
 void redisStore({ client: { get: async () => null, set: async () => undefined } });
 void usersSchema;
 void contentSchema;
+void memoryFs.readFile('db/users.json', 'utf8');
+void memoryOptions;
+void documentPath;
 `, 'utf8');
 
   await execFileAsync(process.execPath, [tscPath, '-p', 'tsconfig.json'], {
@@ -396,9 +416,9 @@ test('public JSON declarations expose file database helpers', async () => {
   assert.match(declarations, /production: 'small-local';/);
   assert.match(declarations, /export const jsonStoreCapabilities: JsonStoreCapabilities;/);
   assert.match(declarations, /export function jsonStatePathForResource\(config: JsonStateConfig, resource: string \| JsonStateResource\): string;/);
-  assert.match(declarations, /export function readJsonState<T>\(filePath: string, fallback: T\): Promise<T>;/);
-  assert.match(declarations, /export function writeJsonState\(filePath: string, value: unknown\): Promise<boolean>;/);
-  assert.match(declarations, /export function atomicWriteJson\(filePath: string, value: unknown\): Promise<boolean>;/);
+  assert.match(declarations, /export function readJsonState<T>\(filePath: string, fallback: T, fs\?: DbFileSystem\): Promise<T>;/);
+  assert.match(declarations, /export function writeJsonState\(filePath: string, value: unknown, fs\?: DbFileSystem\): Promise<boolean>;/);
+  assert.match(declarations, /export function atomicWriteJson\(filePath: string, value: unknown, fs\?: DbFileSystem\): Promise<boolean>;/);
   assert.match(declarations, /export function withJsonStateWrite<T>\(filePath: string, operation: \(\) => T \| Promise<T>\): Promise<T>;/);
 });
 
@@ -409,6 +429,11 @@ test('public declarations expose schema loader and validator API', async () => {
   assert.match(declarations, /export type DbSchemaValidatorUnknownFields = 'error' \| 'strip' \| 'allow' \| 'warn' \| 'ignore';/);
   assert.match(declarations, /export type DbSchemaResolverOptions = \{/);
   assert.match(declarations, /export type DbLoadedSchema = \{/);
+  assert.match(declarations, /export type DbFileSystem = \{/);
+  assert.match(declarations, /fs\?: DbFileSystem;/);
+  assert.match(declarations, /export function createMemoryFs\(options\?: DbMemoryFileSystemOptions \| Record<string, string \| Buffer \| Uint8Array>\): DbFileSystem;/);
+  assert.match(declarations, /export type DbDocumentPath = string \| Array<string \| number>;/);
+  assert.match(declarations, /set\(path: DbDocumentPath, value: unknown\): Promise<unknown>;/);
   assert.match(declarations, /standardSchema\?: boolean;/);
   assert.match(declarations, /validator<TValue = Record<string, unknown>>\(name: string, options\?: DbSchemaValidatorOptions\): DbSchemaValidator<TValue>;/);
   assert.match(declarations, /resolver<TArgs = Record<string, unknown>, TValue = unknown>\(\s+selector: string,\s+options\?: DbSchemaResolverOptions,\s+\): DbSchemaFieldResolver<TArgs, TValue> \| Record<string, DbSchemaFieldResolver<TArgs, TValue>>;/);

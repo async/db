@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises';
 import { dbError } from '../../errors.js';
 import { executeGraphql } from '../../graphql/index.js';
 import { handleRestRequest } from '../../rest/handler.js';
+import { dbFileSystem } from '../fs/index.js';
 import {
   normalizeOperationTemplate,
   operationRequest,
@@ -299,7 +299,7 @@ async function operationRegistry(
 
   if (options.outFile) {
     try {
-      const manifest = JSON.parse(await readFile(options.outFile, 'utf8'));
+      const manifest = JSON.parse(await dbFileSystem(config).readFile(options.outFile, 'utf8') as string);
       return normalizeOperationRegistry(manifest.operations ?? {});
     } catch (error) {
       throw operationRegistryLoadFailed(options.outFile, error);

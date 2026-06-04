@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { dbError } from '../../errors.js';
 import { parseJsonc } from '../../jsonc.js';
 import { resolveFrom, writeText } from '../../fs-utils.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import {
   canonicalOperation,
   normalizeOperationTemplate,
@@ -15,6 +15,7 @@ import { operationMapFromEntries } from './maps.js';
 
 type OperationConfig = {
   cwd?: string;
+  fs?: DbFileSystem;
   operations?: {
     sourceDir?: string;
     outFile?: string | null;
@@ -103,12 +104,13 @@ export async function buildOperationManifest(config: OperationConfig, options: B
   const shouldWrite = options.write !== false;
   const outFile = outputPath(config, optionValue(options, 'outFile', config.operations?.outFile));
   const refsOutFile = outputPath(config, optionValue(options, 'refsOutFile', config.operations?.refsOutFile));
+  const fs = dbFileSystem(config);
   if (shouldWrite && outFile) {
-    await writeText(outFile, `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeText(outFile, `${JSON.stringify(manifest, null, 2)}\n`, fs);
     outFiles.push(outFile);
   }
   if (shouldWrite && refsOutFile) {
-    await writeText(refsOutFile, `${JSON.stringify(refs, null, 2)}\n`);
+    await writeText(refsOutFile, `${JSON.stringify(refs, null, 2)}\n`, fs);
     refsOutFiles.push(refsOutFile);
   }
 
@@ -228,9 +230,10 @@ export async function loadOperationSources(
     return [];
   }
 
+  const fs = dbFileSystem(config);
   if (options.createDirectory === true) {
     try {
-      await mkdir(sourceDir, { recursive: true });
+      await fs.mkdir(sourceDir, { recursive: true });
     } catch {
       return [];
     }
@@ -238,7 +241,7 @@ export async function loadOperationSources(
 
   let files: string[] = [];
   try {
-    files = await listOperationFiles(sourceDir);
+    files = await listOperationFiles(sourceDir, fs);
   } catch (error) {
     if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') {
       return [];
@@ -248,7 +251,7 @@ export async function loadOperationSources(
 
   const operations: OperationTemplate[] = [];
   for (const filePath of files) {
-    const text = await readFile(filePath, 'utf8');
+    const text = await fs.readFile(filePath, 'utf8') as string;
     const extension = path.extname(filePath);
     if (extension === '.json' || extension === '.jsonc') {
       const parsed = parseJsonc(text, filePath) as OperationTemplate | OperationTemplate[];
@@ -268,13 +271,13 @@ export async function loadOperationSources(
   return operations;
 }
 
-async function listOperationFiles(directory: string): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
+async function listOperationFiles(directory: string, fs: DbFileSystem): Promise<string[]> {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
     const filePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await listOperationFiles(filePath));
+      files.push(...await listOperationFiles(filePath, fs));
     } else if (/\.(jsonc?|rest|txt)$/i.test(entry.name)) {
       files.push(filePath);
     }

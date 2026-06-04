@@ -1,3 +1,4 @@
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { resolveFrom, writeText } from '../../fs-utils.js';
 import { restFormatMetadata } from '../../rest/formats.js';
 import { loadProjectSchema } from '../schema/project.js';
@@ -6,6 +7,7 @@ import { renderSchemaManifest } from '../schema/manifest.js';
 type ViewerConfig = {
   cwd?: string;
   viewerManifestOutFile?: string | null;
+  fs?: DbFileSystem;
   rest?: {
     enabled?: boolean;
     formats?: Record<string, string | ((...args: unknown[]) => unknown) | Record<string, unknown> | null | undefined>;
@@ -109,7 +111,7 @@ export async function generateViewerManifest(config: ViewerConfig, options: Gene
   const outFiles = outputFiles(config, options);
 
   for (const outFile of outFiles) {
-    await writeText(outFile, content);
+    await writeText(outFile, content, dbFileSystem(config));
   }
 
   return {

@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { dbError } from '../../errors.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { readJsonState, writeJsonState } from '../storage/json.js';
 
 export type DbScope = {
@@ -12,6 +12,7 @@ export type DbScope = {
 export type RuntimeScopeConfig = {
   cwd: string;
   stateDir: string;
+  fs?: DbFileSystem;
   resources?: Record<string, unknown>;
   __asyncDbScope?: DbScope;
   [key: string]: unknown;
@@ -87,8 +88,8 @@ export function migrationLocksPathForScope(scope: DbScope): string {
   return path.join(branchMetaDirForScope(scope), 'migration-locks.json');
 }
 
-export function loadPersistedMigrationLocks(scope: DbScope): Map<string, MigrationLock> {
-  const state = readJsonFileSync(migrationLocksPathForScope(scope), { locks: {} });
+export function loadPersistedMigrationLocks(scope: DbScope, fs: DbFileSystem = dbFileSystem()): Map<string, MigrationLock> {
+  const state = readJsonFileSync(migrationLocksPathForScope(scope), { locks: {} }, fs);
   const locks = new Map<string, MigrationLock>();
   for (const [name, value] of Object.entries(configRecord(state.locks))) {
     const lock = configRecord(value);
@@ -106,12 +107,12 @@ export function loadPersistedMigrationLocks(scope: DbScope): Map<string, Migrati
   return locks;
 }
 
-export async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
-  return readJsonState(filePath, fallback);
+export async function readJsonFile<T>(filePath: string, fallback: T, fs: DbFileSystem = dbFileSystem()): Promise<T> {
+  return readJsonState(filePath, fallback, fs);
 }
 
-export async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  await writeJsonState(filePath, value);
+export async function writeJsonFile(filePath: string, value: unknown, fs: DbFileSystem = dbFileSystem()): Promise<void> {
+  await writeJsonState(filePath, value, fs);
 }
 
 export function snapshotId(label?: string): string {
@@ -179,7 +180,7 @@ function branchMetaDirForScope(scope: DbScope): string {
 }
 
 function applyPersistedRouting(config: RuntimeScopeConfig, scope: DbScope): void {
-  const routes = readJsonFileSync(routingPathForScope(scope), {} as Record<string, string>);
+  const routes = readJsonFileSync(routingPathForScope(scope), {} as Record<string, string>, dbFileSystem(config));
   if (Object.keys(routes).length === 0) {
     return;
   }
@@ -194,9 +195,9 @@ function applyPersistedRouting(config: RuntimeScopeConfig, scope: DbScope): void
   config.resources = resourcesConfig;
 }
 
-export function readJsonFileSync<T>(filePath: string, fallback: T): T {
+export function readJsonFileSync<T>(filePath: string, fallback: T, fs: DbFileSystem = dbFileSystem()): T {
   try {
-    return JSON.parse(readFileSync(filePath, 'utf8')) as T;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8') as string) as T;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return fallback;

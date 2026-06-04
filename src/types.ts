@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { writeText } from './fs-utils.js';
+import { dbFileSystem, type DbFileSystem } from './features/fs/index.js';
 import { pascalCase } from './names.js';
 import { loadProjectSchema } from './schema.js';
 
@@ -14,6 +15,7 @@ type GeneratedTypesConfig = {
     commitOutFile?: string | null;
     [key: string]: unknown;
   };
+  fs?: DbFileSystem;
   [key: string]: unknown;
 };
 
@@ -83,7 +85,7 @@ export async function generateTypes(
   const outFiles = outputFiles(config, options);
 
   for (const outFile of outFiles) {
-    await writeText(outFile, content);
+    await writeText(outFile, content, dbFileSystem(config));
   }
 
   return {

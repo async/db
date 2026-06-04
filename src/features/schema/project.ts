@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { parseJsonc } from '../../jsonc.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { buildResource } from './resource.js';
 import { duplicateResourceDiagnostics, listSourceFiles, readRootSchemaFile, readSourceFile, trackResourceSource } from './sources.js';
 import { makeGeneratedSchema } from './generated.js';
@@ -41,6 +41,7 @@ type ProjectConfig = {
     unknownFields?: string;
     [key: string]: unknown;
   };
+  fs?: DbFileSystem;
   [key: string]: unknown;
 };
 
@@ -260,7 +261,7 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
   const diagnostics: SchemaDiagnostic[] = [];
 
   for (const pattern of source?.patterns ?? []) {
-    const matched = await filesMatchingGlob(baseDir, String(pattern));
+    const matched = await filesMatchingGlob(config, baseDir, String(pattern));
     files.push(...matched);
   }
 
@@ -270,7 +271,7 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
   for (const filePath of uniqueFiles) {
     let text;
     try {
-      text = await readFile(filePath, 'utf8');
+      text = await dbFileSystem(config).readFile(filePath, 'utf8') as string;
     } catch (error) {
       diagnostics.push(contentLoadDiagnostic(config, schemaSource, filePath, error));
       continue;
@@ -301,14 +302,14 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
   };
 }
 
-async function filesMatchingGlob(baseDir: string, pattern: string): Promise<string[]> {
+async function filesMatchingGlob(config: ProjectConfig, baseDir: string, pattern: string): Promise<string[]> {
   const normalizedPattern = normalizeSlash(pattern).replace(/^\.\//, '');
   const firstGlob = firstGlobIndex(normalizedPattern);
   const rootPart = firstGlob === -1
     ? path.dirname(normalizedPattern)
     : normalizedPattern.slice(0, firstGlob).split('/').slice(0, -1).join('/');
   const searchRoot = path.resolve(baseDir, rootPart || '.');
-  const allFiles = await listFilesRecursive(searchRoot);
+  const allFiles = await listFilesRecursive(config, searchRoot);
   const regexp = globRegExp(normalizedPattern);
 
   return allFiles.filter((filePath) => {
@@ -317,10 +318,10 @@ async function filesMatchingGlob(baseDir: string, pattern: string): Promise<stri
   });
 }
 
-async function listFilesRecursive(directory: string): Promise<string[]> {
+async function listFilesRecursive(config: ProjectConfig, directory: string): Promise<string[]> {
   let entries;
   try {
-    entries = await readdir(directory, { withFileTypes: true });
+    entries = await dbFileSystem(config).readdir(directory, { withFileTypes: true });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return [];
@@ -335,7 +336,7 @@ async function listFilesRecursive(directory: string): Promise<string[]> {
     }
     const fullPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await listFilesRecursive(fullPath));
+      files.push(...await listFilesRecursive(config, fullPath));
     } else if (entry.isFile()) {
       files.push(fullPath);
     }

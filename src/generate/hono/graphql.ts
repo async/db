@@ -29,9 +29,9 @@ function createDbFacade(repository: DbRepository) {
         all: () => document.all(),
         update: (patch: Record<string, unknown>) => document.patch(patch),
         put: (value: Record<string, unknown>) => document.put(value),
-        async set(pointer: string, value: unknown) {
+        async set(path: DbPath, value: unknown) {
           const current = await document.all();
-          setPointer(current, pointer, value);
+          setPath(current, path, value);
           await document.put(current);
           return value;
         },
@@ -40,17 +40,59 @@ function createDbFacade(repository: DbRepository) {
   };
 }
 
-function setPointer(document: Record<string, unknown>, pointer: string, value: unknown) {
-  const parts = pointer.split('/').slice(1).map((part) => part.replaceAll('~1', '/').replaceAll('~0', '~'));
-  let current: Record<string, unknown> = document;
-  while (parts.length > 1) {
-    const part = parts.shift() as string;
-    if (!current[part] || typeof current[part] !== 'object' || Array.isArray(current[part])) {
-      current[part] = {};
-    }
-    current = current[part] as Record<string, unknown>;
+type DbPath = string | Array<string | number>;
+
+function setPath(document: Record<string, unknown> | unknown[], path: DbPath, value: unknown) {
+  const parts = parsePath(path);
+  if (parts.length === 0) {
+    throw new Error('Cannot set the root document with set(). Use put(value) instead.');
   }
-  current[parts[0] || ''] = value;
+
+  let current = document as Record<string | number, unknown>;
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const part = parts[index];
+    const nextPart = parts[index + 1];
+    if (!isJsonContainer(current[part])) {
+      current[part] = isArrayIndexSegment(nextPart) ? [] : {};
+    }
+    current = current[part] as Record<string | number, unknown>;
+  }
+  current[parts.at(-1) as string | number] = value;
+}
+
+function parsePath(path: DbPath): Array<string | number> {
+  if (Array.isArray(path)) {
+    return path.map((segment) => typeof segment === 'number' ? segment : assertSafePathSegment(segment));
+  }
+
+  if (!path || path === '/') {
+    return [];
+  }
+
+  if (!path.startsWith('/')) {
+    return [assertSafePathSegment(path)];
+  }
+
+  return path
+    .slice(1)
+    .split('/')
+    .filter(Boolean)
+    .map((part) => assertSafePathSegment(part.replaceAll('~1', '/').replaceAll('~0', '~')));
+}
+
+function assertSafePathSegment(segment: string): string {
+  if (segment === '__proto__' || segment === 'prototype' || segment === 'constructor') {
+    throw new Error(\`Unsafe document path segment "\${segment}".\`);
+  }
+  return segment;
+}
+
+function isJsonContainer(value: unknown): value is Record<string, unknown> | unknown[] {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function isArrayIndexSegment(segment: string | number): boolean {
+  return typeof segment === 'number' || /^(0|[1-9]\\d*)$/.test(segment);
 }
 `;
 }

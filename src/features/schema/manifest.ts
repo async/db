@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { resolveFrom, writeText } from '../../fs-utils.js';
 import type { SchemaField } from './fields.js';
 import { loadProjectSchema } from './project.js';
@@ -88,6 +89,7 @@ type FieldCustomizeContext = {
 type SchemaManifestConfig = {
   cwd?: string;
   schemaOutFile?: string | null;
+  fs?: DbFileSystem;
   schemaManifest?: {
     customizeResource?: (context: ResourceCustomizeContext) => unknown;
     customizeField?: (context: FieldCustomizeContext) => unknown;
@@ -150,7 +152,7 @@ export async function generateSchemaManifest(
   const outFiles = outputFiles(config, options);
 
   for (const outFile of outFiles) {
-    await writeText(outFile, content);
+    await writeText(outFile, content, dbFileSystem(config));
   }
 
   return {

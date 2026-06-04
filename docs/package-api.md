@@ -90,9 +90,16 @@ Singleton document usage:
 const settings = db.document('settings');
 
 await settings.set('/theme', 'dark');
+await settings.set(['ui', 'sidebar', 'collapsed'], true);
+await settings.set('locale', 'en-US');
 
 const value = await settings.get('/theme');
+const collapsed = await settings.get(['ui', 'sidebar', 'collapsed']);
 ```
+
+Document paths support JSON Pointer strings such as `/ui/theme`, exact array
+paths such as `['ui', 'theme']`, and bare top-level string shorthand such as
+`'theme'`. Use `document.put(value)` to replace the whole document.
 
 Fork and branch usage:
 

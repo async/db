@@ -1,11 +1,12 @@
-import { readFile } from 'node:fs/promises';
 import { normalizeOperationTemplate } from '../../shared/operations.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { buildOperationRegistry } from './index.js';
 
 export const OPERATIONS_STRICT_MODE_CODE = 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS';
 const ACCEPT_REFS_RECOMMENDATION_CODE = 'OPERATIONS_STRICT_MODE_ACCEPT_REFS_RECOMMENDED';
 
 type OperationConfig = {
+  fs?: DbFileSystem;
   server?: {
     expose?: {
       rest?: string;
@@ -130,7 +131,7 @@ async function operationStrictModeReadiness(config: OperationConfig): Promise<Op
   }
 
   if (operations.outFile) {
-    const registryFile = await inspectOperationRegistryFile(operations.outFile);
+    const registryFile = await inspectOperationRegistryFile(config, operations.outFile);
     details.outFile = {
       ...details.outFile,
       ...registryFile.details,
@@ -195,9 +196,9 @@ function inlineRegistryDetails(operations: OperationConfig['operations'] = {}): 
   };
 }
 
-async function inspectOperationRegistryFile(outFile: string): Promise<InspectResult> {
+async function inspectOperationRegistryFile(config: OperationConfig, outFile: string): Promise<InspectResult> {
   try {
-    const manifest = JSON.parse(await readFile(outFile, 'utf8'));
+    const manifest = JSON.parse(await dbFileSystem(config).readFile(outFile, 'utf8') as string);
     const entries = Object.entries(manifest.operations ?? {});
     for (const [, operation] of entries) {
       normalizeOperationTemplate(operation as Record<string, unknown>);

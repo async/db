@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { loadDbSchema as typedLoadDbSchema, openDb as typedOpenDb } from '../../src/index.js';
+import { createMemoryFs, loadDbSchema as typedLoadDbSchema, openDb as typedOpenDb } from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 const loadDbSchema = async (options: unknown): Promise<any> => typedLoadDbSchema(options as never) as Promise<any>;
@@ -197,6 +197,111 @@ test('collection.exists returns whether an id is present', async () => {
 
   assert.equal(await users.exists('u_1'), true);
   assert.equal(await users.exists('missing'), false);
+});
+
+test('openDb can read and write through an injected memory filesystem', async () => {
+  const cwd = await makeProject();
+  const fs = createMemoryFs({
+    cwd,
+    files: {
+      'db/users.json': JSON.stringify([
+        {
+          id: 'u_1',
+          name: 'Ada Lovelace',
+        },
+      ]),
+    },
+  });
+
+  const db = await openDb({
+    cwd,
+    fs,
+    stores: {
+      default: 'json',
+    },
+  });
+
+  const users = db.collection('users');
+  await users.create({
+    id: 'u_2',
+    name: 'Grace Hopper',
+  });
+
+  assert.deepEqual(await users.all(), [
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+    {
+      id: 'u_2',
+      name: 'Grace Hopper',
+    },
+  ]);
+
+  const stateText = await fs.readFile(path.join(cwd, '.db/state/users.json'), 'utf8') as string;
+  assert.deepEqual(JSON.parse(stateText), [
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+    {
+      id: 'u_2',
+      name: 'Grace Hopper',
+    },
+  ]);
+
+  const generatedSchema = await fs.readFile(path.join(cwd, '.db/schema.generated.json'), 'utf8') as string;
+  assert.match(generatedSchema, /"users"/);
+  await assert.rejects(() => access(path.join(cwd, '.db/state/users.json')), {
+    code: 'ENOENT',
+  });
+
+  await db.close();
+});
+
+test('sourceFile store writes through an injected memory filesystem', async () => {
+  const cwd = await makeProject();
+  const fs = createMemoryFs({
+    cwd,
+    files: {
+      'db/users.json': JSON.stringify([
+        {
+          id: 'u_1',
+          name: 'Ada Lovelace',
+        },
+      ]),
+    },
+  });
+
+  const db = await openDb({
+    cwd,
+    fs,
+    stores: {
+      default: 'sourceFile',
+    },
+  });
+
+  await db.collection('users').create({
+    id: 'u_2',
+    name: 'Grace Hopper',
+  });
+
+  const sourceText = await fs.readFile(path.join(cwd, 'db/users.json'), 'utf8') as string;
+  assert.deepEqual(JSON.parse(sourceText), [
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+    {
+      id: 'u_2',
+      name: 'Grace Hopper',
+    },
+  ]);
+  await assert.rejects(() => readFile(path.join(cwd, 'db/users.json'), 'utf8'), {
+    code: 'ENOENT',
+  });
+
+  await db.close();
 });
 
 test('inferred variants validate writes through the package API', async () => {
@@ -458,7 +563,7 @@ test('package API serializes concurrent document writes in one process', async (
   });
 });
 
-test('singleton documents support JSON pointer get and set', async () => {
+test('singleton documents support JSON pointer and array path get and set', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'settings.json', JSON.stringify({
     theme: 'light',
@@ -471,9 +576,63 @@ test('singleton documents support JSON pointer get and set', async () => {
   const settings = db.document('settings');
 
   await settings.set('/features/billing', true);
+  await settings.set(['ui', 'theme'], 'dark');
+  await settings.set('locale', 'en-US');
+  await settings.set('/shortcuts/0/key', 'cmd+k');
+  await settings.set(['tabs', 0, 'title'], 'Home');
 
   assert.equal(await settings.get('/features/billing'), true);
-  assert.equal((await settings.all()).features.billing, true);
+  assert.equal(await settings.get(['ui', 'theme']), 'dark');
+  assert.equal(await settings.get('locale'), 'en-US');
+  assert.equal(await settings.get('/shortcuts/0/key'), 'cmd+k');
+  assert.equal(await settings.get(['tabs', 0, 'title']), 'Home');
+  assert.deepEqual(await settings.all(), {
+    theme: 'light',
+    features: {
+      billing: true,
+    },
+    ui: {
+      theme: 'dark',
+    },
+    locale: 'en-US',
+    shortcuts: [
+      {
+        key: 'cmd+k',
+      },
+    ],
+    tabs: [
+      {
+        title: 'Home',
+      },
+    ],
+  });
+});
+
+test('singleton document paths reject prototype-polluting segments', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({
+    theme: 'light',
+  }));
+
+  const db = await openDb({ cwd });
+  const settings = db.document('settings');
+
+  await assert.rejects(
+    () => settings.set('/__proto__/polluted', true),
+    (error: any) => {
+      assert.equal(error.code, 'DB_UNSAFE_DOCUMENT_PATH');
+      assert.match(error.hint, /Prototype-related/);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => settings.get(['constructor', 'prototype']),
+    (error: any) => {
+      assert.equal(error.code, 'DB_UNSAFE_DOCUMENT_PATH');
+      return true;
+    },
+  );
+  assert.equal(({} as Record<string, unknown>).polluted, undefined);
 });
 
 test('memory store supports CRUD without writing JSON state files', async () => {

@@ -1,7 +1,7 @@
 import { dbError } from '../../errors.js';
 import { createSchemaValidator } from '../../schema.js';
 import { createRuntime } from '../storage/runtime.js';
-import { getPointer, setPointer } from './json-pointer.js';
+import { getPointer, setPointer, type JsonPath } from './json-pointer.js';
 
 type RuntimeConfig = {
   schema?: {
@@ -59,9 +59,9 @@ export class DbDocument {
     return this.adapter().readResource?.(this.resource, {});
   }
 
-  async get(pointer = ''): Promise<unknown> {
+  async get(path: JsonPath = ''): Promise<unknown> {
     const document = await this.all();
-    return pointer ? getPointer(document, pointer) : document;
+    return Array.isArray(path) || path ? getPointer(document, path) : document;
   }
 
   async put(value: unknown): Promise<unknown> {
@@ -76,17 +76,17 @@ export class DbDocument {
     });
   }
 
-  async set(pointer: string, value: unknown): Promise<unknown> {
+  async set(path: JsonPath, value: unknown): Promise<unknown> {
     this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const document = await this.all() as Record<string, unknown>;
-      setPointer(document, pointer, value);
+      setPointer(document, path, value);
       const nextDocument = await assertRuntimeDocument(document, this.resource, this.config, {
         source: `${this.resource.name} document body`,
       });
       await this.adapter().writeResource?.(this.resource, nextDocument);
-      this.emit('set', { pointer });
-      return getPointer(nextDocument, pointer);
+      this.emit('set', pathEventDetails(path));
+      return getPointer(nextDocument, path);
     });
   }
 
@@ -169,4 +169,8 @@ function normalizeDb(db: DbLike | RuntimeConfig, resource: RuntimeResource): DbL
 
 function isDbLike(value: DbLike | RuntimeConfig): value is DbLike {
   return Boolean((value as DbLike)?.runtime && (value as DbLike)?.config);
+}
+
+function pathEventDetails(path: JsonPath): Record<string, unknown> {
+  return typeof path === 'string' ? { pointer: path } : { path };
 }

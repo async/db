@@ -5,6 +5,7 @@ import path from 'node:path';
 import { loadConfig } from '../config.js';
 import { dbError, listChoices } from '../errors.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../names.js';
+import { getPointer, setPointer, type JsonPath } from '../features/runtime/json-pointer.js';
 import type { SchemaField } from '../features/schema/fields.js';
 import { assertRecordMatchesResource, loadProjectSchema } from '../schema.js';
 import { applyDefaultsToRecord } from '../sync.js';
@@ -482,9 +483,9 @@ export class SqliteDbDocument {
     return row ? JSON.parse(String(row.value)) : {};
   }
 
-  async get(pointer = ''): Promise<unknown> {
+  async get(path: JsonPath = ''): Promise<unknown> {
     const document = await this.all();
-    return pointer ? getPointer(document, pointer) : document;
+    return Array.isArray(path) || path ? getPointer(document, path) : document;
   }
 
   async put(value: unknown): Promise<Record<string, unknown>> {
@@ -497,11 +498,11 @@ export class SqliteDbDocument {
     return nextDocument;
   }
 
-  async set(pointer: string, value: unknown): Promise<unknown> {
+  async set(path: JsonPath, value: unknown): Promise<unknown> {
     const document = await this.all();
-    setPointer(document, pointer, value);
-    await this.put(document);
-    return value;
+    setPointer(document, path, value);
+    const nextDocument = await this.put(document);
+    return getPointer(nextDocument, path);
   }
 
   async update(patch: unknown): Promise<Record<string, unknown>> {
@@ -618,42 +619,6 @@ function sqliteRuntimeUnavailableError(error: unknown): Error {
 
 function quoteIdentifier(value: unknown): string {
   return `"${String(value).replaceAll('"', '""')}"`;
-}
-
-function getPointer(document: unknown, pointer: string): unknown {
-  const parts = parsePointer(pointer);
-  let value = document as Record<string, unknown> | null | undefined;
-  for (const part of parts) {
-    if (value === null || value === undefined) {
-      return undefined;
-    }
-    value = value[part] as Record<string, unknown> | null | undefined;
-  }
-  return value;
-}
-
-function setPointer(document: Record<string, unknown>, pointer: string, value: unknown): void {
-  const parts = parsePointer(pointer);
-  let current = document;
-  while (parts.length > 1) {
-    const part = parts.shift();
-    if (!current[part] || typeof current[part] !== 'object' || Array.isArray(current[part])) {
-      current[part] = {};
-    }
-    current = current[part] as Record<string, unknown>;
-  }
-  current[parts[0]] = value;
-}
-
-function parsePointer(pointer: unknown): string[] {
-  if (!pointer) {
-    return [];
-  }
-
-  return String(pointer)
-    .split('/')
-    .slice(1)
-    .map((part) => part.replaceAll('~1', '/').replaceAll('~0', '~'));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

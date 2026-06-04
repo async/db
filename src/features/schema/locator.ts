@@ -1,5 +1,5 @@
-import { stat } from 'node:fs/promises';
 import path from 'node:path';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 
 const SCHEMA_FILE_RE = /(?:^|[/\\])(?:db\.schema\.(?:mjs|js)|[^/\\]+\.schema\.(?:json|jsonc|mjs|js))$/;
 
@@ -17,6 +17,7 @@ export type SchemaLocator = {
 type ResolveSchemaLocatorOptions = {
   cwd?: string;
   from?: string | null;
+  fs?: DbFileSystem;
 };
 
 type SchemaLocatorErrorOptions = {
@@ -30,6 +31,7 @@ type NodeFsError = Error & {
 
 export async function resolveSchemaLocator(options: ResolveSchemaLocatorOptions | string = {}): Promise<SchemaLocator> {
   const input = typeof options === 'string' ? { from: options } : options ?? {};
+  const fs = dbFileSystem(input);
   const baseCwd = path.resolve(input.cwd ?? process.cwd());
   const from = input.from === undefined || input.from === null || input.from === ''
     ? null
@@ -41,7 +43,7 @@ export async function resolveSchemaLocator(options: ResolveSchemaLocatorOptions 
 
   let stats;
   try {
-    stats = await stat(from);
+    stats = await fs.stat(from);
   } catch (error) {
     const fsError = error as NodeFsError;
     if (fsError.code === 'ENOENT') {

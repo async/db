@@ -1,11 +1,11 @@
 import path from 'node:path';
-import { mkdir, rm } from 'node:fs/promises';
 import { loadConfig } from '../../config.js';
 import { dbError, listChoices } from '../../errors.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../../names.js';
 import { createDbOperationHandler } from '../../operations.js';
 import { loadProjectSchema } from '../../schema.js';
 import { syncDb } from '../../sync.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { createRuntime } from '../storage/runtime.js';
 import { DbCollection } from './collection.js';
 import { DbDocument } from './document.js';
@@ -34,6 +34,7 @@ import {
 type DbConfig = {
   cwd: string;
   stateDir: string;
+  fs?: DbFileSystem;
   schemaLoadMode?: string;
   resources?: Record<string, unknown>;
   __asyncDbScope?: DbScope;
@@ -245,7 +246,7 @@ export class Db {
     this.scope = scoped.scope;
     this.runtime = createRuntime(this.config, resources);
     this.events = this.runtime.events;
-    this.migrationLocks = loadPersistedMigrationLocks(this.scope);
+    this.migrationLocks = loadPersistedMigrationLocks(this.scope, this.fs());
     this.forks = {
       create: (name, options = {}) => this.createFork(name, options),
       open: (name) => this.openFork(name),
@@ -408,7 +409,7 @@ export class Db {
     this.assertRootForkLifecycle('create fork');
     const now = new Date().toISOString();
     const registryPath = forkRegistryPath(this.scope.rootStateDir);
-    const registry = await readJsonFile(registryPath, { forks: {} });
+    const registry = await this.readJsonFile(registryPath, { forks: {} });
     if (configRecord(registry.forks)[name]) {
       throw dbError(
         'DB_FORK_ALREADY_EXISTS',
@@ -441,7 +442,7 @@ export class Db {
         createdAt: now,
       },
     };
-    await writeJsonFile(registryPath, registry);
+    await this.writeJsonFile(registryPath, registry);
 
     await this.writeBranchRegistry(name, {
       main: {
@@ -462,7 +463,7 @@ export class Db {
   private async ensureFork(name: string, options: ForkCreateOptions = {}): Promise<Db> {
     assertValidScopedName(name, 'fork');
     this.assertRootForkLifecycle('ensure fork');
-    const registry = await readJsonFile(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
+    const registry = await this.readJsonFile(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
     if (configRecord(registry.forks)[name]) {
       return this.openFork(name);
     }
@@ -471,7 +472,7 @@ export class Db {
 
   private async listForks(): Promise<Array<Record<string, unknown>>> {
     this.assertRootForkLifecycle('list forks');
-    const registry = await readJsonFile(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
+    const registry = await this.readJsonFile(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
     return Object.values(registry.forks ?? {});
   }
 
@@ -479,13 +480,13 @@ export class Db {
     assertValidScopedName(name, 'fork');
     this.assertRootForkLifecycle('delete fork');
     const registryPath = forkRegistryPath(this.scope.rootStateDir);
-    const registry = await readJsonFile(registryPath, { forks: {} });
+    const registry = await this.readJsonFile(registryPath, { forks: {} });
     const existed = Boolean(registry.forks?.[name]);
     if (registry.forks) {
       delete registry.forks[name];
     }
-    await writeJsonFile(registryPath, registry);
-    await rm(path.join(this.scope.rootStateDir, 'forks', name), { force: true, recursive: true });
+    await this.writeJsonFile(registryPath, registry);
+    await this.fs().rm(path.join(this.scope.rootStateDir, 'forks', name), { force: true, recursive: true });
     return existed;
   }
 
@@ -505,7 +506,7 @@ export class Db {
       );
     }
     const registryPath = branchRegistryPath(this.scope.rootStateDir, this.scope.fork);
-    const registry = await readJsonFile(registryPath, { branches: {} });
+    const registry = await this.readJsonFile(registryPath, { branches: {} });
     if (configRecord(registry.branches)[name]) {
       throw dbError(
         'DB_BRANCH_ALREADY_EXISTS',
@@ -538,7 +539,7 @@ export class Db {
         createdAt: new Date().toISOString(),
       },
     };
-    await writeJsonFile(registryPath, registry);
+    await this.writeJsonFile(registryPath, registry);
     return target;
   }
 
@@ -561,7 +562,7 @@ export class Db {
         },
       );
     }
-    const registry = await readJsonFile(branchRegistryPath(this.scope.rootStateDir, this.scope.fork), { branches: {} });
+    const registry = await this.readJsonFile(branchRegistryPath(this.scope.rootStateDir, this.scope.fork), { branches: {} });
     if (configRecord(registry.branches)[name]) {
       return this.openBranch(name);
     }
@@ -580,7 +581,7 @@ export class Db {
         },
       );
     }
-    const registry = await readJsonFile(branchRegistryPath(this.scope.rootStateDir, this.scope.fork), { branches: {} });
+    const registry = await this.readJsonFile(branchRegistryPath(this.scope.rootStateDir, this.scope.fork), { branches: {} });
     return Object.values(registry.branches ?? {});
   }
 
@@ -615,12 +616,12 @@ export class Db {
     }
 
     const registryPath = branchRegistryPath(this.scope.rootStateDir, this.scope.fork);
-    const registry = await readJsonFile(registryPath, { branches: {} });
+    const registry = await this.readJsonFile(registryPath, { branches: {} });
     const existed = Boolean(configRecord(registry.branches)[name]);
     registry.branches = { ...configRecord(registry.branches) };
     delete registry.branches[name];
-    await writeJsonFile(registryPath, registry);
-    await rm(path.join(this.scope.rootStateDir, 'forks', this.scope.fork, 'branches', name), {
+    await this.writeJsonFile(registryPath, registry);
+    await this.fs().rm(path.join(this.scope.rootStateDir, 'forks', this.scope.fork, 'branches', name), {
       force: true,
       recursive: true,
     });
@@ -632,12 +633,12 @@ export class Db {
     const id = snapshotId(options.label);
     const snapshotDir = snapshotDirForScope(this.scope, id);
     const resourcesDir = path.join(snapshotDir, 'resources');
-    await mkdir(resourcesDir, { recursive: true });
+    await this.fs().mkdir(resourcesDir, { recursive: true });
 
     for (const resourceName of resources) {
       const resource = this.resourceForName(resourceName);
       const value = await readResourceValue(this, resource);
-      await writeJsonFile(path.join(resourcesDir, `${resource.name}.json`), value);
+      await this.writeJsonFile(path.join(resourcesDir, `${resource.name}.json`), value);
     }
 
     const manifest = {
@@ -648,7 +649,7 @@ export class Db {
       resources,
       createdAt: new Date().toISOString(),
     };
-    await writeJsonFile(path.join(snapshotDir, 'manifest.json'), manifest);
+    await this.writeJsonFile(path.join(snapshotDir, 'manifest.json'), manifest);
     return {
       id,
       label: options.label,
@@ -662,7 +663,7 @@ export class Db {
   private async restoreSnapshot(id: string, options: SnapshotRestoreOptions = {}): Promise<void> {
     assertValidSnapshotId(id);
     const snapshotDir = snapshotDirForScope(this.scope, id);
-    const manifest = await readJsonFile(path.join(snapshotDir, 'manifest.json'), null);
+    const manifest = await this.readJsonFile(path.join(snapshotDir, 'manifest.json'), null);
     if (!manifest) {
       throw dbError(
         'DB_SNAPSHOT_NOT_FOUND',
@@ -680,7 +681,7 @@ export class Db {
     const resources = options.resources ?? manifest.resources ?? this.resourceNames();
     for (const resourceName of resources) {
       const resource = this.resourceForName(resourceName);
-      const value = await readJsonFile(path.join(snapshotDir, 'resources', `${resource.name}.json`), undefined);
+      const value = await this.readJsonFile(path.join(snapshotDir, 'resources', `${resource.name}.json`), undefined);
       if (value !== undefined) {
         await writeResourceValue(this, resource, value);
       }
@@ -765,7 +766,7 @@ export class Db {
   }
 
   private async setRouting(routes: Record<string, string>): Promise<Record<string, string>> {
-    const persistedRoutes = await readJsonFile(this.routingPath(), {} as Record<string, string>);
+    const persistedRoutes = await this.readJsonFile(this.routingPath(), {} as Record<string, string>);
     const nextRoutes = {
       ...persistedRoutes,
       ...routes,
@@ -780,7 +781,7 @@ export class Db {
       };
     }
     this.config.resources = resourcesConfig;
-    await writeJsonFile(this.routingPath(), nextRoutes);
+    await this.writeJsonFile(this.routingPath(), nextRoutes);
     return nextRoutes;
   }
 
@@ -813,7 +814,7 @@ export class Db {
   }
 
   private assertForkExists(name: string): void {
-    const registry = readJsonFileSync(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
+    const registry = this.readJsonFileSync(forkRegistryPath(this.scope.rootStateDir), { forks: {} });
     if (configRecord(registry.forks)[name]) {
       return;
     }
@@ -831,7 +832,7 @@ export class Db {
   }
 
   private assertBranchExists(fork: string, name: string): void {
-    const registry = readJsonFileSync(branchRegistryPath(this.scope.rootStateDir, fork), { branches: {} });
+    const registry = this.readJsonFileSync(branchRegistryPath(this.scope.rootStateDir, fork), { branches: {} });
     if (configRecord(registry.branches)[name]) {
       return;
     }
@@ -877,7 +878,7 @@ export class Db {
       const snapshot = String(from.snapshot);
       assertValidSnapshotId(snapshot);
       const snapshotDir = snapshotDirForScope(sourceScope, snapshot);
-      const manifest = await readJsonFile(path.join(snapshotDir, 'manifest.json'), null);
+      const manifest = await this.readJsonFile(path.join(snapshotDir, 'manifest.json'), null);
       if (!manifest) {
         throw dbError(
           'DB_SNAPSHOT_NOT_FOUND',
@@ -958,12 +959,12 @@ export class Db {
 
   private async writeBranchRegistry(fork: string, branches: Record<string, Record<string, unknown>>): Promise<void> {
     const registryPath = branchRegistryPath(this.scope.rootStateDir, fork);
-    const registry = await readJsonFile(registryPath, { branches: {} });
+    const registry = await this.readJsonFile(registryPath, { branches: {} });
     registry.branches = {
       ...configRecord(registry.branches),
       ...branches,
     };
-    await writeJsonFile(registryPath, registry);
+    await this.writeJsonFile(registryPath, registry);
   }
 
   private async recordMigrationCopy(
@@ -984,7 +985,7 @@ export class Db {
   }
 
   private async persistMigrationLocks(): Promise<void> {
-    await writeJsonFile(this.migrationLocksPath(), {
+    await this.writeJsonFile(this.migrationLocksPath(), {
       locks: Object.fromEntries(this.migrationLocks),
     });
   }
@@ -1018,6 +1019,22 @@ export class Db {
     return routingPathForScope(this.scope);
   }
 
+  private fs(): DbFileSystem {
+    return dbFileSystem(this.config);
+  }
+
+  private readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+    return readJsonFile(filePath, fallback, this.fs());
+  }
+
+  private writeJsonFile(filePath: string, value: unknown): Promise<void> {
+    return writeJsonFile(filePath, value, this.fs());
+  }
+
+  private readJsonFileSync<T>(filePath: string, fallback: T): T {
+    return readJsonFileSync(filePath, fallback, this.fs());
+  }
+
 }
 
 export function stateFileForDebug(db: Db, resourceName: string): string {
@@ -1040,7 +1057,7 @@ async function copyForkSource(source: ResolvedForkSource, target: Db, resourceNa
 
   for (const resourceName of source.resources) {
     const resource = target.resourceForName(resourceName);
-    const value = await readJsonFile(path.join(source.snapshotDir, 'resources', `${resource.name}.json`), undefined);
+    const value = await readJsonFile(path.join(source.snapshotDir, 'resources', `${resource.name}.json`), undefined, dbFileSystem(target.config));
     if (value !== undefined) {
       await writeResourceValue(target, resource, value);
     }

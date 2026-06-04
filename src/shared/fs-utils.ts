@@ -1,18 +1,19 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { dbFileSystem, type DbFileSystem } from '../features/fs/index.js';
 
 type NodeFsError = Error & {
   code?: string;
 };
 
-export async function readText(filePath: string): Promise<string> {
-  return readFile(filePath, 'utf8');
+export async function readText(filePath: string, fs?: DbFileSystem): Promise<string> {
+  return dbFileSystem({ fs }).readFile(filePath, 'utf8') as Promise<string>;
 }
 
-export async function writeText(filePath: string, content: string): Promise<boolean> {
-  await mkdir(path.dirname(filePath), { recursive: true });
+export async function writeText(filePath: string, content: string, fs?: DbFileSystem): Promise<boolean> {
+  const fileSystem = dbFileSystem({ fs });
+  await fileSystem.mkdir(path.dirname(filePath), { recursive: true });
   try {
-    if ((await readFile(filePath, 'utf8')) === content) {
+    if ((await fileSystem.readFile(filePath, 'utf8')) === content) {
       return false;
     }
   } catch (error) {
@@ -21,7 +22,7 @@ export async function writeText(filePath: string, content: string): Promise<bool
       throw error;
     }
   }
-  await writeFile(filePath, content, 'utf8');
+  await fileSystem.writeFile(filePath, content, 'utf8');
   return true;
 }
 

@@ -10,7 +10,7 @@ export type DbViteClientCacheOptions = boolean | {
   eventPolicy?: DbCacheEventPolicy;
 };
 
-export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'outputs' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'operations' | 'mock'> & {
+export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'fs' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'outputs' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'operations' | 'mock'> & {
   /** Scoped base for db dev tools. Defaults to "/__db". */
   apiBase?: string;
   /** App-facing REST data route alias. Defaults to "/db"; set false to disable. */

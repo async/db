@@ -1,4 +1,4 @@
-import type { DbCustomStoreFactory } from './index.js';
+import type { DbCustomStoreFactory, DbFileSystem } from './index.js';
 
 export type JsonStoreCapabilities = {
   writable: true;
@@ -42,7 +42,7 @@ export function fileStorage(root: string): JsonFileStorage;
 export function s3Storage(options: Omit<JsonS3Storage, 'kind'>): JsonS3Storage;
 export function jsonStore(options?: JsonStoreOptions): DbCustomStoreFactory;
 export function jsonStatePathForResource(config: JsonStateConfig, resource: string | JsonStateResource): string;
-export function readJsonState<T>(filePath: string, fallback: T): Promise<T>;
-export function writeJsonState(filePath: string, value: unknown): Promise<boolean>;
-export function atomicWriteJson(filePath: string, value: unknown): Promise<boolean>;
+export function readJsonState<T>(filePath: string, fallback: T, fs?: DbFileSystem): Promise<T>;
+export function writeJsonState(filePath: string, value: unknown, fs?: DbFileSystem): Promise<boolean>;
+export function atomicWriteJson(filePath: string, value: unknown, fs?: DbFileSystem): Promise<boolean>;
 export function withJsonStateWrite<T>(filePath: string, operation: () => T | Promise<T>): Promise<T>;

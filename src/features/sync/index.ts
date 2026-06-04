@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadProjectSchema, makeGeneratedSchema } from '../../schema.js';
 import { generateSchemaManifest } from '../../schema-manifest.js';
@@ -8,6 +7,7 @@ import { readJsonState, writeJsonState } from '../runtime/state.js';
 import { createRuntime } from '../storage/runtime.js';
 import { writeSourceMetadata } from '../storage/source.js';
 import { writeText } from '../../fs-utils.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { ensureRuntimeDirs } from './runtime-dirs.js';
 import { writeGeneratedIdsToSources } from './source-writes.js';
 
@@ -16,6 +16,7 @@ export { applyDefaultsToRecord, applyDefaultsToSeed } from './defaults.js';
 type SyncConfig = {
   cwd: string;
   stateDir: string;
+  fs?: DbFileSystem;
   types?: {
     enabled?: boolean;
   };
@@ -80,11 +81,12 @@ export async function syncDb(config: SyncConfig, options: SyncOptions = {}): Pro
   await ensureRuntimeDirs(config);
   const schemaOutFile = path.join(config.stateDir, 'schema.generated.json');
   project.schema = await preserveGeneratedAt(
+    config,
     schemaOutFile,
     makeGeneratedSchema(project.resources as Parameters<typeof makeGeneratedSchema>[0], project.diagnostics) as GeneratedSchema,
   );
 
-  await writeText(schemaOutFile, `${JSON.stringify(project.schema, null, 2)}\n`);
+  await writeText(schemaOutFile, `${JSON.stringify(project.schema, null, 2)}\n`, dbFileSystem(config));
   logs.push(`Generated ${path.relative(config.cwd, schemaOutFile)}`);
 
   if (config.types?.enabled !== false) {
@@ -109,13 +111,13 @@ export async function syncDb(config: SyncConfig, options: SyncOptions = {}): Pro
   }
 
   const sourceMetadataPath = path.join(config.stateDir, 'state', '.sources.json');
-  const sourceMetadata = await readJsonState(sourceMetadataPath, { resources: {} }) as SourceMetadata;
+  const sourceMetadata = await readJsonState(sourceMetadataPath, { resources: {} }, dbFileSystem(config)) as SourceMetadata;
   sourceMetadata.resources ??= {};
 
   const runtime = createRuntime(config, project.resources);
   await runtime.hydrate();
   await writeSourceMetadata(config, project.resources, sourceMetadata);
-  await writeJsonState(sourceMetadataPath, sourceMetadata);
+  await writeJsonState(sourceMetadataPath, sourceMetadata, dbFileSystem(config));
 
   logs.push('Synced runtime store');
 
@@ -125,10 +127,10 @@ export async function syncDb(config: SyncConfig, options: SyncOptions = {}): Pro
   };
 }
 
-async function preserveGeneratedAt(schemaOutFile: string, schema: GeneratedSchema): Promise<GeneratedSchema> {
+async function preserveGeneratedAt(config: SyncConfig, schemaOutFile: string, schema: GeneratedSchema): Promise<GeneratedSchema> {
   let previous: unknown;
   try {
-    previous = JSON.parse(await readFile(schemaOutFile, 'utf8'));
+    previous = JSON.parse(await dbFileSystem(config).readFile(schemaOutFile, 'utf8') as string);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT' || error instanceof SyntaxError) {
       return schema;

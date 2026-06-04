@@ -1,4 +1,5 @@
 import { dbError } from '../../errors.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { applyDefaultsToSeed } from '../sync/defaults.js';
 import { seedForRuntimeState } from '../sync/synthetic-seed.js';
 import { atomicWriteJson, readJsonState, withJsonStateWrite } from './json.js';
@@ -6,6 +7,7 @@ import { updateSourceMetadataResource, type SourceMetadata } from './source-meta
 
 type RuntimeConfig = {
   cwd: string;
+  fs?: DbFileSystem;
   [key: string]: unknown;
 };
 
@@ -46,11 +48,11 @@ export function createSourceRuntimeAdapter(config: RuntimeConfig) {
     },
     readResource(resource: RuntimeResource, fallback: unknown) {
       assertWritableSource(resource);
-      return readJsonState(resource.dataPath, fallbacks.has(resource.name) ? structuredClone(fallbacks.get(resource.name)) : fallback);
+      return readJsonState(resource.dataPath, fallbacks.has(resource.name) ? structuredClone(fallbacks.get(resource.name)) : fallback, dbFileSystem(config));
     },
     writeResource(resource: RuntimeResource, value: unknown) {
       assertWritableSource(resource);
-      return atomicWriteJson(resource.dataPath, value);
+      return atomicWriteJson(resource.dataPath, value, dbFileSystem(config));
     },
     withResourceWrite<T>(resource: RuntimeResource, operation: ResourceWriteOperation<T>) {
       assertWritableSource(resource);

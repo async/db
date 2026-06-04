@@ -1,7 +1,7 @@
-import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { dbError } from '../../errors.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { resolveFrom } from '../../fs-utils.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 import { normalizeSchemaLoadMode, resolveSchemaLocator, type SchemaLoadMode } from '../schema/locator.js';
@@ -12,6 +12,7 @@ type ConfigPath = readonly string[];
 type LoadConfigOptions = string | (ConfigRecord & {
   configPath?: string;
   cwd?: string;
+  fs?: DbFileSystem;
   from?: string;
   load?: SchemaLoadMode;
 });
@@ -32,10 +33,13 @@ type ConfigLoadError = Error & {
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<ConfigRecord> {
   const rawOptions = typeof options === 'string' ? { from: options } : options;
   const locator = await resolveSchemaLocator(rawOptions);
+  const fs = dbFileSystem(rawOptions);
   const cwd = locator.cwd;
   const configPath = rawOptions.configPath
     ? resolveFrom(cwd, rawOptions.configPath)
-    : await findConfigPath(cwd);
+    : rawOptions.fs
+      ? null
+      : await findConfigPath(cwd, fs);
 
   let userConfig: ConfigRecord = {};
   if (configPath) {
@@ -191,11 +195,11 @@ function configuredOutputValue({
   return getPath(config, legacyPath);
 }
 
-async function findConfigPath(cwd: string): Promise<string | null> {
+async function findConfigPath(cwd: string, fs: DbFileSystem): Promise<string | null> {
   for (const filename of ['db.config.mjs', 'db.config.js']) {
     const candidate = path.join(cwd, filename);
     try {
-      await access(candidate);
+      await fs.access(candidate);
       return candidate;
     } catch {
       // keep looking

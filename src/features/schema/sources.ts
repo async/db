@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseFixturePath, resourceNameFromPath } from '../../config-public.js';
 import { parseCsvRecords } from '../../csv.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { parseJsonc } from '../../jsonc.js';
 import { routePathForResource, typeNameForResource } from '../../names.js';
 
@@ -24,6 +24,7 @@ type SchemaLocator = {
   mode?: 'project' | 'root-schema' | 'schema-file' | 'source-dir' | string;
   file?: string | null;
   [key: string]: unknown;
+  fs?: DbFileSystem;
 };
 
 type SchemaConfig = {
@@ -55,6 +56,7 @@ type SchemaConfig = {
 type SourceFileListConfig = {
   sourceDir?: string;
   operations?: SchemaConfig['operations'];
+  fs?: DbFileSystem;
 };
 
 type SourceFileListOptions = {
@@ -150,8 +152,9 @@ type PackageInfo = {
 
 export async function listSourceFiles(sourceDirOrConfig: string | SourceFileListConfig): Promise<string[]> {
   const { sourceDir, ignoredDirs } = sourceFileListOptions(sourceDirOrConfig);
+  const fs = dbFileSystem(typeof sourceDirOrConfig === 'string' ? null : sourceDirOrConfig);
   try {
-    return await listSourceFilesInDirectory(sourceDir, '', ignoredDirs);
+    return await listSourceFilesInDirectory(sourceDir, fs, '', ignoredDirs);
   } catch (error) {
     if (error.code === 'ENOENT') {
       return [];
@@ -189,7 +192,7 @@ export async function readRootSchemaFile(config: SchemaConfig): Promise<RootSche
 
   let buffer;
   try {
-    buffer = await readFile(sourceFile);
+    buffer = await dbFileSystem(config).readFile(sourceFile) as Buffer;
   } catch (error) {
     if (error.code === 'ENOENT') {
       return {
@@ -249,8 +252,8 @@ async function rootSchemaFile(config: SchemaConfig, locator?: SchemaLocator | nu
 
   const mjsFile = path.join(config.cwd, 'db.schema.mjs');
   const jsFile = path.join(config.cwd, 'db.schema.js');
-  const mjsExists = await fileExists(mjsFile);
-  const jsExists = await fileExists(jsFile);
+  const mjsExists = await fileExists(config, mjsFile);
+  const jsExists = await fileExists(config, jsFile);
   if (mjsExists) {
     return {
       sourceFile: mjsFile,
@@ -269,9 +272,9 @@ async function rootSchemaFile(config: SchemaConfig, locator?: SchemaLocator | nu
   };
 }
 
-async function fileExists(file: string): Promise<boolean> {
+async function fileExists(config: SchemaConfig, file: string): Promise<boolean> {
   try {
-    await readFile(file);
+    await dbFileSystem(config).readFile(file);
     return true;
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -311,14 +314,14 @@ async function ensureSchemaJsModuleContext(
     return;
   }
 
-  const nearestPackage = await nearestPackageInfo(path.dirname(sourceFile));
+  const nearestPackage = await nearestPackageInfo(config, path.dirname(sourceFile));
   if (nearestPackage?.type === 'module') {
     return;
   }
 
   if (options.autoPackageJson !== false && await shouldCreateFixtureModulePackageJson(config, sourceFile, nearestPackage)) {
     await writeFixtureModulePackageJson(config);
-    if ((await nearestPackageInfo(path.dirname(sourceFile)))?.type === 'module') {
+    if ((await nearestPackageInfo(config, path.dirname(sourceFile)))?.type === 'module') {
       return;
     }
   }
@@ -340,7 +343,7 @@ async function shouldCreateFixtureModulePackageJson(
   if (!isInsideDirectory(config.sourceDir, sourceFile)) {
     return false;
   }
-  if ((await packageInfo(path.join(config.cwd, 'package.json')))?.type === 'module') {
+  if ((await packageInfo(config, path.join(config.cwd, 'package.json')))?.type === 'module') {
     return false;
   }
 
@@ -352,22 +355,22 @@ async function shouldCreateFixtureModulePackageJson(
     return false;
   }
 
-  return !await fileExists(fixturePackageFile);
+  return !await fileExists(config, fixturePackageFile);
 }
 
 async function writeFixtureModulePackageJson(config: SchemaConfig): Promise<void> {
-  await writeFile(
+  await dbFileSystem(config).writeFile(
     path.join(config.sourceDir, 'package.json'),
     `${JSON.stringify({ type: 'module' }, null, 2)}\n`,
     'utf8',
   );
 }
 
-async function nearestPackageInfo(directory: string): Promise<PackageInfo | null> {
+async function nearestPackageInfo(config: SchemaConfig, directory: string): Promise<PackageInfo | null> {
   let current = path.resolve(directory);
   while (true) {
     const packageFile = path.join(current, 'package.json');
-    const info = await packageInfo(packageFile);
+    const info = await packageInfo(config, packageFile);
     if (info) {
       return info;
     }
@@ -380,9 +383,9 @@ async function nearestPackageInfo(directory: string): Promise<PackageInfo | null
   }
 }
 
-async function packageInfo(packageFile: string): Promise<PackageInfo | null> {
+async function packageInfo(config: SchemaConfig, packageFile: string): Promise<PackageInfo | null> {
   try {
-    const json = JSON.parse(await readFile(packageFile, 'utf8'));
+    const json = JSON.parse(await dbFileSystem(config).readFile(packageFile, 'utf8') as string);
     return {
       file: packageFile,
       type: typeof json?.type === 'string' ? json.type : null,
@@ -418,8 +421,8 @@ function rootSchemaSources(config: SchemaConfig, exported: unknown, sourceFile: 
     }));
 }
 
-async function listSourceFilesInDirectory(directory: string, prefix = '', ignoredDirs: string[] = []): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
+async function listSourceFilesInDirectory(directory: string, fs: DbFileSystem, prefix = '', ignoredDirs: string[] = []): Promise<string[]> {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
   const files: string[] = [];
 
   for (const entry of entries) {
@@ -432,7 +435,7 @@ async function listSourceFilesInDirectory(directory: string, prefix = '', ignore
       if (isIgnoredSourceDirectory(childDirectory, ignoredDirs)) {
         continue;
       }
-      files.push(...await listSourceFilesInDirectory(childDirectory, relativePath, ignoredDirs));
+      files.push(...await listSourceFilesInDirectory(childDirectory, fs, relativePath, ignoredDirs));
       continue;
     }
 
@@ -542,7 +545,7 @@ async function createSourceReaderContext(config: SchemaConfig, filename: string)
   let text;
 
   const readBuffer = async () => {
-    buffer ??= await readFile(sourceFile);
+    buffer ??= await dbFileSystem(config).readFile(sourceFile) as Buffer;
     return buffer;
   };
 

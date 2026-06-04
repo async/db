@@ -217,6 +217,46 @@ metadata/types for tools. The difference is that app writes go back to plain
 `db/*.json` instead of the `.db/state` mirror, so the project folder contains
 the state you want to save, copy, or commit.
 
+## Open With An In-Memory Filesystem
+
+`openDb()` can take a filesystem adapter when a tool, test, or embedded runtime
+needs to boot from virtual files and keep generated output out of the real
+project folder:
+
+```js
+import { createMemoryFs, openDb } from '@async/db';
+
+const fs = createMemoryFs({
+  cwd: '/virtual-app',
+  files: {
+    'db/users.json': JSON.stringify([
+      { id: 'u_1', name: 'Ada Lovelace' },
+    ]),
+  },
+});
+
+const db = await openDb({
+  cwd: '/virtual-app',
+  fs,
+  stores: {
+    default: 'json',
+  },
+});
+
+await db.collection('users').create({
+  id: 'u_2',
+  name: 'Grace Hopper',
+});
+
+const state = await fs.readFile('/virtual-app/.db/state/users.json', 'utf8');
+```
+
+The adapter is used for fixture reads, generated outputs, JSON runtime state,
+`sourceFile` writebacks, operations manifests, forks, branches, and snapshots.
+Executable local code such as `db.config.mjs` and `.schema.js` still runs
+through Node's module loader, so virtual projects should use inline options or
+JSON/JSONC/CSV schema sources.
+
 ## Add Schema When It Pays For It
 
 Data-first fixtures are enough until the shape matters. Inspect what @async/db infers:

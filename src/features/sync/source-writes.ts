@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { writeText } from '../../fs-utils.js';
 import { resourceConfigValue } from '../../names.js';
 
@@ -7,6 +8,7 @@ type SyncConfig = {
   cwd: string;
   resources?: Record<string, unknown>;
   stores?: Record<string, unknown>;
+  fs?: DbFileSystem;
 };
 
 type SyncResource = {
@@ -30,7 +32,7 @@ export async function writeGeneratedIdsToSources(config: SyncConfig, resources: 
     }
 
     const text = `${JSON.stringify(resource.seed, null, 2)}\n`;
-    await writeText(resource.dataPath, text);
+    await writeText(resource.dataPath, text, dbFileSystem(config));
     resource.dataHash = createHash('sha256').update(text).digest('hex');
     resource.generatedIds = false;
     logs.push(`Updated ${path.relative(config.cwd, resource.dataPath)} with generated ids`);

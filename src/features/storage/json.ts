@@ -1,6 +1,6 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { dbError } from '../../errors.js';
+import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { applyDefaultsToSeed } from '../sync/defaults.js';
 import { seedForRuntimeState } from '../sync/synthetic-seed.js';
 import { updateSourceMetadataResource, type SourceMetadata } from './source-metadata.js';
@@ -16,6 +16,7 @@ type RuntimeConfig = {
     branch?: string;
     rootStateDir?: string;
   };
+  fs?: DbFileSystem;
   [key: string]: unknown;
 };
 
@@ -97,10 +98,10 @@ export function jsonStore(options: JsonStoreOptions = {}) {
       },
       statePath,
       readResource(resource: RuntimeResource, fallback: unknown) {
-        return readJsonState(statePath(resource), fallback);
+        return readJsonState(statePath(resource), fallback, dbFileSystem(config));
       },
       writeResource(resource: RuntimeResource, value: unknown) {
-        return writeJsonState(statePath(resource), value);
+        return writeJsonState(statePath(resource), value, dbFileSystem(config));
       },
       withResourceWrite<T>(resource: RuntimeResource, operation: ResourceWriteOperation<T>) {
         return withJsonStateWrite(statePath(resource), operation);
@@ -117,21 +118,22 @@ export function createJsonRuntimeAdapter(config: RuntimeConfig) {
       return statePathForResource(config, resource.name);
     },
     async hydrate(resources: RuntimeResource[]) {
-      await mkdir(jsonResourceStateDir(config), { recursive: true });
+      const fs = dbFileSystem(config);
+      await fs.mkdir(jsonResourceStateDir(config), { recursive: true });
       const sourceMetadataPath = path.join(jsonResourceStateDir(config), '.sources.json');
-      const sourceMetadata = await readJsonState(sourceMetadataPath, { resources: {} });
+      const sourceMetadata = await readJsonState(sourceMetadataPath, { resources: {} }, fs);
       sourceMetadata.resources ??= {};
 
       for (const resource of resources) {
         await syncJsonResourceState(config, resource, sourceMetadata);
       }
-      await writeJsonState(sourceMetadataPath, sourceMetadata);
+      await writeJsonState(sourceMetadataPath, sourceMetadata, fs);
     },
     readResource(resource: RuntimeResource, fallback: unknown) {
-      return readJsonState(statePathForResource(config, resource.name), fallback);
+      return readJsonState(statePathForResource(config, resource.name), fallback, dbFileSystem(config));
     },
     writeResource(resource: RuntimeResource, value: unknown) {
-      return writeJsonState(statePathForResource(config, resource.name), value);
+      return writeJsonState(statePathForResource(config, resource.name), value, dbFileSystem(config));
     },
     withResourceWrite<T>(resource: RuntimeResource, operation: ResourceWriteOperation<T>) {
       return withJsonStateWrite(statePathForResource(config, resource.name), operation);
@@ -231,9 +233,9 @@ function unsupportedObjectStorageAdapter(storeName: string, storage: S3StorageOp
   };
 }
 
-export async function readJsonState<T>(filePath: string, fallback: T): Promise<T> {
+export async function readJsonState<T>(filePath: string, fallback: T, fs: DbFileSystem = dbFileSystem()): Promise<T> {
   try {
-    return JSON.parse(await readFile(filePath, 'utf8'));
+    return JSON.parse(await fs.readFile(filePath, 'utf8') as string);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return fallback;
@@ -256,15 +258,15 @@ export async function readJsonState<T>(filePath: string, fallback: T): Promise<T
   }
 }
 
-export async function writeJsonState(filePath: string, value: unknown): Promise<boolean> {
-  return atomicWriteJson(filePath, value);
+export async function writeJsonState(filePath: string, value: unknown, fs: DbFileSystem = dbFileSystem()): Promise<boolean> {
+  return atomicWriteJson(filePath, value, fs);
 }
 
-export async function atomicWriteJson(filePath: string, value: unknown): Promise<boolean> {
-  await mkdir(path.dirname(filePath), { recursive: true });
+export async function atomicWriteJson(filePath: string, value: unknown, fs: DbFileSystem = dbFileSystem()): Promise<boolean> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
   const text = `${JSON.stringify(value, null, 2)}\n`;
   try {
-    if ((await readFile(filePath, 'utf8')) === text) {
+    if ((await fs.readFile(filePath, 'utf8')) === text) {
       return false;
     }
   } catch (error) {
@@ -278,12 +280,12 @@ export async function atomicWriteJson(filePath: string, value: unknown): Promise
   );
 
   try {
-    await writeFile(tempPath, text, 'utf8');
-    await rename(tempPath, filePath);
+    await fs.writeFile(tempPath, text, 'utf8');
+    await fs.rename(tempPath, filePath);
     return true;
   } catch (error) {
     try {
-      await rm(tempPath, { force: true });
+      await fs.rm(tempPath, { force: true });
     } catch {
       // Best-effort cleanup only.
     }
@@ -308,19 +310,20 @@ export function withJsonStateWrite<T>(filePath: string, operation: ResourceWrite
 
 export async function syncJsonResourceState(config: RuntimeConfig, resource: RuntimeResource, sourceMetadata: SourceMetadata): Promise<void> {
   const statePath = statePathForResource(config, resource.name);
-  const existing = await readJsonState(statePath, undefined);
+  const fs = dbFileSystem(config);
+  const existing = await readJsonState(statePath, undefined, fs);
   const metadata = sourceMetadata.resources[resource.name];
   const sourceChanged = resource.dataHash
     && metadata?.hash !== resource.dataHash;
 
   if (existing === undefined || sourceChanged) {
-    await writeJsonState(statePath, applyDefaultsToSeed(seedForRuntimeState(resource, config), resource, config));
+    await writeJsonState(statePath, applyDefaultsToSeed(seedForRuntimeState(resource, config), resource, config), fs);
     updateSourceMetadata(sourceMetadata, config, resource);
     return;
   }
 
   if (config.defaults?.applyOnSafeMigration !== false) {
-    await writeJsonState(statePath, applyDefaultsToSeed(existing, resource, config));
+    await writeJsonState(statePath, applyDefaultsToSeed(existing, resource, config), fs);
   }
 
   updateSourceMetadata(sourceMetadata, config, resource);
