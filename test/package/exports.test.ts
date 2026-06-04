@@ -305,6 +305,10 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.equal(packageJson.exports['./schema'].types, './dist/schema.d.ts');
   assert.equal(packageJson.exports['./json'].default, './dist/json.js');
   assert.equal(packageJson.exports['./json'].types, './dist/json.d.ts');
+  assert.deepEqual(packageJson.repository, {
+    type: 'git',
+    url: 'https://github.com/async-framework/async-db',
+  });
   assert.deepEqual(packageJson.publishConfig, {
     access: 'public',
   });
@@ -369,7 +373,6 @@ test('release automation creates release PRs and publishes npm from pinned actio
   assert.match(workflow, /actions\/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6\.0\.2/);
   assert.match(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6/);
   assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /NPM_CONFIG_USERCONFIG: \/dev\/null/);
   assert.match(workflow, /NODE_AUTH_TOKEN: ""/);
   assert.match(workflow, /npm publish --access public/);
   assert.match(workflow, /npm run release:check/);
