@@ -14,6 +14,10 @@ type ViewerConfig = {
     enabled?: boolean;
     path?: string;
   };
+  falcor?: {
+    enabled?: boolean;
+    path?: string;
+  };
   server?: {
     apiBase?: string;
     viewerLinks?: unknown[];
@@ -34,7 +38,9 @@ type ViewerRoutes = {
   batchPath?: string;
   importPath?: string;
   graphqlPath?: string;
+  falcorPath?: string;
   restBasePath?: string | null;
+  resourceBasePath?: string;
   [key: string]: unknown;
 };
 
@@ -52,8 +58,10 @@ type NormalizedViewerRoutes = Required<Pick<
   | 'batchPath'
   | 'importPath'
   | 'graphqlPath'
+  | 'falcorPath'
 >> & {
   restBasePath: string;
+  resourceBasePath: string;
 };
 
 type ViewerResource = {
@@ -150,7 +158,9 @@ export function renderViewerManifest(
       batch: routes.batchPath,
       import: routes.importPath,
       graphql: routes.graphqlPath,
+      falcor: routes.falcorPath,
       restBasePath: routes.restBasePath ?? '',
+      resourceBasePath: routes.resourceBasePath,
       resources: Object.fromEntries(resourceList.map((resource) => [resource.name, resourceApi(resource, routes)])),
     },
     capabilities: {
@@ -160,6 +170,7 @@ export function renderViewerManifest(
       writes: restEnabled,
       restBatch: restEnabled,
       graphql: config.graphql?.enabled !== false,
+      falcor: config.falcor?.enabled !== false,
       csvImport: true,
       liveEvents: true,
     },
@@ -199,11 +210,13 @@ function resourceBucketManifest(
 
 function resourceApi(resource: ViewerResource, routes: NormalizedViewerRoutes): Record<string, unknown> {
   const route = joinPaths(routes.restBasePath ?? '', resource.routePath);
+  const canonicalRoute = joinPaths(routes.resourceBasePath, resource.routePath);
   if (resource.kind === 'document') {
     return {
       kind: 'document',
       read: route,
       write: route,
+      canonical: canonicalRoute,
     };
   }
 
@@ -211,6 +224,8 @@ function resourceApi(resource: ViewerResource, routes: NormalizedViewerRoutes): 
     kind: 'collection',
     list: route,
     record: `${route}/{${resource.idField ?? 'id'}}`,
+    canonicalList: canonicalRoute,
+    canonicalRecord: `${canonicalRoute}/{${resource.idField ?? 'id'}}`,
   };
 }
 
@@ -233,7 +248,9 @@ function normalizeViewerRoutes(config: ViewerConfig, routes: ViewerRoutes = {}):
     batchPath: routes.batchPath ?? `${apiBase}/batch`,
     importPath: routes.importPath ?? `${apiBase}/import`,
     graphqlPath: routes.graphqlPath ?? config.graphql?.path ?? '/graphql',
+    falcorPath: routes.falcorPath ?? config.falcor?.path ?? '/model.json',
     restBasePath,
+    resourceBasePath: normalizeBasePath(routes.resourceBasePath ?? '/resources'),
   };
 }
 

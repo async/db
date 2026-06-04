@@ -10,7 +10,7 @@ export type DbViteClientCacheOptions = boolean | {
   eventPolicy?: DbCacheEventPolicy;
 };
 
-export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'outputs' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'operations' | 'mock'> & {
+export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'configPath' | 'dbDir' | 'sourceDir' | 'stateDir' | 'outputs' | 'schemaOutFile' | 'viewerManifestOutFile' | 'schemaManifest' | 'types' | 'schema' | 'defaults' | 'seed' | 'collections' | 'server' | 'rest' | 'graphql' | 'falcor' | 'operations' | 'mock'> & {
   /** Scoped base for db dev tools. Defaults to "/__db". */
   apiBase?: string;
   /** App-facing REST data route alias. Defaults to "/db"; set false to disable. */
@@ -21,6 +21,8 @@ export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'configPath' | 'dbDir'
   restBasePath?: string;
   /** Scoped GraphQL endpoint. Defaults to "<apiBase>/graphql". */
   graphqlPath?: string;
+  /** Scoped Falcor endpoint. Defaults to "<apiBase>/model.json". */
+  falcorPath?: string;
   /** Explicit request trace option. Wins over db.config.mjs server.trace. */
   trace?: DbTraceOptions;
   /** Virtual module id for the browser-safe client. Defaults to "virtual:db/client"; false disables it. */

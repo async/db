@@ -6,42 +6,24 @@ import { normalizeAppState } from '../framework/state.js';
 export async function createLocalWebAppRuntime(options) {
   const { cwd, basePath = '', repoRoot, skipSync = false } = options;
   const {
-    openDb,
+    createDbRuntime,
     serializeError,
     sendJson,
-    createDbRequestHandler,
-    createViewerEventHub,
-    watchSourceDir,
   } = await loadAsyncDbRuntime(repoRoot);
   const normalizedBasePath = normalizeBasePath(basePath);
-  const db = await openDb({
+  const runtime = await createDbRuntime({
     cwd,
     allowSourceErrors: true,
     syncOnOpen: !skipSync,
+    handler: {
+      rootRoutes: true,
+      apiBase: joinPaths(normalizedBasePath, '/__db'),
+      dataPath: joinPaths(normalizedBasePath, '/db'),
+      graphqlPath: joinPaths(normalizedBasePath, '/graphql'),
+    },
   });
-
-  if (skipSync) {
-    await db.runtime.hydrate();
-  }
-
-  const events = createViewerEventHub();
-  const dbHandler = createDbRequestHandler(db, {
-    events,
-    rootRoutes: true,
-    apiBase: joinPaths(normalizedBasePath, '/__db'),
-    dataPath: joinPaths(normalizedBasePath, '/db'),
-    graphqlPath: joinPaths(normalizedBasePath, '/graphql'),
-  });
-  let watcher;
+  const db = runtime.db;
   let closed = false;
-
-  try {
-    watcher = await watchSourceDir(db, events);
-  } catch (error) {
-    events.close();
-    await db.close?.();
-    throw error;
-  }
 
   return {
     db,
@@ -57,7 +39,7 @@ export async function createLocalWebAppRuntime(options) {
           return;
         }
 
-        await dbHandler(request, response);
+        await runtime.handleRequest(request, response);
       } catch (error) {
         sendJson(response, error.status ?? 500, serializeError(error, 'LOCAL_APP_SERVER_ERROR'));
       }
@@ -67,9 +49,7 @@ export async function createLocalWebAppRuntime(options) {
         return;
       }
       closed = true;
-      watcher?.close();
-      events.close();
-      await db.close?.();
+      await runtime.close();
     },
   };
 }
@@ -77,20 +57,16 @@ export async function createLocalWebAppRuntime(options) {
 async function loadAsyncDbRuntime(repoRoot) {
   const packageRoot = repoRoot ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
   const distRoot = path.join(packageRoot, 'dist');
-  const [indexModule, errorsModule, restModule, serverModule] = await Promise.all([
+  const [indexModule, errorsModule, restModule] = await Promise.all([
     import(pathToFileURL(path.join(distRoot, 'index.js')).href),
     import(pathToFileURL(path.join(distRoot, 'errors.js')).href),
     import(pathToFileURL(path.join(distRoot, 'rest/handler.js')).href),
-    import(pathToFileURL(path.join(distRoot, 'server.js')).href),
   ]);
 
   return {
-    openDb: indexModule.openDb,
+    createDbRuntime: indexModule.createDbRuntime,
     serializeError: errorsModule.serializeError,
     sendJson: restModule.sendJson,
-    createDbRequestHandler: serverModule.createDbRequestHandler,
-    createViewerEventHub: serverModule.createViewerEventHub,
-    watchSourceDir: serverModule.watchSourceDir,
   };
 }
 

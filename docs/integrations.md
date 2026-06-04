@@ -96,6 +96,50 @@ export default defineConfig({
 });
 ```
 
+## Custom Node Middleware
+
+Use `createDbRuntime()` when an app wants to mount @async/db into its own
+loopback server or framework middleware stack. It is the shared lifecycle used
+by `async-db serve`, the Vite plugin, and examples that put app routes ahead of
+db routes.
+
+```js
+import http from 'node:http';
+import { createDbRuntime } from '@async/db';
+
+const runtime = await createDbRuntime({
+  cwd: process.cwd(),
+  watch: true,
+  handler: {
+    rootRoutes: true,
+  },
+});
+
+const server = http.createServer(async (request, response) => {
+  if (request.url === '/health') {
+    response.writeHead(200, { 'content-type': 'text/plain' });
+    response.end('ok');
+    return;
+  }
+
+  const handled = await runtime.handleRequest(request, response);
+  if (!handled) {
+    response.writeHead(404, { 'content-type': 'text/plain' });
+    response.end('not found');
+  }
+});
+
+server.once('close', () => {
+  void runtime.close();
+});
+```
+
+Pass `watch: false` for production-like servers or test harnesses that should
+serve the existing runtime state without starting a file watcher. Use the lower
+level `createDbRequestHandler(db, options)` only when another component already
+owns `openDb()`, sync or hydration, reloads, watcher cleanup, and event
+publication.
+
 ## Hono Route Registration
 
 Apps that own a Hono instance can register @async/db REST routes and wrap them with lifecycle hooks.

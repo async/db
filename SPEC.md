@@ -781,6 +781,7 @@ REST should support sequential batch requests:
 
 ```txt
 POST /__db/batch
+POST /batch
 ```
 
 ```json
@@ -801,6 +802,18 @@ POST /__db/batch
 
 REST batches are non-transactional by design. Items execute in order, and earlier successful writes remain committed if a later item fails.
 
+Standalone development should also expose canonical resource aliases:
+
+```txt
+GET     /resources/users
+GET     /resources/users/:id
+POST    /resources/users
+PATCH   /resources/users/:id
+DELETE  /resources/users/:id
+```
+
+Bulk resource processing should target the collection route. `POST /resources/{resource}` with an array should create records sequentially. `PATCH /resources/{resource}` should accept either `{ ids, patch }` or per-record patch items. `PUT /resources/{resource}` should replace only listed records and preserve unlisted records. `DELETE /resources/{resource}?id=...&id=...` and `DELETE /resources/{resource}` with `{ ids }` should delete records sequentially. Bulk responses should include per-item status and a summary, and should not roll back earlier successful writes when a later item fails.
+
 Schema-backed writes should validate declared field types before mutating runtime state. Required fields, primitive types, enum values, arrays, nullable fields, datetime strings, flexible objects with intentional additional properties, nested objects, and field constraints (`unique`, `min`, `max`, `minLength`, `maxLength`, `pattern`) should be checked for package API writes, REST writes, GraphQL mutations, `async-db sync`, and `async-db schema validate`.
 
 The root route should work as a discovery endpoint. API-style requests to `GET /` should return JSON with resource names plus links for the data viewer, schema endpoint, GraphQL endpoint, resource routes, and registered response formats. Browser-style requests that prefer `text/html` should return a small HTML index with those same links.
@@ -817,7 +830,7 @@ GET /__db/manifest.md
 
 `server.apiBase` should default to `/__db` and should configure the
 standalone viewer, viewer manifest, schema, batch, import, events, log, and fork route base
-without changing root REST resource routes or the standalone GraphQL path.
+without changing root REST resource routes or the standalone GraphQL/Falcor paths.
 
 `server.dataPath` should default to `/db` and should mount an app-facing REST
 resource alias. For a fixture at `db/users.json`, `GET /db/users.json` should
@@ -891,10 +904,11 @@ GET  /__db
 GET  /__db/schema
 POST /__db/batch
 POST /__db/graphql
+POST /__db/model.json
 GET  /__db/rest/users
 ```
 
-Standalone `async-db serve` should keep root REST routes such as `/users` and `/graphql`. The Vite plugin may opt into root REST routes with `rootRoutes: true`.
+Standalone `async-db serve` should keep root REST routes such as `/users`, plus `/graphql`, `/model.json`, `/batch`, and `/resources/*` aliases. The Vite plugin may opt into root REST routes with `rootRoutes: true`.
 
 GraphQL should support a dependency-free subset suitable for local app development:
 
@@ -939,6 +953,32 @@ subscriptions
 full spec introspection coverage
 general-purpose GraphQL validation
 ```
+
+Falcor should support a dependency-free JSONGraph endpoint suitable for local
+app development:
+
+```txt
+POST /model.json
+POST /__db/model.json
+```
+
+Supported Falcor behavior:
+
+```txt
+get(pathSets)
+set(jsonGraphEnvelope)
+call(functionPath, args)
+collection list refs and length fields
+collection by-id maps such as usersById.u_1.name
+singleton document paths such as settings.theme
+registered operation calls through operations.{ref}
+```
+
+Falcor `set` should update direct collection fields or document paths through
+normal runtime writes and schema validation, then return post-write JSONGraph
+for the written paths. Creates, deletes, reorders, and multi-step workflows
+should use `call` mapped to registered operations. @async/db should not depend
+on `falcor`, `falcor-router`, or `falcor-express` at runtime.
 
 ## Repo Example Launcher
 

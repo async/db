@@ -14,7 +14,7 @@ The demo composes **SSR CMS routes ahead of the stock db handler**, so the same 
 - [src/render-admin.mjs](./src/render-admin.mjs): static string-template preview (`/templates`) and CLI output for scaffolding comparisons.
 - [src/cms-ssr.mjs](./src/cms-ssr.mjs): SSR view/editor snippets filled with real record values and resolved relations.
 - [src/schema-ui-ssr-handler.mjs](./src/schema-ui-ssr-handler.mjs): SSR routing layer (middleware-style); hands off other paths to db.
-- [src/start-schema-ui-server.mjs](./src/start-schema-ui-server.mjs): wires SSR handler + `createDbRequestHandler` + file watching.
+- [src/start-schema-ui-server.mjs](./src/start-schema-ui-server.mjs): wires SSR handler + `createDbRuntime()` so db routes, sync, watching, events, and cleanup share one lifecycle.
 - [serve.mjs](./serve.mjs): CLI entry; same stack as the examples launcher hook.
 - [serve-example.mjs](./serve-example.mjs): **`npm run examples`** hook — exports `createExampleRuntime` so `scripts/example-launcher.js` can mount this example without hard-coding it.
 - [src/generated/db.schema.json](./src/generated/db.schema.json): committed manifest input after sync.

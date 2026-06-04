@@ -26,7 +26,7 @@ db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.mjs, *.schema.js
 | Config API | `src/config-public.ts`, `src/config.d.ts` | `defineConfig`, manifest helpers, and user config shape. |
 | Schema helpers | `src/schema-builders.ts`, `src/schema.d.ts` | `.schema.mjs` and `.schema.js` authoring helpers. |
 | HTTP client | `src/client.ts` | REST, GraphQL, registered query operations, direct batching, automatic batching, fork support. |
-| REST server | `src/server.ts`, `src/rest/` | Dependency-free local routes and response shaping. |
+| HTTP runtime | `src/runtime.ts`, `src/request-handler.ts`, `src/server.ts`, `src/rest/` | Shared db lifecycle, dependency-free middleware routes, local server binding, and response shaping. |
 | GraphQL | `src/graphql/` | Dependency-free subset parser, executor, and HTTP handler. |
 | Viewer | `src/web/` | Built-in UI served at `server.apiBase`, defaulting to `/__db`. |
 | Vite integration | `src/vite.ts`, `src/integrations/` | Optional dev server plugin and virtual client. |
@@ -39,7 +39,7 @@ db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.mjs, *.schema.js
 - Validation and diagnostics live under `src/features/schema/validation.ts` and nearby schema feature modules.
 - Sync lives under `src/features/sync/`. It writes generated schema, generated types, optional schema manifests, source metadata, and hydrates runtime store state.
 - Runtime storage lives under `src/features/storage/` and `src/features/runtime/`. The default and first-party file database store is JSON files under `.db/state`; memory, static, sourceFile, SQLite, Postgres, KV, Redis-like, and custom stores fit behind the same store boundary.
-- HTTP serving starts in `src/server.ts`. REST routing lives in `src/rest/`, GraphQL lives in `src/graphql/`, and built-in viewer HTML/JS lives in `src/web/`.
+- Runtime lifecycle lives in `src/runtime.ts`: open db, sync or hydrate, reload, watch, lifecycle events, middleware composition, and cleanup. HTTP route matching lives in `src/request-handler.ts`; `src/server.ts` only binds the standalone Node server. REST routing lives in `src/rest/`, GraphQL lives in `src/graphql/`, and built-in viewer HTML/JS lives in `src/web/`.
 - Optional graduation paths are separate from the core. Hono/SQLite starter generation lives in `src/generate/hono.ts` and `src/generate/hono/`; optional integrations live in `src/integrations/`.
 
 ## Start Here When Changing Behavior

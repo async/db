@@ -1,7 +1,6 @@
-import { openDb } from '../db.js';
 import { serializeError } from '../errors.js';
-import { createDbRequestHandler, createViewerEventHub, watchSourceDir } from '../server.js';
 import { sendJson } from '../rest/handler.js';
+import { createDbRuntime } from '../runtime.js';
 
 const DEFAULT_VIRTUAL_CLIENT_MODULE = 'virtual:db/client';
 const DEFAULT_CLIENT_IMPORT = '@async/db/client';
@@ -20,6 +19,7 @@ type DbVitePluginOptions = Record<string, unknown> & {
   rootRoutes?: boolean;
   restBasePath?: string;
   graphqlPath?: string;
+  falcorPath?: string;
   trace?: unknown;
   clientVirtualModule?: string | false | null;
   clientImport?: string;
@@ -37,6 +37,7 @@ type ResolvedViteRoutes = {
   rootRoutes: boolean;
   restBasePath: string;
   graphqlPath: string;
+  falcorPath: string;
 };
 
 type ViteMiddleware = (request: unknown, response: unknown, next: (error?: unknown) => unknown) => unknown;
@@ -73,21 +74,20 @@ export function dbPlugin(options: DbVitePluginOptions = {}) {
     apply: 'serve',
 
     async configureServer(server: ViteDevServerLike) {
-      const db = await openDb({
+      const runtime = await createDbRuntime({
         ...dbOptions(options),
         allowSourceErrors: true,
-      });
-      const events = createViewerEventHub();
-      const watcher = await watchSourceDir(db, events, {
-        warn(message) {
-          server.config?.logger?.warn?.(message);
+        handler: {
+          ...routes,
+          trace: options.trace,
+        },
+        watch: {
+          warn(message) {
+            server.config?.logger?.warn?.(message);
+          },
         },
       });
-      const handler = createDbRequestHandler(db, {
-        ...routes,
-        events,
-        trace: options.trace,
-      }) as RequestHandler;
+      const handler = runtime.handleRequest as RequestHandler;
 
       server.middlewares.use((request, response, next) => {
         return handler(request, response, next).catch((error) => {
@@ -97,8 +97,7 @@ export function dbPlugin(options: DbVitePluginOptions = {}) {
       });
 
       server.httpServer?.once?.('close', () => {
-        watcher.close();
-        events.close();
+        void runtime.close();
       });
     },
 
@@ -124,6 +123,7 @@ function resolveViteRoutes(options: DbVitePluginOptions): ResolvedViteRoutes {
     rootRoutes: options.rootRoutes === true,
     restBasePath: normalizeBasePath(options.restBasePath ?? `${apiBase}/rest`),
     graphqlPath: normalizeBasePath(options.graphqlPath ?? `${apiBase}/graphql`),
+    falcorPath: normalizeBasePath(options.falcorPath ?? `${apiBase}/model.json`),
   };
 }
 
@@ -151,6 +151,7 @@ function dbOptions(options: DbVitePluginOptions): Record<string, unknown> {
     rootRoutes,
     restBasePath,
     graphqlPath,
+    falcorPath,
     trace,
     clientVirtualModule,
     clientImport,

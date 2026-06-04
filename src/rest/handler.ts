@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import { parseCsvRecords } from '../csv.js';
 import { dbError, listChoices, serializeError } from '../errors.js';
+import { executeSequentialJsonBatch, readJsonBody, readRawBody, sendJson, sendText, tryJsonEndpoint } from '../features/http/json-endpoint.js';
 import { resolveResource, resourceNameCandidates } from '../names.js';
 import { makeGeneratedSchema } from '../schema.js';
 import { syncDb } from '../sync.js';
@@ -23,6 +24,11 @@ type RestConfig = {
     [key: string]: unknown;
   };
   graphql?: {
+    enabled?: boolean;
+    path?: string;
+    [key: string]: unknown;
+  };
+  falcor?: {
     enabled?: boolean;
     path?: string;
     [key: string]: unknown;
@@ -67,6 +73,7 @@ type RestCollection = {
   create(body: unknown): unknown | Promise<unknown>;
   patch(id: string, body: unknown): unknown | Promise<unknown>;
   delete(id: string): boolean | Promise<boolean>;
+  replaceAll(records: unknown[]): unknown[] | Promise<unknown[]>;
 };
 
 type RestDocument = {
@@ -118,7 +125,10 @@ type RestRouteOptionsInput = {
   importPath?: string;
   eventsPath?: string;
   graphqlPath?: string;
+  falcorPath?: string;
   restBasePath?: string;
+  resourceBasePath?: string;
+  batchAliases?: string[];
   resourceRoutesEnabled?: boolean;
   trace?: unknown;
   traceNested?: boolean;
@@ -139,10 +149,12 @@ type RestRouteOptions = Required<Pick<
   | 'eventsPath'
   | 'graphqlPath'
   | 'restBasePath'
+  | 'resourceBasePath'
   | 'resourceRoutesEnabled'
   | 'traceNested'
 >> & {
   trace: RequestTrace | null;
+  batchAliases: string[];
 };
 
 type ParsedResourcePath = {
@@ -158,14 +170,25 @@ type BatchRequestItem = {
   [key: string]: unknown;
 };
 
+type BulkResult = {
+  index: number;
+  id?: unknown;
+  status: number;
+  body: unknown;
+};
+
+type BulkEnvelope = {
+  results: BulkResult[];
+  summary: {
+    ok: number;
+    errors: number;
+  };
+};
+
 type RestResult = {
   status: number;
   headers: Record<string, unknown>;
   body: unknown;
-};
-
-type RawBodyOptions = {
-  maxBytes?: number;
 };
 
 type ViewerLink = {
@@ -185,6 +208,9 @@ type RootDiscovery = {
   manifestMarkdown: string;
   schema: string;
   graphql: string | null;
+  falcor: string | null;
+  batchAliases: string[];
+  resourceBasePath: string;
   links: {
     viewer: string;
     viewers: ViewerLink[];
@@ -195,7 +221,11 @@ type RootDiscovery = {
     manifestMarkdown: string;
     schema: string;
     graphql: string | null;
+    falcor: string | null;
+    batchAliases: string[];
+    resourceBasePath: string;
     resources: Record<string, string>;
+    resourceAliases: Record<string, string>;
   };
 };
 
@@ -246,7 +276,7 @@ async function handleRestRequestUnsafe(
     return;
   }
 
-  if (request.method === 'POST' && url.pathname === routeOptions.batchPath) {
+  if (request.method === 'POST' && isBatchRoute(url.pathname, routeOptions)) {
     setRestTraceRoute(trace, routeOptions, { operation: 'batch' });
     if (!routeOptions.resourceRoutesEnabled) {
       sendRestDisabled(response, 'REST batch routes are disabled.');
@@ -256,7 +286,7 @@ async function handleRestRequestUnsafe(
     const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
       maxBytes: maxBodyBytes(db),
     }));
-    const result = await tryRest(async () => tracePhase(trace, 'batch-execution', () => executeRestBatch(db, body, routeOptions), {
+    const result = await tryJsonEndpoint(async () => tracePhase(trace, 'batch-execution', () => executeRestBatch(db, body, routeOptions), {
       itemCount: Array.isArray(body) ? body.length : Array.isArray((body as { requests?: unknown } | null)?.requests) ? ((body as { requests: unknown[] }).requests).length : undefined,
     }));
     sendJson(response, result.status, result.body);
@@ -419,81 +449,19 @@ export async function executeRestBatch(db: RestDb, body: unknown, options: RestR
     );
   }
 
-  const results: Array<RestResult & { index: number }> = [];
-  for (const [index, request] of requests.entries()) {
-    const itemDetails = batchItemTraceDetails(index, request);
-    const trace = asRequestTrace(options.trace);
-    try {
-      const result = await tracePhase(trace, 'batch-item', () => executeRestBatchItem(db, request, options), itemDetails);
-      results.push({
-        index,
-        ...result,
-      });
-    } catch (error) {
-      trace?.setError(error as ErrorWithStatus);
-      trace?.addPhase('batch-item', 0, {
-        ...itemDetails,
-        error: (error as ErrorWithStatus).code ? String((error as ErrorWithStatus).code) : 'REST_ERROR',
-      });
-      results.push({
-        index,
-        status: (error as ErrorWithStatus).status ?? 500,
-        headers: {
-          'content-type': 'application/json; charset=utf-8',
-        },
-        body: serializeError(error, 'REST_ERROR'),
-      });
-    }
-  }
-
-  return results;
+  return await executeSequentialJsonBatch(
+    requests as unknown[],
+    (request) => executeRestBatchItem(db, request, options),
+    {
+      trace: asRequestTrace(options.trace),
+      phaseName: 'batch-item',
+      itemDetails: batchItemTraceDetails,
+      errorCode: 'REST_ERROR',
+    },
+  ) as Array<RestResult & { index: number }>;
 }
 
-export async function readRawBody(request: unknown, options: RawBodyOptions = {}): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  const maxBytes = Number(options.maxBytes ?? Infinity);
-  let byteLength = 0;
-
-  for await (const chunk of request as AsyncIterable<unknown>) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
-    byteLength += buffer.length;
-    if (byteLength > maxBytes) {
-      throw dbError(
-        'JSON_BODY_TOO_LARGE',
-        `Request body is too large. Received more than ${maxBytes} bytes.`,
-        {
-          status: 413,
-          hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in db.config.mjs for local development.',
-          details: {
-            maxBodyBytes: maxBytes,
-          },
-        },
-      );
-    }
-    chunks.push(buffer);
-  }
-
-  return Buffer.concat(chunks);
-}
-
-export async function readJsonBody(request: unknown, options: RawBodyOptions = {}): Promise<unknown> {
-  const text = (await readRawBody(request, options)).toString('utf8').trim();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch (error) {
-    throw dbError(
-      'REST_INVALID_JSON_BODY',
-      'Request body is not valid JSON.',
-      {
-        status: 400,
-        hint: 'Check for trailing commas, unquoted property names, or an incomplete JSON object.',
-        details: {
-          parserMessage: error.message,
-        },
-      },
-    );
-  }
-}
+export { readRawBody, readJsonBody, sendJson, sendText };
 
 function maxBodyBytes(db: RestDb): number {
   return Number(db.config.server?.maxBodyBytes ?? 1048576);
@@ -505,6 +473,7 @@ function asRequestTrace(value: unknown): RequestTrace | null {
 
 function normalizeRestRouteOptions(db: RestDb, options: RestRouteOptionsInput = {}): RestRouteOptions {
   const apiBase = normalizeBasePath(options.apiBase ?? db.config.server?.apiBase ?? '/__db');
+  const batchPath = options.batchPath ?? `${apiBase}/batch`;
   return {
     apiBase,
     viewerPath: options.viewerPath ?? apiBase,
@@ -513,26 +482,39 @@ function normalizeRestRouteOptions(db: RestDb, options: RestRouteOptionsInput = 
     manifestHtmlPath: options.manifestHtmlPath ?? `${apiBase}/manifest.html`,
     manifestMarkdownPath: options.manifestMarkdownPath ?? `${apiBase}/manifest.md`,
     schemaPath: options.schemaPath ?? `${apiBase}/schema`,
-    batchPath: options.batchPath ?? `${apiBase}/batch`,
+    batchPath,
     importPath: options.importPath ?? `${apiBase}/import`,
     eventsPath: options.eventsPath ?? `${apiBase}/events`,
     graphqlPath: options.graphqlPath ?? db.config.graphql?.path ?? '/graphql',
     restBasePath: options.restBasePath ?? '',
+    resourceBasePath: normalizeBasePath(options.resourceBasePath ?? '/resources'),
     resourceRoutesEnabled: options.resourceRoutesEnabled ?? db.config.rest?.enabled !== false,
     trace: asRequestTrace(options.trace),
     traceNested: options.traceNested === true,
+    batchAliases: uniqueStrings([batchPath, ...(options.batchAliases ?? [])].map(normalizeBasePath)),
   };
 }
 
 function restResourceUrl(url: URL, options: RestRouteOptions): URL {
   if (!options.restBasePath || !pathStartsWith(url.pathname, options.restBasePath)) {
-    return url;
+    if (!options.resourceBasePath || !pathStartsWith(url.pathname, options.resourceBasePath)) {
+      return url;
+    }
+
+    const next = new URL(url.href);
+    const stripped = next.pathname.slice(options.resourceBasePath.length);
+    next.pathname = stripped.startsWith('/') ? stripped : `/${stripped}`;
+    return next;
   }
 
   const next = new URL(url.href);
   const stripped = next.pathname.slice(options.restBasePath.length);
   next.pathname = stripped.startsWith('/') ? stripped : `/${stripped}`;
   return next;
+}
+
+function isBatchRoute(pathname: string, options: RestRouteOptions): boolean {
+  return options.batchAliases.includes(pathname);
 }
 
 function pathStartsWith(pathname: string, basePath: string): boolean {
@@ -542,6 +524,10 @@ function pathStartsWith(pathname: string, basePath: string): boolean {
 function normalizeBasePath(value: unknown): string {
   const pathValue = `/${String(value ?? '').replace(/^\/+/, '').replace(/\/+$/, '')}`;
   return pathValue === '/' ? '' : pathValue;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 function sourceDirLabel(config: RestConfig): string {
@@ -558,7 +544,12 @@ function rootDiscovery(db: RestDb, options: RestRouteOptionsInput = {}): RootDis
   const manifestMarkdownPath = options.manifestMarkdownPath ?? `${apiBase}/manifest.md`;
   const viewerPath = options.viewerPath ?? apiBase;
   const graphqlPath = options.graphqlPath ?? db.config.graphql?.path ?? '/graphql';
+  const falcorPath = typeof options.falcorPath === 'string' ? options.falcorPath : db.config.falcor?.path ?? '/model.json';
+  const batchPath = options.batchPath ?? `${apiBase}/batch`;
+  const batchAliases = uniqueStrings([batchPath, ...(options.batchAliases ?? [])].map(normalizeBasePath));
+  const resourceBasePath = normalizeBasePath(options.resourceBasePath ?? '/resources');
   const graphqlEnabled = db.config.graphql?.enabled !== false;
+  const falcorEnabled = db.config.falcor?.enabled !== false;
   const resourceRoutesEnabled = options.resourceRoutesEnabled ?? db.config.rest?.enabled !== false;
   const viewers = viewerLinks(db.config, viewerPath);
   const formats = restFormatMetadata(db.config, {
@@ -579,6 +570,9 @@ function rootDiscovery(db: RestDb, options: RestRouteOptionsInput = {}): RootDis
     manifestMarkdown: manifestMarkdownPath,
     schema: schemaPath,
     graphql: graphqlEnabled ? graphqlPath : null,
+    falcor: falcorEnabled ? falcorPath : null,
+    batchAliases,
+    resourceBasePath,
     links: {
       viewer: viewerPath,
       viewers,
@@ -589,8 +583,14 @@ function rootDiscovery(db: RestDb, options: RestRouteOptionsInput = {}): RootDis
       manifestMarkdown: manifestMarkdownPath,
       schema: schemaPath,
       graphql: graphqlEnabled ? graphqlPath : null,
+      falcor: falcorEnabled ? falcorPath : null,
+      batchAliases,
+      resourceBasePath,
       resources: resourceRoutesEnabled
         ? Object.fromEntries([...db.resources.values()].map((resource) => [resource.name, joinPaths(options.restBasePath ?? '', resource.routePath as string)]))
+        : {},
+      resourceAliases: resourceRoutesEnabled
+        ? Object.fromEntries([...db.resources.values()].map((resource) => [resource.name, joinPaths(resourceBasePath, resource.routePath as string)]))
         : {},
     },
   };
@@ -777,23 +777,6 @@ function headerValue(request: RestRequest, name: string): unknown {
   return request.headers?.[name] ?? request.headers?.[name.toLowerCase()];
 }
 
-export function sendJson(response: unknown, status: number, body: unknown): void {
-  if (status === 204) {
-    (response as RestResponse).writeHead(status);
-    (response as RestResponse).end();
-    return;
-  }
-
-  sendText(response, status, `${JSON.stringify(body, null, 2)}\n`, 'application/json; charset=utf-8');
-}
-
-export function sendText(response: unknown, status: number, body: unknown, contentType: string): void {
-  (response as RestResponse).writeHead(status, {
-    'content-type': contentType,
-  });
-  (response as RestResponse).end(body);
-}
-
 async function executeRestBatchItem(db: RestDb, item: unknown, options: RestRouteOptionsInput = {}): Promise<RestResult> {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     throw dbError(
@@ -852,27 +835,6 @@ async function executeRestBatchItem(db: RestDb, item: unknown, options: RestRout
 
 function batchPathForOptions(options: RestRouteOptionsInput = {}, db: Pick<RestDb, 'config'> | null = null): string {
   return options.batchPath ?? `${normalizeBasePath(options.apiBase ?? db?.config?.server?.apiBase ?? '/__db')}/batch`;
-}
-
-async function tryRest(fn: () => unknown | Promise<unknown>): Promise<RestResult> {
-  try {
-    const body = await fn();
-    return {
-      status: 200,
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-      },
-      body,
-    };
-  } catch (error) {
-    return {
-      status: (error as ErrorWithStatus).status ?? 500,
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-      },
-      body: serializeError(error, 'REST_ERROR'),
-    };
-  }
 }
 
 function makeBatchRequest(method: string, body: unknown): RestRequest {
@@ -978,10 +940,47 @@ async function handleCollection(
     const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
       maxBytes: maxBodyBytes(db),
     }));
+    if (Array.isArray(body)) {
+      const result = await tracePhase(trace, 'collection-bulk-write', () => executeBulkCreate(collection, resource, body), {
+        resource: resource.name,
+        operation: 'bulk-create',
+        itemCount: body.length,
+      });
+      sendJson(response, bulkStatus(result, 201), result);
+      return;
+    }
     sendJson(response, 201, await tracePhase(trace, 'collection-write', () => collection.create(body), {
       resource: resource.name,
       operation: 'create',
     }));
+    return;
+  }
+
+  if (request.method === 'PATCH' && !id) {
+    setRestTraceRoute(trace, options, { resource: resource.name, operation: 'bulk-patch' });
+    const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
+      maxBytes: maxBodyBytes(db),
+    }));
+    const result = await tracePhase(trace, 'collection-bulk-write', () => executeBulkPatch(collection, resource, body), {
+      resource: resource.name,
+      operation: 'bulk-patch',
+      itemCount: bulkItemCount(body),
+    });
+    sendJson(response, bulkStatus(result), result);
+    return;
+  }
+
+  if (request.method === 'PUT' && !id) {
+    setRestTraceRoute(trace, options, { resource: resource.name, operation: 'bulk-replace' });
+    const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
+      maxBytes: maxBodyBytes(db),
+    }));
+    const result = await tracePhase(trace, 'collection-bulk-write', () => executeBulkReplace(collection, resource, body), {
+      resource: resource.name,
+      operation: 'bulk-replace',
+      itemCount: bulkItemCount(body),
+    });
+    sendJson(response, bulkStatus(result), result);
     return;
   }
 
@@ -995,6 +994,21 @@ async function handleCollection(
       operation: 'patch',
     });
     sendJson(response, record ? 200 : 404, record ?? { error: 'Not found' });
+    return;
+  }
+
+  if (request.method === 'DELETE' && !id) {
+    setRestTraceRoute(trace, options, { resource: resource.name, operation: 'bulk-delete' });
+    const ids = await tracePhase(trace, 'request-body', () => bulkDeleteIds(request, url, db), {
+      resource: resource.name,
+      operation: 'bulk-delete',
+    });
+    const result = await tracePhase(trace, 'collection-bulk-write', () => executeBulkDelete(collection, resource, ids), {
+      resource: resource.name,
+      operation: 'bulk-delete',
+      itemCount: ids.length,
+    });
+    sendJson(response, bulkStatus(result), result);
     return;
   }
 
@@ -1032,6 +1046,266 @@ function idQueryRequiresJsonRoute(resource: RestResource, id: string | null): Er
       },
     },
   );
+}
+
+async function executeBulkCreate(
+  collection: RestCollection,
+  resource: RestResource,
+  records: unknown[],
+): Promise<BulkEnvelope> {
+  const results = await bulkResults(records, async (record, index) => {
+    if (!isRecord(record)) {
+      throw invalidBulkItem(resource, 'Bulk create items must be objects.', index);
+    }
+    const created = await collection.create(record);
+    return {
+      id: idForBulkBody(created, resource),
+      status: 201,
+      body: created,
+    };
+  });
+  return bulkEnvelope(results);
+}
+
+async function executeBulkPatch(
+  collection: RestCollection,
+  resource: RestResource,
+  body: unknown,
+): Promise<BulkEnvelope> {
+  const requests = normalizeBulkPatchRequests(resource, body);
+  const results = await bulkResults(requests, async (request) => {
+    const patched = await collection.patch(String(request.id), request.patch);
+    if (!patched) {
+      return {
+        id: request.id,
+        status: 404,
+        body: { error: 'Not found' },
+      };
+    }
+    return {
+      id: request.id,
+      status: 200,
+      body: patched,
+    };
+  });
+  return bulkEnvelope(results);
+}
+
+async function executeBulkReplace(
+  collection: RestCollection,
+  resource: RestResource,
+  body: unknown,
+): Promise<BulkEnvelope> {
+  const records = normalizeBulkReplaceRecords(resource, body);
+  const results = await bulkResults(records, async (record) => {
+    const id = idForBulkBody(record, resource);
+    const current = await collection.all() as Record<string, unknown>[];
+    const index = current.findIndex((candidate) => idMatches(candidate?.[resource.idField], id));
+    if (index === -1) {
+      return {
+        id,
+        status: 404,
+        body: { error: 'Not found' },
+      };
+    }
+
+    const nextRecords = [...current];
+    nextRecords[index] = {
+      ...record,
+      [resource.idField]: current[index]?.[resource.idField],
+    };
+    await collection.replaceAll(nextRecords);
+    return {
+      id,
+      status: 200,
+      body: nextRecords[index],
+    };
+  });
+  return bulkEnvelope(results);
+}
+
+async function executeBulkDelete(
+  collection: RestCollection,
+  resource: RestResource,
+  ids: unknown[],
+): Promise<BulkEnvelope> {
+  const results = await bulkResults(ids, async (id) => {
+    const deleted = await collection.delete(String(id));
+    return {
+      id,
+      status: deleted ? 204 : 404,
+      body: deleted ? null : { error: 'Not found' },
+    };
+  });
+  return bulkEnvelope(results);
+}
+
+async function bulkDeleteIds(request: RestRequest, url: URL, db: RestDb): Promise<unknown[]> {
+  const queryIds = url.searchParams.getAll('id');
+  if (queryIds.length > 0) {
+    return queryIds;
+  }
+
+  const body = await readJsonBody(request, {
+    maxBytes: maxBodyBytes(db),
+  });
+  if (!isRecord(body) || !Array.isArray(body.ids)) {
+    throw dbError(
+      'REST_BULK_DELETE_INVALID_BODY',
+      'Bulk delete requires repeated id query parameters or a body with an ids array.',
+      {
+        status: 400,
+        hint: 'Use DELETE /resources/users?id=u_1&id=u_2 or { "ids": ["u_1", "u_2"] }.',
+      },
+    );
+  }
+  return body.ids;
+}
+
+function normalizeBulkPatchRequests(
+  resource: RestResource,
+  body: unknown,
+): Array<{ id: unknown; patch: Record<string, unknown> }> {
+  if (Array.isArray(body)) {
+    return body.map((item, index) => {
+      if (!isRecord(item) || !('id' in item) || !isRecord(item.patch)) {
+        throw invalidBulkItem(resource, 'Bulk patch array items must include id and patch object.', index);
+      }
+      return {
+        id: item.id,
+        patch: item.patch,
+      };
+    });
+  }
+
+  if (isRecord(body) && Array.isArray(body.ids) && isRecord(body.patch)) {
+    return body.ids.map((id) => ({
+      id,
+      patch: body.patch as Record<string, unknown>,
+    }));
+  }
+
+  throw dbError(
+    'REST_BULK_PATCH_INVALID_BODY',
+    `Bulk patch for ${resource.name} requires ids plus patch or an array of per-record patch items.`,
+    {
+      status: 400,
+      hint: 'Use { "ids": ["u_1"], "patch": { "active": false } } or [{ "id": "u_1", "patch": { "name": "Ada" } }].',
+      details: {
+        resource: resource.name,
+      },
+    },
+  );
+}
+
+function normalizeBulkReplaceRecords(resource: RestResource, body: unknown): Array<Record<string, unknown>> {
+  const records = Array.isArray(body)
+    ? body
+    : isRecord(body) && Array.isArray(body.records)
+      ? body.records
+      : null;
+
+  if (!records) {
+    throw dbError(
+      'REST_BULK_REPLACE_INVALID_BODY',
+      `Bulk replace for ${resource.name} requires an array or a records array.`,
+      {
+        status: 400,
+        hint: 'Use { "records": [{ "id": "u_1", "name": "Ada Lovelace" }] }.',
+        details: {
+          resource: resource.name,
+        },
+      },
+    );
+  }
+
+  return records.map((record, index) => {
+    if (!isRecord(record) || idForBulkBody(record, resource) === undefined) {
+      throw invalidBulkItem(resource, `Bulk replace items must include ${resource.idField ?? 'id'}.`, index);
+    }
+    return record;
+  });
+}
+
+async function bulkResults<T>(
+  items: T[],
+  execute: (item: T, index: number) => Promise<Omit<BulkResult, 'index'>>,
+): Promise<BulkResult[]> {
+  const results: BulkResult[] = [];
+  for (const [index, item] of items.entries()) {
+    try {
+      const result = await execute(item, index);
+      results.push({
+        index,
+        ...result,
+      });
+    } catch (error) {
+      results.push({
+        index,
+        status: (error as ErrorWithStatus).status ?? 500,
+        body: serializeError(error, 'REST_ERROR'),
+      });
+    }
+  }
+  return results;
+}
+
+function bulkEnvelope(results: BulkResult[]): BulkEnvelope {
+  const ok = results.filter((result) => result.status >= 200 && result.status < 300).length;
+  return {
+    results,
+    summary: {
+      ok,
+      errors: results.length - ok,
+    },
+  };
+}
+
+function bulkStatus(envelope: BulkEnvelope, defaultStatus = 200): number {
+  if (envelope.results.length === 0) {
+    return defaultStatus;
+  }
+  return envelope.summary.ok > 0 ? defaultStatus : 400;
+}
+
+function idForBulkBody(value: unknown, resource: RestResource): unknown {
+  return isRecord(value) ? value[resource.idField ?? 'id'] : undefined;
+}
+
+function bulkItemCount(body: unknown): number | undefined {
+  if (Array.isArray(body)) {
+    return body.length;
+  }
+  if (isRecord(body) && Array.isArray(body.ids)) {
+    return body.ids.length;
+  }
+  if (isRecord(body) && Array.isArray(body.records)) {
+    return body.records.length;
+  }
+  return undefined;
+}
+
+function invalidBulkItem(resource: RestResource, message: string, index: number): Error {
+  return dbError(
+    'REST_BULK_INVALID_ITEM',
+    message,
+    {
+      status: 400,
+      hint: 'Check the bulk request body for the expected ids, patch objects, or records array.',
+      details: {
+        resource: resource.name,
+        index,
+      },
+    },
+  );
+}
+
+function idMatches(left: unknown, right: unknown): boolean {
+  return String(left) === String(right);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 async function handleDocument(
