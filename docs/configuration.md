@@ -34,6 +34,7 @@ See [db.config.example.mjs](../db.config.example.mjs) for a commented config wit
 | Importable schema manifest | Off | `outputs.schemaManifest` |
 | Importable viewer manifest | Off | `outputs.viewerManifest` |
 | Registered query operation refs | Off | `operations` |
+| Contract-scoped operation refs | Off | `outputs.contractRefs` and `contracts` |
 | REST response formats | `.json`, `.html`, `.md` | `rest.formats` |
 | App-facing data route base | `/db` | `server.dataPath` |
 | Route exposure policy | Open | `server.expose` |
@@ -61,6 +62,7 @@ export default defineConfig({
     viewerManifest: './src/generated/db.viewer.json',
     operationRegistry: './src/generated/db.operations.json',
     operationRefs: './src/generated/db.operation-refs.json',
+    contractRefs: './src/generated/db.contract-refs.json',
   },
 
   sources: {
@@ -115,6 +117,19 @@ export default defineConfig({
     enabled: false,
     sourceDir: './db/operations',
     acceptRefs: 'both',
+  },
+
+  contracts: {
+    public: {
+      resources: {
+        users: {
+          fields: ['id', 'name', 'avatarUrl'],
+          read: true,
+          write: false,
+        },
+      },
+      operations: ['GetPublicUser', 'SearchPublicUsers'],
+    },
   },
 
   rest: {
@@ -451,14 +466,33 @@ not a general hardening switch. For REST it specifically means raw REST resource
 and batch routes are blocked, while `POST /__db/operations/:ref` can still
 execute registered operation templates.
 
-When REST exposure is `registered-only`, `async-db doctor` and the built-in
-server require registered operations to be enabled and resolvable through
+`registered-only` does not make @async/db decide what production means for an
+app. If a project wants startup and `async-db doctor` to fail when registered
+operations are missing or unresolved, set `operations.strict: true`:
+
+```js
+export default defineConfig({
+  operations: {
+    enabled: true,
+    strict: true,
+    acceptRefs: 'ref',
+  },
+  server: {
+    expose: {
+      rest: 'registered-only',
+    },
+  },
+});
+```
+
+With `operations.strict: true`, the built-in server and doctor require
+registered operations to be enabled and resolvable through
 `operations.registry`, `operations.resolveRef`, `outputs.operationRegistry` /
 `operations.outFile`, or operation files under `operations.sourceDir`. Missing,
 invalid, or empty operation sources fail early with
 `OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS`. For public operation-only APIs,
 prefer `operations.acceptRefs: 'ref'`; doctor reports this as non-blocking
-guidance.
+guidance only when operation strict mode is enabled.
 
 ## Registered Queries
 
@@ -515,9 +549,11 @@ Manual inline registries can use operation objects or string REST templates,
 for example `{ GetUser: '/users/{id}.json?select=id,name' }`.
 Operation names and refs must be unique; the build fails
 instead of generating client refs that could point at the wrong operation.
-If `outputs.operationRegistry` is missing or invalid at runtime, registered operation
-execution returns `OPERATION_REGISTRY_LOAD_FAILED`; rebuild the registry or fix
-the configured path before treating operation misses as missing refs.
+If `outputs.operationRegistry` is missing, invalid, or points at the client-safe
+`db.operation-refs.json` file instead of the server `db.operations.json`
+registry, registered operation execution returns
+`OPERATION_REGISTRY_LOAD_FAILED`; rebuild the registry or fix the configured
+path before treating operation misses as missing refs.
 
 ## Production Doctor Checks
 
@@ -526,6 +562,10 @@ JSON-backed resources. It keeps ordinary local prototype checks quiet by
 default, then warns when production JSON resources do not have explicit schema
 files and emits review guidance for keeping JSON-backed production resources
 small, low-write, single-writer, and backed up.
+
+Use `async-db doctor --production --usage ./src` to add static app-usage
+findings for endpoint exposure choices. The usage scanner reads source text and
+emits a `db.usageManifest`; it does not execute app files.
 
 Use strict production checks in CI when those warnings should fail:
 

@@ -147,8 +147,9 @@ The viewer manifest includes field metadata, UI hints, relation hints, diagnosti
 
 ## Operation Registry And Client Contract
 
-Use `outputs.operationRegistry` for the full server-side operation registry and
-`outputs.operationRefs` for the client-safe refs file:
+Use `outputs.operationRegistry` for the full server-side operation registry,
+`outputs.operationRefs` for the client-safe refs file, and
+`outputs.contractRefs` for contract-scoped operation refs:
 
 ```js
 import { defineConfig } from '@async/db/config';
@@ -157,6 +158,7 @@ export default defineConfig({
   outputs: {
     operationRegistry: './src/generated/db.operations.json',
     operationRefs: './src/generated/db.operation-refs.json',
+    contractRefs: './src/generated/db.contract-refs.json',
   },
 });
 ```
@@ -165,6 +167,7 @@ Build both files with:
 
 ```bash
 npm run db -- operations build
+npm run db -- contracts refs
 ```
 
 `db.operations.json` contains full templates and should stay server-side.
@@ -182,6 +185,10 @@ The check compares the current generated client contract with
 `outputs.operationRefs` by default. It ignores volatile `generatedAt` values and
 fails only when exposed operation names or refs change.
 
+`async-db contracts refs` writes the contract-scoped manifest configured by
+`outputs.contractRefs`. It includes the operations each named contract can call
+plus the contract resource field map.
+
 ## Cleanup Rules
 
 - Do not commit `.db/` unless a task explicitly asks for generated runtime state.
@@ -189,6 +196,7 @@ fails only when exposed operation names or refs change.
 - Do commit configured `outputs.schemaManifest` output when an app needs stable schema metadata at runtime.
 - Do commit configured `outputs.viewerManifest` output when a custom viewer needs stable metadata and route links at runtime.
 - Do commit configured `outputs.operationRefs` output when app or CI code imports approved registered operation refs.
+- Do commit configured `outputs.contractRefs` output when root apps import per-contract operation refs.
 - Smoke commands against examples may create `examples/*/.db/`; remove that generated runtime output before finalizing.
 
 ## Related Examples

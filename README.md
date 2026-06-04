@@ -168,6 +168,14 @@ The built-in JSON store is production-appropriate only for file-suitable resourc
 
 @async/db is not an auth layer, an ORM, a hosted database service, or a broad JSON Schema compatibility project. For production-facing APIs, put app traffic behind registered operations, app-owned auth/authorization, rate limits, and observability. See [Production JSON Database](./docs/json-production.md), [Resource Graduation And Mixed Stores](./docs/store-graduation.md), and [Prototype To Production REST Guide](./docs/prototype-to-production.md).
 
+When another app consumes your data, define a `contracts` boundary in
+`db.config.mjs`. Contracts list the resources, fields, operations, and writes a
+consumer is allowed to use. Generate starting points with
+`async-db contracts infer --from-tags`, scan callers with
+`async-db contracts infer --from-usage`, validate with
+`async-db contracts check`, and emit contract-scoped refs with
+`async-db contracts refs`.
+
 ## Save Directly To `db/*.json`
 
 The default `json` store keeps source fixtures unchanged and writes app edits to
@@ -442,6 +450,7 @@ The local server exposes REST routes for collections and singleton documents, pl
 Set `rest.enabled: false` when an app wants schema, manifest, viewer, import, events, GraphQL, and Falcor routes without generated REST resource routes or REST batching.
 Set `graphql.enabled: false` when an app wants REST and dev-tool routes without a GraphQL endpoint.
 Set `falcor.enabled: false` when an app wants REST, GraphQL, and dev-tool routes without a Falcor JSONGraph endpoint.
+Run `async-db usage scan --production` to produce a source-scan usage manifest with endpoint exposure recommendations.
 
 ```txt
 GET     /db/users.json
@@ -531,6 +540,7 @@ Each example README is the runnable authority for that example.
 | Serve local data and use REST/GraphQL/viewer | [docs/server-and-viewer.md](./docs/server-and-viewer.md) |
 | Graduate REST prototypes to production API routes | [docs/prototype-to-production.md](./docs/prototype-to-production.md) |
 | Use the package API, CLI, or exports | [docs/package-api.md](./docs/package-api.md) |
+| Review public API surface changes | [API_SURFACE.md](./API_SURFACE.md) |
 | Integrate with Vite, Hono, or SQLite | [docs/integrations.md](./docs/integrations.md) |
 | Understand implementation boundaries | [docs/architecture.md](./docs/architecture.md) |
 | Work on the repo or publish releases | [CONTRIBUTING.md](./CONTRIBUTING.md) |

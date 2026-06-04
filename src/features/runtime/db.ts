@@ -296,13 +296,21 @@ export class Db {
     return new DbDocument(this, resource);
   }
 
-  async operation(template: string, variables: Record<string, unknown> = {}): Promise<unknown> {
-    const result = await createDbOperationHandler(this as never).execute(template, variables);
+  async operation(
+    template: string,
+    variables: Record<string, unknown> = {},
+    options: { contract?: string } = {},
+  ): Promise<unknown> {
+    const result = await createDbOperationHandler(this as never).execute(template, variables, options);
     return result.body;
   }
 
-  query(template: string, variables: Record<string, unknown> = {}): Promise<unknown> {
-    return this.operation(template, variables);
+  query(
+    template: string,
+    variables: Record<string, unknown> = {},
+    options: { contract?: string } = {},
+  ): Promise<unknown> {
+    return this.operation(template, variables, options);
   }
 
   fork(name: string): Db {

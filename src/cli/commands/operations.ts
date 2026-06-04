@@ -46,6 +46,7 @@ export async function runOperations(config: CliConfig, args: string[]): Promise<
 
 async function runOperationContract(config: CliConfig, args: string[]): Promise<void> {
   const result = await buildOperationManifest(config, {
+    createDirectory: false,
     write: false,
   });
   const contract = operationClientContract(result.refs);

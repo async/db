@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
@@ -126,6 +126,160 @@ test('CLI viewer manifest --out writes relative to --cwd', async () => {
   assert.equal(manifest.api.manifestJson, '/__db/manifest.json');
   assert.equal(manifest.api.manifestMarkdown, '/__db/manifest.md');
   assert.equal(manifest.collections.users.fields.email.ui.component, 'email');
+});
+
+test('CLI usage scan prints JSON for a file target', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/app.ts'), `
+import { createDbClient } from '@async/db/client';
+const db = createDbClient({ apiBase: '/api/db' });
+await db.query('users.get', { id: 'u_1' });
+`, 'utf8');
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'usage',
+    'scan',
+    './src/app.ts',
+    '--json',
+    '--production',
+    '--cwd',
+    cwd,
+  ]);
+  const manifest = JSON.parse(stdout);
+
+  assert.equal(stderr, '');
+  assert.equal(manifest.kind, 'db.usageManifest');
+  assert.equal(manifest.target.path, 'src/app.ts');
+  assert.equal(manifest.surfaces.operations.count, 1);
+  assert.equal(manifest.recommendations.some((recommendation) => recommendation.code === 'USAGE_RECOMMEND_REST_REGISTERED_ONLY'), true);
+});
+
+test('CLI usage scan writes and checks manifests relative to cwd', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/app.ts'), `
+import { createDbClient } from '@async/db/client';
+const db = createDbClient();
+await db.rest('GET', '/users');
+`, 'utf8');
+
+  const written = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'usage',
+    'scan',
+    './src',
+    '--cwd',
+    cwd,
+    '--out',
+    './src/generated/db.usage.json',
+  ]);
+  const manifest = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.usage.json'), 'utf8'));
+  const checked = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'usage',
+    'scan',
+    './src',
+    '--cwd',
+    cwd,
+    '--check',
+    './src/generated/db.usage.json',
+  ]);
+
+  assert.match(written.stdout, /Generated src\/generated\/db\.usage\.json/);
+  assert.equal(manifest.kind, 'db.usageManifest');
+  assert.match(checked.stdout, /Usage manifest matches src\/generated\/db\.usage\.json/);
+});
+
+test('CLI usage scan defaults to the full project target', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    graphql: {
+      enabled: false,
+    },
+  };`);
+
+  const { stdout } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'usage',
+    'scan',
+    '--cwd',
+    cwd,
+    '--json',
+  ]);
+  const manifest = JSON.parse(stdout);
+
+  assert.equal(manifest.target.path, '.');
+  assert.equal(manifest.files.some((file) => file.path === 'db.config.mjs'), true);
+});
+
+test('CLI contracts infer from tags and write contract refs', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "fields": {
+      "id": { "type": "string", "tags": ["public"] },
+      "name": { "type": "string", "tags": ["public"] },
+      "email": { "type": "string", "tags": ["internal"] }
+    },
+    "seed": []
+  }`);
+  await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/operations/get-user.jsonc'), `{
+    "name": "GetUser",
+    "ref": "users.get",
+    "method": "GET",
+    "path": "/users/{id}.json",
+    "query": { "select": "id,name" }
+  }`, 'utf8');
+  await writeConfig(cwd, `export default {
+    outputs: {
+      contractRefs: './src/generated/db.contract-refs.json',
+    },
+    contracts: {
+      public: {
+        resources: {
+          users: {
+            fields: ['id', 'name'],
+            read: true,
+            write: false,
+          },
+        },
+        operations: ['GetUser'],
+      },
+    },
+  };`);
+
+  const inferred = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'contracts',
+    'infer',
+    '--from-tags',
+    '--cwd',
+    cwd,
+  ]);
+  const refs = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'contracts',
+    'refs',
+    '--cwd',
+    cwd,
+  ]);
+  const check = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'contracts',
+    'check',
+    '--cwd',
+    cwd,
+  ]);
+  const inferredJson = JSON.parse(inferred.stdout);
+  const refsJson = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.contract-refs.json'), 'utf8'));
+
+  assert.equal(inferredJson.contracts.public.resources.users.fields.includes('name'), true);
+  assert.match(refs.stdout, /Generated src\/generated\/db\.contract-refs\.json/);
+  assert.equal(refsJson.contracts.public.operations.GetUser.ref, 'users.get');
+  assert.match(check.stdout, /Contract check passed/);
 });
 
 test('CLI schema infer prints data-inferred resources while ignoring explicit schemas', async () => {
@@ -1530,6 +1684,25 @@ test('CLI operations contract prints and checks the client-exposed operation ref
   );
 });
 
+test('CLI operations contract does not create the default operation source folder', async () => {
+  const cwd = await makeProject();
+
+  const printed = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'operations',
+    'contract',
+    '--cwd',
+    cwd,
+  ]);
+  const contract = JSON.parse(printed.stdout);
+
+  assert.deepEqual(contract.operations, {});
+  await assert.rejects(
+    () => access(path.join(cwd, 'db/operations')),
+    (error: any) => error.code === 'ENOENT',
+  );
+});
+
 test('CLI operations contract --out writes a deterministic sorted contract file', async () => {
   const cwd = await makeProject();
   await mkdir(path.join(cwd, 'db/operations'), { recursive: true });
@@ -1608,6 +1781,7 @@ test('CLI subcommands print focused help without running the command', async () 
   await assertCliHelp(['types', '--help'], /Usage:\n  async-db types \[--watch\] \[--out <file>\]/);
   await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/);
   await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/);
+  await assertCliHelp(['usage', '--help'], /Usage:\n  async-db usage scan \[target\]/);
   await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/);
   await assertCliHelp(['operations', '--help'], /async-db operations contract \[--out <file>\] \[--check\]/);
   await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/);
@@ -1622,6 +1796,7 @@ test('CLI subcommand help does not load project config', async () => {
   await assertCliHelp(['types', '--help'], /Usage:\n  async-db types \[--watch\] \[--out <file>\]/, cwd);
   await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/, cwd);
   await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/, cwd);
+  await assertCliHelp(['usage', '--help'], /Usage:\n  async-db usage scan \[target\]/, cwd);
   await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/, cwd);
   await assertCliHelp(['operations', '--help'], /async-db operations contract \[--out <file>\] \[--check\]/, cwd);
   await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/, cwd);

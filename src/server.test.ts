@@ -985,7 +985,41 @@ test('request handler executes strict registered operations from sourceDir', asy
   });
 });
 
-test('server startup rejects registered-only REST when operations are disabled before binding', async () => {
+test('server startup allows registered-only REST when operation strict mode is off', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  const { server, url } = await startDbServer({
+    cwd,
+    port: 0,
+    server: {
+      expose: {
+        rest: 'registered-only',
+      },
+    },
+  });
+
+  try {
+    const rawUsers = await fetch(`${url}/users`);
+    const operation = await fetch(`${url}/__db/operations/users.get`, {
+      method: 'POST',
+      body: JSON.stringify({
+        variables: {
+          id: 'u_1',
+        },
+      }),
+    });
+
+    assert.equal(rawUsers.status, 403);
+    assert.equal((await rawUsers.json()).error.code, 'REST_REGISTERED_ONLY');
+    assert.equal(operation.status, 404);
+    assert.equal((await operation.json()).error.code, 'OPERATIONS_DISABLED');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('server startup rejects when operation strict mode is forced and operations are disabled', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
@@ -993,6 +1027,9 @@ test('server startup rejects registered-only REST when operations are disabled b
     () => startDbServer({
       cwd,
       port: 0,
+      operations: {
+        strict: true,
+      },
       server: {
         expose: {
           rest: 'registered-only',
@@ -1008,7 +1045,7 @@ test('server startup rejects registered-only REST when operations are disabled b
   );
 });
 
-test('server startup rejects missing generated registry in registered-only REST mode', async () => {
+test('server startup rejects missing generated registry when operation strict mode is forced', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
 
@@ -1017,6 +1054,7 @@ test('server startup rejects missing generated registry in registered-only REST 
       cwd,
       port: 0,
       operations: {
+        strict: true,
         enabled: true,
         outFile: './src/generated/missing.operations.json',
       },
@@ -1035,7 +1073,7 @@ test('server startup rejects missing generated registry in registered-only REST 
   );
 });
 
-test('server startup rejects invalid generated registry in registered-only REST mode', async () => {
+test('server startup rejects invalid generated registry when operation strict mode is forced', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
   await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
@@ -1046,6 +1084,7 @@ test('server startup rejects invalid generated registry in registered-only REST 
       cwd,
       port: 0,
       operations: {
+        strict: true,
         enabled: true,
         outFile: './src/generated/db.operations.json',
       },
@@ -1064,7 +1103,7 @@ test('server startup rejects invalid generated registry in registered-only REST 
   );
 });
 
-test('server startup rejects empty generated registry in registered-only REST mode', async () => {
+test('server startup rejects empty generated registry when operation strict mode is forced', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
   await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
@@ -1079,6 +1118,7 @@ test('server startup rejects empty generated registry in registered-only REST mo
       cwd,
       port: 0,
       operations: {
+        strict: true,
         enabled: true,
         outFile: './src/generated/db.operations.json',
       },
@@ -1092,6 +1132,47 @@ test('server startup rejects empty generated registry in registered-only REST mo
       assert.equal(error.code, 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
       assert.equal(error.diagnostics?.[0]?.details.reason, 'registry-empty');
       assert.equal(error.diagnostics[0].details.outFile.reason, 'empty');
+      return true;
+    },
+  );
+});
+
+test('server startup rejects client refs files as generated registries when operation strict mode is forced', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/generated/db.operation-refs.json'), JSON.stringify({
+    version: 1,
+    kind: 'db.operationRefs',
+    operations: {
+      GetUser: {
+        name: 'GetUser',
+        ref: 'users.get',
+      },
+    },
+  }), 'utf8');
+
+  await assert.rejects(
+    () => startDbServer({
+      cwd,
+      port: 0,
+      operations: {
+        strict: true,
+        enabled: true,
+        outFile: './src/generated/db.operation-refs.json',
+      },
+      server: {
+        expose: {
+          rest: 'registered-only',
+        },
+      },
+    }),
+    (error: any) => {
+      assert.equal(error.code, 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS');
+      assert.equal(error.diagnostics?.[0]?.details.reason, 'registry-load-failed');
+      assert.equal(error.diagnostics[0].details.outFile.reason, 'invalid-manifest-kind');
+      assert.equal(error.diagnostics[0].details.outFile.expectedKind, 'db.operations');
+      assert.equal(error.diagnostics[0].details.outFile.actualKind, 'db.operationRefs');
       return true;
     },
   );

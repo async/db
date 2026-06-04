@@ -15,3 +15,10 @@ export { createDbRuntime, reloadDb, watchDbSources } from './runtime.js';
 export { syncDb } from './sync.js';
 export { generateTypes, renderTypes } from './types.js';
 export { buildOperationManifest, createDbOperationHandler, hashOperation } from './operations.js';
+export {
+  assertOperationAllowedByContract,
+  buildContractRefsManifest,
+  checkContracts,
+  inferContractsFromTags,
+  inferContractsFromUsage,
+} from './operations.js';

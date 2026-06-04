@@ -427,12 +427,32 @@ test('public declarations expose stable operation handler API', async () => {
   const declarations = await readFile(path.resolve('dist/index.d.ts'), 'utf8');
 
   assert.match(declarations, /export type DbOperationRegistryValue = DbOperationTemplate \| DbRegisteredOperation;/);
-  assert.match(declarations, /export type DbOperationRequestBody = \{\s+variables\?: Record<string, unknown>;\s+\};/);
+  assert.match(declarations, /export type DbOperationManifest = \{/);
+  assert.match(declarations, /kind: 'db\.operations';/);
+  assert.match(declarations, /export type DbOperationRefsManifest = \{/);
+  assert.match(declarations, /kind: 'db\.operationRefs';/);
+  assert.match(declarations, /export type DbOperationContract = \{/);
+  assert.match(declarations, /kind: 'db\.operationContract';/);
+  assert.match(declarations, /export type DbRegisteredOperation = DbNormalizedOperationTemplate & \{\s+name: string;\s+ref: string;\s+\};/);
+  assert.match(declarations, /export type DbOperationRequestBody = \{\s+variables\?: Record<string, unknown>;\s+contract\?: string;\s+\};/);
+  assert.match(declarations, /export type DbOperationExecutionOptions = \{\s+contract\?: string;\s+\};/);
+  assert.match(declarations, /strict\?: boolean;/);
   assert.match(declarations, /registry\?: Record<string, DbOperationRegistryValue>;/);
-  assert.match(declarations, /execute\(ref: string, variables\?: Record<string, unknown>\): Promise<DbOperationResult>;/);
-  assert.match(declarations, /executeRequest\(ref: string, body\?: DbOperationRequestBody \| null\): Promise<DbOperationResult>;/);
+  assert.match(declarations, /execute\(ref: string, variables\?: Record<string, unknown>, options\?: DbOperationExecutionOptions\): Promise<DbOperationResult>;/);
+  assert.match(declarations, /executeRequest\(ref: string, body\?: DbOperationRequestBody \| null, options\?: DbOperationExecutionOptions\): Promise<DbOperationResult>;/);
+  assert.match(declarations, /manifest: DbOperationManifest;\s+refs: DbOperationRefsManifest;/);
   assert.doesNotMatch(declarations, /execute\(ref: string, variables\?: Record<string, unknown>, options\?: unknown\)/);
   assert.doesNotMatch(declarations, /executeRequest\(ref: string, body\?: .*options\?: unknown\)/);
+});
+
+test('public declarations expose doctor usage manifest result', async () => {
+  const declarations = await readFile(path.resolve('dist/index.d.ts'), 'utf8');
+
+  assert.match(declarations, /usage\?: boolean \| \{/);
+  assert.match(declarations, /export type DbUsageManifest = \{/);
+  assert.match(declarations, /kind: 'db\.usageManifest';/);
+  assert.match(declarations, /surfaces: Record<DbUsageSurface,/);
+  assert.match(declarations, /usage\?: DbUsageManifest;/);
 });
 
 test('public declarations keep fork and branch purpose in metadata', async () => {
@@ -492,7 +512,10 @@ test('public declarations expose standard schema authoring helpers', async () =>
   assert.match(schemaDeclarations, /definition: StandardSchemaV1<Input, Output>,\s+options\?: StandardSchemaResourceOptions,/);
   assert.match(schemaDeclarations, /validator: StandardSchemaV1<Input, Output>/);
   assert.match(schemaDeclarations, /definition: StandardSchemaMixedResourceDefinition<Input, Output>,/);
-  assert.match(schemaDeclarations, /meta\(options\?: FieldMetaOptions\): FieldDefinition;/);
+  assert.match(schemaDeclarations, /export type SchemaFieldTag = 'public' \| 'internal' \| 'private' \| string;/);
+  assert.match(schemaDeclarations, /export type FieldBuilderDefinition = FieldDefinition & \{\s+tag\(tag: SchemaFieldTag\): FieldBuilderDefinition;\s+\};/);
+  assert.match(schemaDeclarations, /string\(options\?: FieldOptions<string>\): FieldBuilderDefinition;/);
+  assert.match(schemaDeclarations, /meta\(options\?: FieldMetaOptions\): FieldBuilderDefinition;/);
 });
 
 test('public Hono declarations keep resource and operation hook contexts distinct', async () => {

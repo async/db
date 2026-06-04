@@ -192,16 +192,42 @@ function normalizeStringOperation(input: string): NormalizedOperation {
   const hasMethod = HTTP_METHODS.has(maybeMethod.toUpperCase());
   const method = hasMethod ? maybeMethod.toUpperCase() : 'GET';
   const target = hasMethod ? rest.join(' ') : trimmed;
-  const url = new URL(target, 'http://db.local');
+  let url: URL;
+  try {
+    url = new URL(target, 'http://db.local');
+  } catch (error) {
+    throw invalidOperationStringTemplate('invalid-url', error);
+  }
   const query = Object.fromEntries([...url.searchParams.entries()].sort(([left], [right]) => left.localeCompare(right)));
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(url.pathname);
+  } catch (error) {
+    throw invalidOperationStringTemplate('invalid-encoding', error);
+  }
   const normalized: NormalizedOperation = {
     method,
-    path: normalizePath(decodeURIComponent(url.pathname)),
+    path: normalizePath(pathname),
   };
   if (Object.keys(query).length > 0) {
     normalized.query = query;
   }
   return normalized;
+}
+
+function invalidOperationStringTemplate(reason: string, error: unknown): Error {
+  return dbError(
+    'OPERATION_INVALID_TEMPLATE',
+    'Registered operation string must be a valid REST path or URL.',
+    {
+      status: 400,
+      hint: 'Use a path such as "/users/{id}.json?select=id,name" or a method plus path such as "GET /users/{id}.json".',
+      details: {
+        reason,
+        parserMessage: error instanceof Error ? error.message : String(error),
+      },
+    },
+  );
 }
 
 function normalizeGraphqlOperation(input: OperationTemplateRecord): NormalizedOperation {

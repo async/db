@@ -51,6 +51,14 @@ test('operation handler accepts names and refs by default', async () => {
   assert.equal((await handler.execute('GetUser', { id: 'u_1' })).status, 200);
 });
 
+test('operation handler treats unsupported acceptRefs values as default both', async () => {
+  const db = await openOperationDb({ acceptRefs: 'hash' });
+  const handler = createDbOperationHandler(db);
+
+  assert.equal((await handler.execute('users.get', { id: 'u_1' })).status, 200);
+  assert.equal((await handler.execute('GetUser', { id: 'u_1' })).status, 200);
+});
+
 test('operation handler accepts inline string registry templates by name', async () => {
   const db = await openOperationDb({
     acceptRefs: 'name',
@@ -120,6 +128,40 @@ test('operation handler reports generated registry load failures', async () => {
     (error: any) => error.code === 'OPERATION_REGISTRY_LOAD_FAILED'
       && error.status === 500
       && error.details?.reason === 'invalid-json'
+      && !('contents' in error.details),
+  );
+});
+
+test('operation handler rejects client refs files used as server registries', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeFile(path.join(cwd, 'src/generated/db.operation-refs.json'), JSON.stringify({
+    version: 1,
+    kind: 'db.operationRefs',
+    operations: {
+      GetUser: {
+        name: 'GetUser',
+        ref: 'users.get',
+      },
+    },
+  }), 'utf8');
+
+  const db = await openDb({
+    cwd,
+    operations: {
+      enabled: true,
+      outFile: './src/generated/db.operation-refs.json',
+    },
+  });
+
+  await assert.rejects(
+    () => createDbOperationHandler(db).execute('users.get', { id: 'u_1' }),
+    (error: any) => error.code === 'OPERATION_REGISTRY_LOAD_FAILED'
+      && error.status === 500
+      && error.details?.reason === 'invalid-manifest-kind'
+      && error.details?.expectedKind === 'db.operations'
+      && error.details?.actualKind === 'db.operationRefs'
       && !('contents' in error.details),
   );
 });
@@ -221,7 +263,44 @@ test('operation handler preserves prototype-key refs from generated registry fil
   });
 });
 
-async function openOperationDb(operationOptions = {}) {
+test('operation handler enforces contract operation membership and fields', async () => {
+  const db = await openOperationDb({}, {
+    public: {
+      resources: {
+        users: {
+          fields: ['id', 'name'],
+          read: true,
+          write: false,
+        },
+      },
+      operations: ['GetUser'],
+    },
+    private: {
+      resources: {
+        users: {
+          fields: ['id'],
+          read: true,
+          write: false,
+        },
+      },
+      operations: ['GetUser'],
+    },
+  });
+  const handler = createDbOperationHandler(db);
+
+  assert.equal((await handler.execute('users.get', { id: 'u_1' }, { contract: 'public' })).status, 200);
+  await assert.rejects(
+    () => handler.execute('users.get', { id: 'u_1' }, { contract: 'private' }),
+    (error: any) => error.code === 'CONTRACT_FIELD_NOT_ALLOWED'
+      && error.details.field === 'name',
+  );
+  await assert.rejects(
+    () => handler.execute('users.get', { id: 'u_1' }, { contract: 'missing' }),
+    (error: any) => error.code === 'CONTRACT_NOT_FOUND',
+  );
+});
+
+async function openOperationDb(operationOptions = {}, contracts = {}) {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
     {
@@ -248,5 +327,6 @@ async function openOperationDb(operationOptions = {}) {
       },
       ...operationOptions,
     },
+    contracts,
   });
 }

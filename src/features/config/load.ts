@@ -118,6 +118,10 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Confi
   }
   merged.outputs.operationRefs = merged.operations?.refsOutFile ?? null;
 
+  if (merged.outputs?.contractRefs) {
+    merged.outputs.contractRefs = resolveFrom(cwd, merged.outputs.contractRefs);
+  }
+
   if (merged.generate?.hono?.outDir) {
     merged.generate.hono.outDir = resolveFrom(cwd, merged.generate.hono.outDir);
   }

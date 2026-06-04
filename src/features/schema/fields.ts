@@ -11,6 +11,8 @@ export type SchemaField = {
   nullable?: boolean;
   computed?: boolean;
   readOnly?: boolean;
+  tags?: string[];
+  visibility?: string;
   description?: string;
   default?: unknown;
   unique?: boolean;
@@ -58,6 +60,14 @@ export function normalizeField(field: unknown, fieldName = ''): SchemaField {
 
   if ('readOnly' in field) {
     normalized.readOnly = Boolean(field.readOnly);
+  }
+
+  if (Array.isArray(field.tags)) {
+    normalized.tags = [...new Set(field.tags.map(String).filter(Boolean))].sort();
+  }
+
+  if ('visibility' in field && field.visibility !== undefined && field.visibility !== null) {
+    normalized.visibility = String(field.visibility);
   }
 
   if (normalized.computed) {

@@ -2,15 +2,20 @@ import { dbError } from '../../errors.js';
 import { executeGraphql } from '../../graphql/index.js';
 import { handleRestRequest } from '../../rest/handler.js';
 import { dbFileSystem } from '../fs/index.js';
+import { assertOperationAllowedByContract } from '../contracts/index.js';
 import {
-  normalizeOperationTemplate,
   operationRequest,
   type OperationRequestResult,
   type OperationTemplate,
   type OperationVariables,
   type RegisteredOperation,
 } from '../../shared/operations.js';
-import { buildOperationRegistry } from './index.js';
+import {
+  buildOperationRegistry,
+  normalizeOperationRegistry,
+  normalizeRegisteredOperation,
+  operationRegistryFromManifest,
+} from './index.js';
 import { operationMapFromEntries } from './maps.js';
 
 type OperationAcceptRefs = 'ref' | 'name' | 'both';
@@ -27,7 +32,8 @@ type OperationRefContext = {
 
 type OperationOptions = {
   enabled?: boolean;
-  acceptRefs?: OperationAcceptRefs | 'hash';
+  acceptRefs?: OperationAcceptRefs;
+  contract?: string;
   registry?: OperationRegistry;
   outFile?: string | null;
   sourceDir?: string;
@@ -57,6 +63,7 @@ type CreateHandlerOptions = OperationOptions | {
 };
 
 type ExecutionOptions = {
+  contract?: string;
   routes?: Record<string, unknown>;
   trace?: unknown;
 };
@@ -106,6 +113,11 @@ export function createDbOperationHandler(db: DbLike, options: CreateHandlerOptio
       if (!operation) {
         throw operationNotFound(ref);
       }
+      const contract = executionOptions.contract ?? operationOptions.contract;
+      if (contract) {
+        assertOperationAllowedByContract(db.config, operation, decodeOperationRef(ref), contract);
+      }
+      emitOperationTrace(db, operation, decodeOperationRef(ref), contract);
 
       const operationResult = operationRequest(operation, variables);
       if (operationResult.kind === 'graphql') {
@@ -163,8 +175,11 @@ export function createDbOperationHandler(db: DbLike, options: CreateHandlerOptio
         rawBody: response.body,
       };
     },
-    async executeRequest(ref: string, body: { variables?: OperationVariables } | null = {}, executionOptions: ExecutionOptions = {}) {
-      return this.execute(ref, body?.variables ?? {}, executionOptions);
+    async executeRequest(ref: string, body: { variables?: OperationVariables; contract?: string } | null = {}, executionOptions: ExecutionOptions = {}) {
+      return this.execute(ref, body?.variables ?? {}, {
+        ...executionOptions,
+        contract: body?.contract ?? executionOptions.contract,
+      });
     },
   };
 }
@@ -218,9 +233,6 @@ function normalizeAcceptRefs(value: unknown): OperationAcceptRefs {
   if (value === 'ref' || value === 'name' || value === 'both') {
     return value;
   }
-  if (value === 'hash') {
-    return 'ref';
-  }
   return 'both';
 }
 
@@ -243,7 +255,7 @@ async function resolveOperationRef(
   if (typeof options.resolveRef === 'function') {
     const resolvedOperation = await options.resolveRef(decodedRef, context);
     if (resolvedOperation) {
-      operation = normalizeRegistryOperation(decodedRef, resolvedOperation);
+      operation = normalizeRegisteredOperation(decodedRef, resolvedOperation);
     }
   }
   operation ??= defaultOperationForRef(registry, decodedRef, options.acceptRefs);
@@ -252,7 +264,7 @@ async function resolveOperationRef(
   if (typeof options.validateRef === 'function') {
     const result = await options.validateRef(context);
     if (result && (typeof result === 'object' || typeof result === 'string')) {
-      return normalizeRegistryOperation(decodedRef, result);
+      return normalizeRegisteredOperation(decodedRef, result);
     }
     if (result === true) {
       return context.operation;
@@ -300,7 +312,7 @@ async function operationRegistry(
   if (options.outFile) {
     try {
       const manifest = JSON.parse(await dbFileSystem(config).readFile(options.outFile, 'utf8') as string);
-      return normalizeOperationRegistry(manifest.operations ?? {});
+      return operationRegistryFromManifest(manifest);
     } catch (error) {
       throw operationRegistryLoadFailed(options.outFile, error);
     }
@@ -323,26 +335,6 @@ async function operationRegistry(
   return operationMapFromEntries();
 }
 
-function normalizeOperationRegistry(registry: OperationRegistry): Record<string, RegisteredOperation> {
-  return operationMapFromEntries(
-    Object.entries(registry ?? {}).map(([key, operation]) => [key, normalizeRegistryOperation(key, operation)]),
-  );
-}
-
-function normalizeRegistryOperation(key: string, operation: OperationTemplate): RegisteredOperation {
-  const normalized = normalizeOperationTemplate(operation);
-  const source = operation && typeof operation === 'object' && !Array.isArray(operation) ? operation : {};
-
-  if (source.name || normalized.name || key) {
-    normalized.name = String(source.name ?? normalized.name ?? key);
-  }
-  if (source.ref || normalized.ref || key) {
-    normalized.ref = String(source.ref ?? normalized.ref ?? key);
-  }
-
-  return normalized as RegisteredOperation;
-}
-
 function operationNotFound(ref: string): Error {
   const decodedRef = decodeOperationRef(ref);
   return dbError(
@@ -357,7 +349,12 @@ function operationNotFound(ref: string): Error {
 }
 
 function operationRegistryLoadFailed(outFile: string, error: NodeJS.ErrnoException | SyntaxError): Error {
-  const reason = 'code' in error && error.code === 'ENOENT'
+  const invalidRegistryDetails = error && typeof error === 'object' && 'code' in error && error.code === 'OPERATION_INVALID_REGISTRY'
+    ? ((error as { details?: Record<string, unknown> }).details ?? {})
+    : null;
+  const reason = invalidRegistryDetails?.reason
+    ? String(invalidRegistryDetails.reason)
+    : 'code' in error && error.code === 'ENOENT'
     ? 'missing'
     : error instanceof SyntaxError
       ? 'invalid-json'
@@ -374,6 +371,7 @@ function operationRegistryLoadFailed(outFile: string, error: NodeJS.ErrnoExcepti
       details: {
         outFile: String(outFile),
         reason,
+        ...(invalidRegistryDetails ?? {}),
       },
     },
   );
@@ -381,6 +379,25 @@ function operationRegistryLoadFailed(outFile: string, error: NodeJS.ErrnoExcepti
 
 function decodeOperationRef(ref: unknown): string {
   return decodeURIComponent(String(ref ?? ''));
+}
+
+function emitOperationTrace(
+  db: DbLike,
+  operation: RegisteredOperation,
+  ref: string,
+  contract?: string,
+): void {
+  const events = (db as { events?: { emit?: (event: Record<string, unknown>) => unknown } }).events;
+  if (typeof events?.emit !== 'function') {
+    return;
+  }
+  events.emit({
+    type: 'operation-trace',
+    operation: operation.name,
+    ref: operation.ref ?? ref,
+    contract: contract ?? null,
+    kind: operation.kind ?? 'rest',
+  });
 }
 
 function internalRestRequest(restRequest: OperationRequestResult) {

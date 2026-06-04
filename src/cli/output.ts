@@ -15,6 +15,20 @@ type DoctorResult = {
   findings: DoctorFinding[];
 };
 
+type UsageManifest = {
+  summary: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: number;
+    recommendations: number;
+  };
+  recommendations: Array<{
+    code: string;
+    message: string;
+    hint: string;
+  }>;
+};
+
 export function printDiagnostic(diagnostic: CliDiagnostic): void {
   const prefix = diagnostic.severity === 'error' ? 'error' : 'warn';
   console.error(`${prefix}: ${diagnostic.message}`);
@@ -51,9 +65,14 @@ Usage:
   async-db schema validate
   async-db operations build [--out <file>] [--refs-out <file>]
   async-db operations contract [--out <file>] [--check]
+  async-db contracts infer --from-tags [--out <file>]
+  async-db contracts infer --from-usage [target] [--out <file>]
+  async-db contracts check [--json]
+  async-db contracts refs [--out <file>]
+  async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]
   async-db viewer manifest [--out <file>]
-  async-db doctor [--strict] [--json] [--production]
-  async-db check [--strict] [--json] [--production]
+  async-db doctor [--strict] [--json] [--production] [--usage [target]]
+  async-db check [--strict] [--json] [--production] [--usage [target]]
   async-db create <collection> <json>
   async-db serve [--host <host>] [--port <port>]
   async-db generate hono [--out <dir>] [--api <targets>] [--app <shape>]
@@ -61,6 +80,25 @@ Usage:
 Options:
   --cwd <dir>       Project directory
   --config <file>   Config file path
+`);
+}
+
+export function printContractsHelp(): void {
+  console.log(`async-db contracts
+
+Usage:
+  async-db contracts infer --from-tags [--out <file>]
+  async-db contracts infer --from-usage [target] [--out <file>]
+  async-db contracts check [--json]
+  async-db contracts refs [--out <file>]
+
+Options:
+  --from-tags     Infer contracts from schema field tags such as public/internal/private
+  --from-usage    Infer operation names from app usage scans
+  --out <file>    Write inferred contracts or contract-scoped operation refs
+  --json          Print machine-readable check results
+  --cwd <dir>     Project directory
+  --config <file> Config file path
 `);
 }
 
@@ -124,16 +162,41 @@ export function printDoctorHelp(): void {
   console.log(`async-db doctor
 
 Usage:
-  async-db doctor [--strict] [--json] [--production]
-  async-db check [--strict] [--json] [--production]
+  async-db doctor [--strict] [--json] [--production] [--usage [target]]
+  async-db check [--strict] [--json] [--production] [--usage [target]]
 
 Options:
   --strict       Exit with an error when warnings are present
   --json         Print machine-readable findings
   --production   Include production-readiness guidance for JSON-backed resources
+  --usage        Scan app usage and include endpoint exposure guidance
   --cwd <dir>     Project directory
   --config <file> Config file path
 `);
+}
+
+export function printUsageHelp(): void {
+  console.log(`async-db usage
+
+Usage:
+  async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]
+
+Options:
+  --json         Print machine-readable usage manifest
+  --out <file>   Write the usage manifest to this path
+  --check <file> Fail if the generated manifest differs from this path, ignoring generatedAt
+  --production   Include least-exposed production endpoint recommendations
+  --cwd <dir>     Project directory
+  --config <file> Config file path
+`);
+}
+
+export function printUsageResult(manifest: UsageManifest): void {
+  console.log(`async-db usage scan found ${manifest.summary.matches} match${manifest.summary.matches === 1 ? '' : 'es'} in ${manifest.summary.filesWithMatches}/${manifest.summary.filesScanned} scanned file${manifest.summary.filesScanned === 1 ? '' : 's'}`);
+  for (const recommendation of manifest.recommendations) {
+    console.log(`info: ${recommendation.code}: ${recommendation.message}`);
+    console.log(`  hint: ${recommendation.hint}`);
+  }
 }
 
 export function printViewerHelp(): void {

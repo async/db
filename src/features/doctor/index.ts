@@ -5,6 +5,7 @@ import { inconsistentFieldTypeFindings } from './field-consistency.js';
 import { operationStrictModeFindings } from '../operations/readiness.js';
 import { relationSuggestionFindings } from './relations.js';
 import { schemaGuidanceFindings } from './schema-guidance.js';
+import { scanDbUsage, type UsageManifest, type UsageRecommendation } from '../usage/scanner.js';
 
 const BUILTIN_STORES = ['json', 'memory', 'sourceFile', 'static'];
 const LARGE_JSON_STORE_RECORD_COUNT = 1000;
@@ -77,8 +78,14 @@ type StoreConfig = string | {
 };
 
 type DoctorConfig = {
+  cwd?: string;
   doctor?: {
     production?: boolean;
+    usage?: boolean | {
+      enabled?: boolean;
+      target?: string;
+      generatedAt?: string;
+    };
   };
   schema?: Record<string, unknown>;
   resources?: Record<string, ResourceConfig>;
@@ -91,6 +98,7 @@ type DoctorConfig = {
 type DoctorResult = {
   summary: DoctorSummary;
   findings: DoctorFinding[];
+  usage?: UsageManifest;
 };
 
 export async function runDbDoctor(config: DoctorConfig): Promise<DoctorResult> {
@@ -102,17 +110,23 @@ export async function runDbDoctor(config: DoctorConfig): Promise<DoctorResult> {
       source: 'data',
     },
   }) as DoctorProject;
+  const usage = await doctorUsageManifest(config);
   const findings: DoctorFinding[] = [
     ...project.diagnostics.map((diagnostic) => diagnosticToFinding(diagnostic, 'schema')),
     ...doctorResourceFindings(project.resources, config),
     ...schemaGuidanceFindings(project, inferredProject),
     ...await operationStrictModeFindings(config),
+    ...usageFindings(usage),
   ];
 
-  return {
+  const result: DoctorResult = {
     summary: summarizeFindings(findings),
     findings,
   };
+  if (usage) {
+    result.usage = usage;
+  }
+  return result;
 }
 
 function diagnosticToFinding(diagnostic: DoctorDiagnostic, source: string): DoctorFinding {
@@ -141,6 +155,48 @@ function doctorResourceFindings(resources: DoctorResource[], config: DoctorConfi
     ]),
     ...relationSuggestionFindings(collections),
   ];
+}
+
+async function doctorUsageManifest(config: DoctorConfig): Promise<UsageManifest | undefined> {
+  const usage = config.doctor?.usage;
+  if (!usage) {
+    return undefined;
+  }
+
+  const options = typeof usage === 'object' ? usage : {};
+  if (typeof usage === 'object' && usage.enabled === false) {
+    return undefined;
+  }
+
+  return await scanDbUsage({
+    cwd: config.cwd,
+    target: options.target,
+    generatedAt: options.generatedAt,
+    production: config.doctor?.production === true,
+  });
+}
+
+function usageFindings(manifest: UsageManifest | undefined): DoctorFinding[] {
+  if (!manifest) {
+    return [];
+  }
+
+  return manifest.recommendations.map((recommendation) => usageRecommendationFinding(recommendation, manifest));
+}
+
+function usageRecommendationFinding(recommendation: UsageRecommendation, manifest: UsageManifest): DoctorFinding {
+  return {
+    code: recommendation.code,
+    severity: recommendation.severity,
+    source: 'doctor',
+    message: recommendation.message,
+    hint: recommendation.hint,
+    details: {
+      ...recommendation.details,
+      target: manifest.target,
+      matches: manifest.summary.matches,
+    },
+  };
 }
 
 function jsonProductionFindings(resources: DoctorResource[], config: DoctorConfig): DoctorFinding[] {

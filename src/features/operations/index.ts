@@ -32,26 +32,26 @@ type BuildOperationOptions = {
   createDirectory?: boolean;
 };
 
-type OperationRef = {
+export type OperationRef = {
   name: string;
   ref: string;
 };
 
-type OperationManifest = {
+export type OperationManifest = {
   version: 1;
   kind: 'db.operations';
   generatedAt: string;
   operations: Record<string, RegisteredOperation>;
 };
 
-type OperationRefsManifest = {
+export type OperationRefsManifest = {
   version: 1;
   kind: 'db.operationRefs';
   generatedAt: string;
   operations: Record<string, OperationRef>;
 };
 
-type OperationContract = {
+export type OperationContract = {
   version: 1;
   kind: 'db.operationContract';
   operations: Record<string, OperationRef>;
@@ -75,7 +75,7 @@ export async function buildOperationManifest(config: OperationConfig, options: B
 }> {
   const operations = await loadOperationSources(config, {
     ...options,
-    createDirectory: true,
+    createDirectory: options.createDirectory ?? true,
   });
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const registryEntries = buildRegistryEntries(operations);
@@ -130,6 +130,37 @@ export async function buildOperationRegistry(
   return operationMapFromEntries(buildRegistryEntries(operations));
 }
 
+export function operationRegistryFromManifest(manifest: unknown): Record<string, RegisteredOperation> {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    throw invalidOperationRegistry('invalid-manifest', {
+      actualType: Array.isArray(manifest) ? 'array' : typeof manifest,
+    });
+  }
+
+  const record = manifest as Record<string, unknown>;
+  if (record.kind !== 'db.operations') {
+    throw invalidOperationRegistry('invalid-manifest-kind', {
+      expectedKind: 'db.operations',
+      actualKind: typeof record.kind === 'string' ? record.kind : null,
+    });
+  }
+
+  const operations = record.operations;
+  if (!operations || typeof operations !== 'object' || Array.isArray(operations)) {
+    throw invalidOperationRegistry('invalid-operations', {
+      actualType: Array.isArray(operations) ? 'array' : typeof operations,
+    });
+  }
+
+  return normalizeOperationRegistry(operations as Record<string, OperationTemplate>);
+}
+
+export function normalizeOperationRegistry(registry: Record<string, OperationTemplate>): Record<string, RegisteredOperation> {
+  return operationMapFromEntries(
+    Object.entries(registry ?? {}).map(([key, operation]) => [key, normalizeRegisteredOperation(key, operation)]),
+  );
+}
+
 export function operationClientContract(refs: Partial<OperationRefsManifest> | null | undefined): OperationContract {
   return {
     version: 1,
@@ -152,7 +183,7 @@ function buildRegistryEntries(operations: OperationTemplate[]): Array<[string, R
   const seenNames = new Map<string, DuplicateOperationDetails>();
   const seenRefs = new Map<string, DuplicateOperationDetails>();
   return operations.map((operation, index) => {
-    const normalized = normalizeOperationTemplate(operation);
+    const normalized = normalizeRegisteredOperation('', operation);
     const ref = normalized.ref ?? hashOperation(normalized);
     const name = normalized.name ?? ref;
     const previousName = seenNames.get(name);
@@ -171,6 +202,51 @@ function buildRegistryEntries(operations: OperationTemplate[]): Array<[string, R
       ref,
     }];
   });
+}
+
+export function normalizeRegisteredOperation(key: string, operation: OperationTemplate): RegisteredOperation {
+  const normalized = normalizeOperationTemplate(operation);
+  const source = operation && typeof operation === 'object' && !Array.isArray(operation) ? operation : {};
+
+  if (normalized.kind !== 'graphql' && !normalized.path) {
+    throw invalidOperationRegistry('invalid-operation-template', {
+      reason: 'missing-executable-template',
+      key,
+      name: source.name ?? normalized.name ?? null,
+      ref: source.ref ?? normalized.ref ?? null,
+    });
+  }
+
+  if (source.name || normalized.name || key) {
+    normalized.name = String(source.name ?? normalized.name ?? key);
+  }
+  if (source.ref || normalized.ref || key) {
+    normalized.ref = String(source.ref ?? normalized.ref ?? key);
+  }
+
+  if (!normalized.ref) {
+    normalized.ref = hashOperation(normalized);
+  }
+  if (!normalized.name) {
+    normalized.name = normalized.ref;
+  }
+
+  return normalized as RegisteredOperation;
+}
+
+function invalidOperationRegistry(reason: string, details: Record<string, unknown> = {}): Error {
+  return dbError(
+    'OPERATION_INVALID_REGISTRY',
+    'Registered operation registry must be a db.operations server manifest with executable operation templates.',
+    {
+      status: 400,
+      hint: 'Run async-db operations build to generate the server registry, and use outputs.operationRefs only for client-safe refs.',
+      details: {
+        reason,
+        ...details,
+      },
+    },
+  );
 }
 
 function duplicateOperationName(

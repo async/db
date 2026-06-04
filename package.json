@@ -87,6 +87,7 @@
     "examples/*/src/**",
     "docs/**/*.md",
     "!docs/goals/**",
+    "API_SURFACE.md",
     "db.config.example.mjs",
     "CHANGELOG.md",
     "README.md",

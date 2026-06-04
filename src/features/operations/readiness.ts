@@ -1,6 +1,5 @@
-import { normalizeOperationTemplate } from '../../shared/operations.js';
 import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
-import { buildOperationRegistry } from './index.js';
+import { buildOperationRegistry, operationRegistryFromManifest } from './index.js';
 
 export const OPERATIONS_STRICT_MODE_CODE = 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS';
 const ACCEPT_REFS_RECOMMENDATION_CODE = 'OPERATIONS_STRICT_MODE_ACCEPT_REFS_RECOMMENDED';
@@ -14,6 +13,7 @@ type OperationConfig = {
   };
   operations?: {
     enabled?: boolean;
+    strict?: boolean;
     acceptRefs?: string;
     registry?: Record<string, unknown>;
     outFile?: string | null;
@@ -33,7 +33,7 @@ type OperationDiagnostic = {
 };
 
 type ReadinessDetails = {
-  restExposure: 'registered-only';
+  restExposure: string | null;
   operationsEnabled: boolean;
   registry: {
     configured: boolean;
@@ -64,7 +64,7 @@ export async function operationStrictModeFindings(
   config: OperationConfig,
   options: { includeGuidance?: boolean } = {},
 ): Promise<OperationDiagnostic[]> {
-  if (config.server?.expose?.rest !== 'registered-only') {
+  if (config.operations?.strict !== true) {
     return [];
   }
 
@@ -74,7 +74,11 @@ export async function operationStrictModeFindings(
     return [operationStrictModeDiagnostic(readiness)];
   }
 
-  if (includeGuidance && (config.operations?.acceptRefs ?? 'both') !== 'ref') {
+  if (
+    includeGuidance
+    && config.server?.expose?.rest === 'registered-only'
+    && (config.operations?.acceptRefs ?? 'both') !== 'ref'
+  ) {
     return [operationAcceptRefsRecommendation(config)];
   }
 
@@ -106,7 +110,7 @@ export async function assertOperationStrictModeReady(config: OperationConfig): P
 async function operationStrictModeReadiness(config: OperationConfig): Promise<OperationReadiness> {
   const operations = config.operations ?? {};
   const details: ReadinessDetails = {
-    restExposure: 'registered-only',
+    restExposure: typeof config.server?.expose?.rest === 'string' ? config.server.expose.rest : null,
     operationsEnabled: operations.enabled === true,
     registry: inlineRegistryDetails(operations),
     outFile: operations.outFile ? { configured: true, path: String(operations.outFile) } : { configured: false },
@@ -199,10 +203,8 @@ function inlineRegistryDetails(operations: OperationConfig['operations'] = {}): 
 async function inspectOperationRegistryFile(config: OperationConfig, outFile: string): Promise<InspectResult> {
   try {
     const manifest = JSON.parse(await dbFileSystem(config).readFile(outFile, 'utf8') as string);
-    const entries = Object.entries(manifest.operations ?? {});
-    for (const [, operation] of entries) {
-      normalizeOperationTemplate(operation as Record<string, unknown>);
-    }
+    const registry = operationRegistryFromManifest(manifest);
+    const entries = Object.entries(registry);
     if (entries.length === 0) {
       return {
         ready: false,
@@ -220,12 +222,16 @@ async function inspectOperationRegistryFile(config: OperationConfig, outFile: st
       },
     };
   } catch (error) {
+    const invalidRegistryDetails = error && typeof error === 'object' && 'code' in error && error.code === 'OPERATION_INVALID_REGISTRY'
+      ? ((error as { details?: Record<string, unknown> }).details ?? {})
+      : {};
     return {
       ready: false,
       reason: 'registry-load-failed',
       details: {
         reason: operationRegistryLoadReason(error),
         error: error.message,
+        ...invalidRegistryDetails,
       },
     };
   }
@@ -270,7 +276,7 @@ function operationStrictModeDiagnostic(readiness: OperationReadiness): Operation
     severity: 'error',
     source: 'doctor',
     message: strictModeMessage(readiness.reason),
-    hint: 'Set operations.enabled: true and provide outputs.operationRegistry, operations.registry, operations.resolveRef, or operation source files; or use server.expose.rest: "open" for local REST routes.',
+    hint: 'Set operations.enabled: true and provide outputs.operationRegistry, operations.registry, operations.resolveRef, or operation source files; or set operations.strict: false to keep startup permissive.',
     details: {
       ...readiness.details,
       reason: readiness.reason,
@@ -280,10 +286,10 @@ function operationStrictModeDiagnostic(readiness: OperationReadiness): Operation
 
 function strictModeMessage(reason: string | undefined): string {
   if (reason === 'disabled') {
-    return 'server.expose.rest: "registered-only" requires registered operations to be enabled.';
+    return 'operations.strict: true requires registered operations to be enabled.';
   }
 
-  return 'server.expose.rest: "registered-only" requires registered operations to be enabled and resolvable.';
+  return 'operations.strict: true requires registered operations to be enabled and resolvable.';
 }
 
 function operationAcceptRefsRecommendation(config: OperationConfig): OperationDiagnostic {
@@ -301,6 +307,9 @@ function operationAcceptRefsRecommendation(config: OperationConfig): OperationDi
 }
 
 function operationRegistryLoadReason(error: NodeJS.ErrnoException | SyntaxError): string {
+  if ('code' in error && error.code === 'OPERATION_INVALID_REGISTRY') {
+    return String((error as { details?: Record<string, unknown> }).details?.reason ?? 'invalid-registry');
+  }
   if ('code' in error && error.code === 'ENOENT') {
     return 'missing';
   }

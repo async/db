@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
@@ -181,10 +182,31 @@ test('doctor suggests unbundling ignored schema seed in mixed mode', async () =>
   assert.match(finding.hint, /async-db schema unbundle users/);
 });
 
-test('doctor reports registered-only REST when operations are disabled', async () => {
+test('doctor keeps registered-only REST advisory-free when operation strict mode is off', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
   await writeConfig(cwd, `export default {
+    server: {
+      expose: {
+        rest: 'registered-only',
+      },
+    },
+  };`);
+
+  const config = await loadConfig({ cwd });
+  const result = await runDbDoctor(config);
+
+  assert.equal(result.findings.some((candidate) => candidate.code === 'OPERATIONS_STRICT_MODE_WITHOUT_OPERATIONS'), false);
+  assert.equal(result.findings.some((candidate) => candidate.code === 'OPERATIONS_STRICT_MODE_ACCEPT_REFS_RECOMMENDED'), false);
+});
+
+test('doctor reports disabled operations when operation strict mode is forced', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeConfig(cwd, `export default {
+    operations: {
+      strict: true,
+    },
     server: {
       expose: {
         rest: 'registered-only',
@@ -199,15 +221,16 @@ test('doctor reports registered-only REST when operations are disabled', async (
   assert.equal(finding.severity, 'error');
   assert.equal(finding.source, 'doctor');
   assert.equal(finding.details.reason, 'disabled');
-  assert.match(finding.message, /registered-only/);
+  assert.match(finding.message, /operations\.strict: true/);
   assert.match(finding.hint, /operations\.enabled: true/);
 });
 
-test('doctor reports registered-only REST when operations have no resolvable source', async () => {
+test('doctor reports operations with no resolvable source when operation strict mode is forced', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
   await writeConfig(cwd, `export default {
     operations: {
+      strict: true,
       enabled: true,
     },
     server: {
@@ -227,11 +250,12 @@ test('doctor reports registered-only REST when operations have no resolvable sou
   assert.match(finding.hint, /outputs\.operationRegistry/);
 });
 
-test('doctor recommends ref-only acceptance for operation-only exposure without blocking', async () => {
+test('doctor recommends ref-only acceptance only when operation strict mode is forced', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
   await writeConfig(cwd, `export default {
     operations: {
+      strict: true,
       enabled: true,
       registry: {
         'users.get': {
@@ -368,6 +392,35 @@ test('doctor accepts explicit schemas for production JSON resources', async () =
   assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_JSON_PRODUCTION_SCHEMA_RECOMMENDED'), false);
 });
 
+test('doctor production usage scan adds advisory findings and manifest', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await mkdir(path.join(cwd, 'src'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/app.ts'), `
+import { createDbClient } from '@async/db/client';
+const db = createDbClient({ apiBase: '/api/db' });
+await db.query('users.get', { id: 'u_1' });
+`, 'utf8');
+
+  const config = await loadConfig({ cwd });
+  const result = await runDbDoctor({
+    ...config,
+    doctor: {
+      production: true,
+      usage: {
+        enabled: true,
+        target: './src',
+        generatedAt: '2026-06-03T00:00:00.000Z',
+      },
+    },
+  });
+
+  assert.equal(result.usage.kind, 'db.usageManifest');
+  assert.equal(result.usage.target.path, 'src');
+  assert.equal(result.findings.some((finding) => finding.code === 'USAGE_RECOMMEND_REST_REGISTERED_ONLY'), true);
+  assert.equal(result.findings.some((finding) => finding.code === 'USAGE_RECOMMEND_GRAPHQL_DISABLED'), true);
+});
+
 test('doctor CLI supports json output and strict check alias', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'todos.json', JSON.stringify([
@@ -406,4 +459,33 @@ test('doctor CLI production mode includes JSON readiness findings', async () => 
 
   assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_JSON_PRODUCTION_REVIEW'), true);
   assert.equal(result.findings.some((finding) => finding.code === 'DOCTOR_JSON_PRODUCTION_SCHEMA_RECOMMENDED'), true);
+});
+
+test('doctor CLI production usage mode includes usage manifest in json output', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await mkdir(path.join(cwd, 'src'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/app.ts'), `
+import { createDbClient } from '@async/db/client';
+const db = createDbClient();
+await db.query('users.get', { id: 'u_1' });
+`, 'utf8');
+
+  const { stdout } = await execFileAsync(process.execPath, [
+    './dist/cli.js',
+    'doctor',
+    '--production',
+    '--usage',
+    './src',
+    '--json',
+    '--cwd',
+    cwd,
+  ], {
+    cwd: path.resolve('.'),
+  });
+  const result = JSON.parse(stdout);
+
+  assert.equal(result.usage.kind, 'db.usageManifest');
+  assert.equal(result.usage.target.path, 'src');
+  assert.equal(result.findings.some((finding) => finding.code === 'USAGE_RECOMMEND_REST_REGISTERED_ONLY'), true);
 });

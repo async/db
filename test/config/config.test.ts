@@ -20,6 +20,8 @@ test('default config adds a small local mock delay range', async () => {
   assert.equal(config.types.outFile, path.join(cwd, '.db/types/index.d.ts'));
   assert.equal(config.outputs.stateDir, path.join(cwd, '.db'));
   assert.equal(config.outputs.types, path.join(cwd, '.db/types/index.d.ts'));
+  assert.equal(config.outputs.contractRefs, null);
+  assert.deepEqual(config.contracts, {});
 });
 
 test('loadConfig normalizes public outputs config and mirrors legacy fields', async () => {
@@ -33,6 +35,7 @@ test('loadConfig normalizes public outputs config and mirrors legacy fields', as
       viewerManifest: './src/generated/db.viewer.json',
       operationRegistry: './src/generated/db.operations.json',
       operationRefs: './src/generated/db.operation-refs.json',
+      contractRefs: './src/generated/db.contract-refs.json',
       honoStarterDir: './generated/hono',
     },
   };`);
@@ -46,6 +49,7 @@ test('loadConfig normalizes public outputs config and mirrors legacy fields', as
   assert.equal(config.outputs.viewerManifest, path.join(cwd, 'src/generated/db.viewer.json'));
   assert.equal(config.outputs.operationRegistry, path.join(cwd, 'src/generated/db.operations.json'));
   assert.equal(config.outputs.operationRefs, path.join(cwd, 'src/generated/db.operation-refs.json'));
+  assert.equal(config.outputs.contractRefs, path.join(cwd, 'src/generated/db.contract-refs.json'));
   assert.equal(config.outputs.honoStarterDir, path.join(cwd, 'generated/hono'));
 
   assert.equal(config.stateDir, path.join(cwd, 'var/db'));
@@ -72,6 +76,7 @@ test('public outputs config wins over legacy output keys', async () => {
       viewerManifest: './src/generated/db.viewer.json',
       operationRegistry: './src/generated/db.operations.json',
       operationRefs: './src/generated/db.operation-refs.json',
+      contractRefs: './src/generated/db.contract-refs.json',
       honoStarterDir: './generated/hono',
     },
     types: {
@@ -98,7 +103,15 @@ test('public outputs config wins over legacy output keys', async () => {
   assert.equal(config.viewerManifestOutFile, path.join(cwd, 'src/generated/db.viewer.json'));
   assert.equal(config.operations.outFile, path.join(cwd, 'src/generated/db.operations.json'));
   assert.equal(config.operations.refsOutFile, path.join(cwd, 'src/generated/db.operation-refs.json'));
+  assert.equal(config.outputs.contractRefs, path.join(cwd, 'src/generated/db.contract-refs.json'));
   assert.equal(config.generate.hono.outDir, path.join(cwd, 'generated/hono'));
+});
+
+test('operations strict mode defaults off', async () => {
+  const cwd = await makeProject();
+  const config = await loadConfig({ cwd });
+
+  assert.equal(config.operations.strict, false);
 });
 
 test('loadConfig rejects removed fixture fork config', async () => {

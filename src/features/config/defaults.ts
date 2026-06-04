@@ -12,6 +12,7 @@ type DefaultConfig = {
     viewerManifest: NullableOutput;
     operationRegistry: NullableOutput;
     operationRefs: NullableOutput;
+    contractRefs: NullableOutput;
     honoStarterDir: string;
   };
   schemaOutFile: NullableOutput;
@@ -78,12 +79,14 @@ type DefaultConfig = {
   };
   operations: {
     enabled: boolean;
+    strict: boolean;
     sourceDir: string;
     outFile: NullableOutput;
     refsOutFile: NullableOutput;
     acceptRefs: 'both' | string;
     registry: Record<string, unknown>;
   };
+  contracts: Record<string, unknown>;
   mock: {
     delay: [number, number] | number | false;
     errors: unknown;
@@ -112,6 +115,7 @@ export const DEFAULT_CONFIG: DefaultConfig = {
     viewerManifest: null,
     operationRegistry: null,
     operationRefs: null,
+    contractRefs: null,
     honoStarterDir: './db-api',
   },
   schemaOutFile: null,
@@ -178,12 +182,14 @@ export const DEFAULT_CONFIG: DefaultConfig = {
   },
   operations: {
     enabled: false,
+    strict: false,
     sourceDir: './db/operations',
     outFile: null,
     refsOutFile: null,
     acceptRefs: 'both',
     registry: {},
   },
+  contracts: {},
   mock: {
     delay: [30, 100],
     errors: null,

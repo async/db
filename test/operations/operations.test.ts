@@ -3,11 +3,12 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { buildOperationManifest as typedBuildOperationManifest, hashOperation, loadConfig as typedLoadConfig } from '../../src/index.js';
-import { operationRequest as typedOperationRequest } from '../../src/operations.js';
+import { normalizeOperationTemplate as typedNormalizeOperationTemplate, operationRequest as typedOperationRequest } from '../../src/operations.js';
 import { makeProject } from '../helpers.js';
 
 const loadConfig = async (options: unknown): Promise<any> => typedLoadConfig(options as never) as Promise<any>;
 const buildOperationManifest = async (...args: any[]): Promise<any> => typedBuildOperationManifest(args[0] as never, args[1] as never) as Promise<any>;
+const normalizeOperationTemplate = (...args: any[]): any => typedNormalizeOperationTemplate(args[0] as never);
 const operationRequest = (...args: any[]): any => typedOperationRequest(args[0] as never, args[1] as never);
 
 test('operation strings and JSON templates canonicalize to the same stable hash', () => {
@@ -301,6 +302,22 @@ test('operation requests validate variables and encode path and query values', (
 
   assert.equal(request.method, 'GET');
   assert.equal(request.path, '/users/u%201%2F..%2Fadmin.json?filter=email%3Da%2Bb%40example.com%26role%3Dadmin&select=id,name');
+});
+
+test('operation string templates report stable errors for invalid URLs', () => {
+  assert.throws(
+    () => normalizeOperationTemplate('GET http://%'),
+    (error: any) => error.code === 'OPERATION_INVALID_TEMPLATE'
+      && error.status === 400
+      && error.details.reason === 'invalid-url',
+  );
+
+  assert.throws(
+    () => normalizeOperationTemplate('GET %'),
+    (error: any) => error.code === 'OPERATION_INVALID_TEMPLATE'
+      && error.status === 400
+      && error.details.reason === 'invalid-encoding',
+  );
 });
 
 test('GraphQL operation requests substitute registered variables without parsing query variables', () => {

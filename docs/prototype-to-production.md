@@ -183,6 +183,60 @@ async-db operations contract --check
 `--check` compares the current operation sources with `outputs.operationRefs`
 or an explicit `--out <file>` and fails when exposed names or refs change.
 
+For app-to-app sharing, put resource and operation limits under `contracts`.
+Schema tags can help infer a starting point, but `contracts` are the enforced
+API:
+
+```js
+export default defineConfig({
+  contracts: {
+    public: {
+      resources: {
+        users: {
+          fields: ['id', 'name', 'avatarUrl'],
+          read: true,
+          write: false,
+        },
+      },
+      operations: ['GetPublicUser', 'SearchPublicUsers'],
+    },
+    admin: {
+      resources: {
+        users: {
+          fields: ['id', 'name', 'email', 'role'],
+          read: true,
+          write: ['create', 'patch'],
+        },
+      },
+      operations: ['GetUserAdmin', 'UpdateUserRole'],
+    },
+  },
+});
+```
+
+Generate or check contract-scoped refs:
+
+```bash
+async-db contracts infer --from-tags
+async-db contracts infer --from-usage ./src
+async-db contracts check
+async-db contracts refs --out ./src/generated/db.contract-refs.json
+```
+
+Runtime callers can pass the contract they are executing under:
+
+```ts
+await db.query(operationRefs.contracts.public.operations.GetPublicUser.ref, {
+  id: 'u_1'
+}, {
+  contract: 'public'
+});
+```
+
+The runtime checks that the ref belongs to the contract, the REST operation
+touches allowed resources, selected fields stay inside the field list, and
+writes match the contract write policy.
+
 By default, `operations.*.ref` is generated with `hashOperation()`. Set an
 explicit `ref` in the operation source when the app wants a readable or
 app-owned callable id:
@@ -226,10 +280,11 @@ registerDbRoutes(app, db, {
 });
 ```
 
-If the generated `outputs.operationRegistry` is missing or invalid, operation
-execution fails with `OPERATION_REGISTRY_LOAD_FAILED` so you can rebuild the
-registry or fix the configured path. A loaded registry that simply lacks a ref
-still returns `OPERATION_NOT_FOUND`.
+If the generated `outputs.operationRegistry` is missing, invalid, or points at
+the client-safe refs file instead of the server registry, operation execution
+fails with `OPERATION_REGISTRY_LOAD_FAILED` so you can rebuild the registry or
+fix the configured path. A loaded registry that simply lacks a ref still returns
+`OPERATION_NOT_FOUND`.
 
 Refs are allowlist identifiers, not secrets. They reduce route exploration and
 hide query shape from casual client inspection, but anyone who can call your API
@@ -285,16 +340,88 @@ POST /api/db/operations/GetUserProfile
 POST /api/db/operations/users.profile.get
 ```
 
-The built-in server and `async-db doctor` fail early when
-`server.expose.rest: 'registered-only'` is configured without
-`operations.enabled: true` or without a resolvable operation source. Provide
-`outputs.operationRegistry`, `operations.registry`, `operations.resolveRef`, or
-operation files under `operations.sourceDir`; otherwise use
-`server.expose.rest: 'open'` while keeping local REST routes available.
+`registered-only` does not make @async/db define production policy for your
+app. The built-in server still starts if registered operations are disabled;
+raw REST stays blocked and operation requests fail at request time. If you want
+startup and `async-db doctor` to fail early when operations are missing or
+unresolved, opt into that readiness check:
+
+```js
+export default defineConfig({
+  operations: {
+    enabled: true,
+    strict: true,
+    acceptRefs: 'ref',
+  },
+  server: {
+    expose: {
+      rest: 'registered-only',
+    },
+  },
+});
+```
+
+With `operations.strict: true`, provide `outputs.operationRegistry`,
+`operations.registry`, `operations.resolveRef`, or operation files under
+`operations.sourceDir`.
 
 Use `server.expose.graphql: false` when the production-facing API is REST-only.
 If you use registered GraphQL operations, keep `graphql.enabled` on and use
 `server.expose.graphql: false` to hide only the direct GraphQL endpoint.
+
+## Turn Off Unused Endpoints
+
+@async/db keeps endpoint choices separate so each app can decide what
+production means. Use the smallest surface that matches the app code:
+
+```js
+import { defineConfig } from '@async/db/config';
+
+export default defineConfig({
+  rest: {
+    enabled: false,
+  },
+  graphql: {
+    enabled: false,
+  },
+  falcor: {
+    enabled: false,
+  },
+  server: {
+    expose: {
+      rest: 'registered-only',
+      graphql: false,
+      viewer: 'dev',
+      schema: 'dev',
+      manifest: 'dev',
+    },
+  },
+});
+```
+
+`rest.enabled: false` removes generated REST resource routes and REST batching.
+Use `server.expose.rest: 'registered-only'` instead when registered operations
+should keep working but raw REST should close. `graphql.enabled: false`
+disables GraphQL execution entirely. If registered GraphQL operations still
+need GraphQL execution, keep `graphql.enabled: true` and set
+`server.expose.graphql: false` to hide the direct GraphQL endpoint.
+`falcor.enabled: false` disables `/model.json`. Keep viewer, schema, and
+manifest exposure at `'dev'` for local tools, or set them to `false` when a
+production-facing mount should not serve those metadata routes.
+
+Use the static usage scanner to review what the app appears to call:
+
+```bash
+async-db usage scan ./src --production
+async-db usage scan ./src --production --out ./src/generated/db.usage.json
+async-db usage scan ./src --production --check ./src/generated/db.usage.json
+async-db doctor --production --usage ./src --json
+```
+
+The scanner reads source text only; it does not execute app files. The generated
+`db.usageManifest` records package imports, client calls, route literals,
+config toggles, and advisory endpoint recommendations. Treat the manifest as a
+review aid, not telemetry or proof that dynamic code cannot call an endpoint.
 
 ## Move To An Owned API Server
 
@@ -372,7 +499,9 @@ repository, deploy process, migrations, and production storage.
 - Register string operation names or refs for stable app contracts.
 - Import generated operation refs and call `.ref`; set explicit refs when app-owned callable ids are clearer.
 - Use `acceptRefs: 'ref'` for opaque public clients, or `acceptRefs: 'name'` for readable internal APIs.
+- Run `async-db usage scan --production` before choosing endpoint exposure.
 - Set `server.expose.rest: 'registered-only'` before treating operation refs as the public contract.
+- Disable unused GraphQL and Falcor endpoints with `graphql.enabled: false` and `falcor.enabled: false`.
 - Add app-owned auth, authorization, rate limits, and observability outside the registered operation registry.
 - Generate a Hono/SQLite API when the endpoint needs production storage and deployment boundaries.
 - Keep low-write control-plane resources in JSON when that is operationally appropriate, but move high-write, transactional, or multi-writer resources to SQLite, Postgres, or another app-owned store.

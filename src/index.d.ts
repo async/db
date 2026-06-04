@@ -154,6 +154,8 @@ export type DbOutputOptions = {
   operationRegistry?: string | null;
   /** Optional client-safe registered operation refs output path. */
   operationRefs?: string | null;
+  /** Optional contract-scoped operation refs output path. */
+  contractRefs?: string | null;
   /** Output folder for generated Hono starter code. Defaults to "./db-api". */
   honoStarterDir?: string;
 };
@@ -263,6 +265,12 @@ export type DbRuntimeAdapter = {
 export type DbDoctorOptions = {
   /** Include production-readiness diagnostics for JSON-backed resources. */
   production?: boolean;
+  /** Scan app source usage for endpoint exposure guidance. Defaults to false. */
+  usage?: boolean | {
+    enabled?: boolean;
+    target?: string;
+    generatedAt?: string;
+  };
 };
 
 export type DbRuntimeAdapterFactory =
@@ -367,14 +375,27 @@ export type DbGraphqlOperationTemplate = {
 
 export type DbOperationTemplate = string | DbRestOperationTemplate | DbGraphqlOperationTemplate;
 
+export type DbNormalizedOperationTemplate = {
+  kind?: 'graphql';
+  name?: string;
+  ref?: string;
+  method?: string;
+  path?: string;
+  query?: string | Record<string, unknown>;
+  body?: unknown;
+  variables?: Record<string, unknown>;
+  operationName?: string | null;
+};
+
 export type DbOperationRef = {
   name?: string;
   /** Callable ref for client query(). */
   ref: string;
 };
 
-export type DbRegisteredOperation = Exclude<DbOperationTemplate, string> & {
-  ref?: string;
+export type DbRegisteredOperation = DbNormalizedOperationTemplate & {
+  name: string;
+  ref: string;
 };
 
 export type DbOperationRegistryValue = DbOperationTemplate | DbRegisteredOperation;
@@ -401,6 +422,8 @@ export type DbOperationValidateRef = (
 export type DbOperationsOptions = {
   /** Enable registered operation execution. Defaults to false. */
   enabled?: boolean;
+  /** Fail startup and doctor unless registered operations are enabled with a resolvable server registry. Defaults to false. */
+  strict?: boolean;
   /** Folder containing operation source templates. Defaults to "./db/operations". */
   sourceDir?: string;
   /** Backwards-compatible alias for outputs.operationRegistry. */
@@ -409,12 +432,87 @@ export type DbOperationsOptions = {
   refsOutFile?: string | null;
   /** Controls which default refs the server accepts. Defaults to "both". */
   acceptRefs?: DbOperationAcceptRefs;
+  /** Optional contract enforced for all operation executions through this handler. */
+  contract?: string;
   /** Custom server-side operation lookup for framework adapters or app registries. */
   resolveRef?: DbOperationResolveRef;
   /** Custom server-side validation or mapping for operation refs. */
   validateRef?: DbOperationValidateRef;
   /** Inline server registry keyed by operation ref or operation name. */
   registry?: Record<string, DbOperationRegistryValue>;
+};
+
+export type DbOperationManifest = {
+  version: 1;
+  kind: 'db.operations';
+  generatedAt: string;
+  operations: Record<string, DbRegisteredOperation>;
+};
+
+export type DbOperationRefsManifest = {
+  version: 1;
+  kind: 'db.operationRefs';
+  generatedAt: string;
+  operations: Record<string, {
+    name: string;
+    ref: string;
+  }>;
+};
+
+export type DbOperationContract = {
+  version: 1;
+  kind: 'db.operationContract';
+  operations: Record<string, {
+    name: string;
+    ref: string;
+  }>;
+};
+
+export type DbContractWrite = boolean | Array<'create' | 'patch' | 'replace' | 'delete' | string>;
+
+export type DbContractResource = {
+  fields?: string[];
+  read?: boolean;
+  write?: DbContractWrite;
+};
+
+export type DbContractDefinition = {
+  resources?: Record<string, DbContractResource>;
+  operations?: string[];
+  events?: Record<string, unknown>;
+};
+
+export type DbContractsOptions = Record<string, DbContractDefinition>;
+
+export type DbContractRefsManifest = {
+  version: 1;
+  kind: 'db.contractRefs';
+  generatedAt: string;
+  contracts: Record<string, {
+    resources: Record<string, DbContractResource>;
+    operations: Record<string, {
+      name: string;
+      ref: string;
+    }>;
+  }>;
+};
+
+export type DbContractsCheckFinding = {
+  severity: 'error' | 'warn';
+  code: string;
+  contract: string;
+  operation?: string;
+  resource?: string;
+  field?: string;
+  message: string;
+  hint?: string;
+};
+
+export type DbContractsCheckResult = {
+  version: 1;
+  kind: 'db.contractsCheck';
+  ok: boolean;
+  findings: DbContractsCheckFinding[];
 };
 
 export type DbOperationResult = {
@@ -427,13 +525,18 @@ export type DbOperationResult = {
 
 export type DbOperationRequestBody = {
   variables?: Record<string, unknown>;
+  contract?: string;
+};
+
+export type DbOperationExecutionOptions = {
+  contract?: string;
 };
 
 export type DbOperationHandler = {
   enabled: boolean;
   resolve(ref: string): Promise<DbRegisteredOperation | null | undefined>;
-  execute(ref: string, variables?: Record<string, unknown>): Promise<DbOperationResult>;
-  executeRequest(ref: string, body?: DbOperationRequestBody | null): Promise<DbOperationResult>;
+  execute(ref: string, variables?: Record<string, unknown>, options?: DbOperationExecutionOptions): Promise<DbOperationResult>;
+  executeRequest(ref: string, body?: DbOperationRequestBody | null, options?: DbOperationExecutionOptions): Promise<DbOperationResult>;
 };
 
 export type DbSourceReaderContext = {
@@ -664,6 +767,8 @@ export type DbOptions = {
   };
   /** Optional registered REST operation settings. */
   operations?: DbOperationsOptions;
+  /** Contract-scoped sharing boundaries for resources, fields, operations, and writes. */
+  contracts?: DbContractsOptions;
   mock?: {
     /** Local response delay in ms, [minMs, maxMs], or an object range. Defaults to [30, 100]. Use 0 to disable. */
     delay?: number | [number, number] | {
@@ -824,8 +929,8 @@ export type Db<Types extends DbTypeMap = DbTypeMap> = {
   branch(name: string): Db<Types>;
   collection<Name extends keyof Types['collections'] & string>(name: Name): DbCollection<Types['collections'][Name]>;
   document<Name extends keyof Types['documents'] & string>(name: Name): DbDocument<Types['documents'][Name]>;
-  operation(ref: string, variables?: Record<string, unknown>): Promise<unknown>;
-  query(ref: string, variables?: Record<string, unknown>): Promise<unknown>;
+  operation(ref: string, variables?: Record<string, unknown>, options?: DbOperationExecutionOptions): Promise<unknown>;
+  query(ref: string, variables?: Record<string, unknown>, options?: DbOperationExecutionOptions): Promise<unknown>;
   resourceNames(): string[];
   close(): Promise<void>;
 };
@@ -994,6 +1099,63 @@ export type DbDoctorFinding = {
   details?: Record<string, unknown>;
 };
 
+export type DbUsageSurface =
+  | 'client'
+  | 'config'
+  | 'falcor'
+  | 'graphql'
+  | 'hono'
+  | 'json'
+  | 'manifest'
+  | 'operations'
+  | 'package'
+  | 'rest'
+  | 'schema'
+  | 'stores'
+  | 'viewer'
+  | 'vite';
+
+export type DbUsageMatch = {
+  surface: DbUsageSurface;
+  kind: string;
+  file: string;
+  line: number;
+  snippet: string;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+export type DbUsageManifest = {
+  version: 1;
+  kind: 'db.usageManifest';
+  generatedAt: string;
+  target: {
+    path: string;
+    kind: 'file' | 'directory';
+  };
+  summary: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: number;
+    recommendations: number;
+  };
+  surfaces: Record<DbUsageSurface, {
+    count: number;
+    kinds: Record<string, number>;
+  }>;
+  recommendations: Array<{
+    code: string;
+    severity: 'info';
+    surface: DbUsageSurface;
+    message: string;
+    hint: string;
+    details: Record<string, unknown>;
+  }>;
+  files: Array<{
+    path: string;
+    matches: DbUsageMatch[];
+  }>;
+};
+
 export type DbDoctorResult = {
   summary: {
     error: number;
@@ -1001,6 +1163,7 @@ export type DbDoctorResult = {
     info: number;
   };
   findings: DbDoctorFinding[];
+  usage?: DbUsageManifest;
 };
 
 export type DbRequestHandlerOptions = {
@@ -1116,13 +1279,53 @@ export function buildOperationManifest(
     refsOutFile?: string;
     generatedAt?: string;
     operations?: DbOperationTemplate[];
+    write?: boolean;
+    createDirectory?: boolean;
   },
 ): Promise<{
-  manifest: unknown;
-  refs: unknown;
+  manifest: DbOperationManifest;
+  refs: DbOperationRefsManifest;
   outFiles: string[];
   refsOutFiles: string[];
 }>;
+export function buildContractRefsManifest(
+  config: DbOptions,
+  options?: {
+    generatedAt?: string;
+    outFile?: string | null;
+    write?: boolean;
+  },
+): Promise<{
+  manifest: DbContractRefsManifest;
+  outFiles: string[];
+}>;
+export function inferContractsFromTags(
+  config: DbOptions,
+  options?: { generatedAt?: string },
+): Promise<{
+  version: 1;
+  kind: 'db.contractsInference';
+  source: 'tags';
+  generatedAt: string;
+  contracts: DbContractsOptions;
+}>;
+export function inferContractsFromUsage(
+  config: DbOptions,
+  options?: { target?: string; generatedAt?: string },
+): Promise<{
+  version: 1;
+  kind: 'db.contractsInference';
+  source: 'usage';
+  generatedAt: string;
+  contracts: DbContractsOptions;
+}>;
+export function checkContracts(config: DbOptions): Promise<DbContractsCheckResult>;
+export function assertOperationAllowedByContract(
+  config: DbOptions,
+  operation: DbRegisteredOperation,
+  requestedRef: string,
+  contractName: string,
+): void;
 export function mergeManifest(base: unknown, patch: unknown): unknown;
 export function resourceNameFromPath(file: string, options?: { strategy?: DbResourceNamingStrategy }): string;
 export function parseFixturePath(file: string): {

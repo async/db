@@ -15,6 +15,7 @@ type DoctorResult = {
     message: string;
     hint?: string;
   }>;
+  usage?: unknown;
 };
 
 export async function runDoctor(config: CliConfig, args: string[]): Promise<void> {
@@ -37,7 +38,7 @@ export async function runDoctor(config: CliConfig, args: string[]): Promise<void
 }
 
 function doctorConfig(config: CliConfig, args: string[]): CliConfig {
-  if (!args.includes('--production')) {
+  if (!args.includes('--production') && !args.includes('--usage')) {
     return config;
   }
 
@@ -45,7 +46,19 @@ function doctorConfig(config: CliConfig, args: string[]): CliConfig {
     ...config,
     doctor: {
       ...(config.doctor && typeof config.doctor === 'object' ? config.doctor : {}),
-      production: true,
+      ...(args.includes('--production') ? { production: true } : {}),
+      ...(args.includes('--usage') ? {
+        usage: {
+          enabled: true,
+          target: usageTarget(args),
+        },
+      } : {}),
     },
   };
+}
+
+function usageTarget(args: string[]): string | undefined {
+  const index = args.indexOf('--usage');
+  const value = index === -1 ? undefined : args[index + 1];
+  return value && !value.startsWith('--') ? value : undefined;
 }

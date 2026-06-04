@@ -2,6 +2,8 @@ import { isStandardSchema } from './standard-schema.js';
 
 export type SchemaFieldDefinition = {
   type: string;
+  tags?: string[];
+  visibility?: string;
   fields?: Record<string, SchemaFieldDefinition>;
   items?: SchemaFieldDefinition;
   metadataOnly?: boolean;
@@ -23,6 +25,10 @@ export type SchemaResourceDefinition = {
 
 type FieldOptions = Omit<SchemaFieldDefinition, 'type'> & {
   type?: string;
+};
+
+type FieldBuilderDefinition = SchemaFieldDefinition & {
+  tag(tag: string): FieldBuilderDefinition;
 };
 
 type ComputedResolveFunction = (...args: unknown[]) => unknown;
@@ -53,11 +59,11 @@ export function files(patterns: string | readonly string[], options: FilesOption
   };
 }
 
-function makeField(type: string, extras: FieldOptions = {}): SchemaFieldDefinition {
-  return {
+function makeField(type: string, extras: FieldOptions = {}): FieldBuilderDefinition {
+  return attachFieldHelpers({
     type,
     ...extras,
-  };
+  });
 }
 
 export const field = {
@@ -122,27 +128,42 @@ export const field = {
   },
 
   nullable(definition: SchemaFieldDefinition, options: FieldOptions = {}) {
-    return {
+    return attachFieldHelpers({
       ...definition,
       ...options,
       nullable: true,
-    };
+    });
   },
 
   computed(definition: SchemaFieldDefinition, resolver: ComputedResolveFunction | ComputedResolver = {}) {
     const normalizedResolver = typeof resolver === 'function'
       ? { resolve: resolver }
       : resolver;
-    return {
+    return attachFieldHelpers({
       ...definition,
       computed: true,
       readOnly: true,
       required: false,
       resolve: normalizedResolver?.resolve,
       resolveMany: normalizedResolver?.resolveMany,
-    };
+    });
   },
 };
+
+function attachFieldHelpers(definition: SchemaFieldDefinition): FieldBuilderDefinition {
+  Object.defineProperty(definition, 'tag', {
+    enumerable: false,
+    configurable: true,
+    value(this: SchemaFieldDefinition, tag: string) {
+      const tags = Array.isArray(this.tags) ? this.tags.map(String) : [];
+      return attachFieldHelpers({
+        ...this,
+        tags: [...new Set([...tags, String(tag)])],
+      });
+    },
+  });
+  return definition as FieldBuilderDefinition;
+}
 
 function resourceDefinition(
   kind: 'collection' | 'document',

@@ -121,7 +121,9 @@ export async function createDbRuntime(options: DbRuntimeOptions | string = {}): 
   }) as unknown as RuntimeDb;
 
   try {
-    await assertOperationStrictModeReady(db.config as never);
+    if (db.config.operations?.strict === true) {
+      await assertOperationStrictModeReady(db.config as never);
+    }
     if (openOptions.syncOnOpen === false && hydrateOnOpen !== false) {
       await db.runtime?.hydrate?.();
     }

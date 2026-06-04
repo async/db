@@ -8,11 +8,19 @@ export type FieldDefinition =
   | ({ type: 'array'; items?: FieldDefinition } & FieldOptions<unknown[]>)
   | ({ type: 'unknown' } & FieldOptions<unknown>);
 
+export type SchemaFieldTag = 'public' | 'internal' | 'private' | string;
+
+export type FieldBuilderDefinition = FieldDefinition & {
+  tag(tag: SchemaFieldTag): FieldBuilderDefinition;
+};
+
 export type FieldOptions<DefaultValue> = {
   required?: boolean;
   nullable?: boolean;
   description?: string;
   default?: DefaultValue;
+  tags?: readonly SchemaFieldTag[];
+  visibility?: SchemaFieldTag;
   computed?: boolean;
   readOnly?: boolean;
   relation?: RelationDefinition;
@@ -176,18 +184,18 @@ export function document<Input = unknown, Output = unknown>(
 export function files(patterns: string | readonly string[], options?: { read?: FilesSourceDefinition['read'] }): FilesSourceDefinition;
 
 export const field: {
-  string(options?: FieldOptions<string>): FieldDefinition;
-  datetime(options?: FieldOptions<string>): FieldDefinition;
-  number(options?: FieldOptions<number>): FieldDefinition;
-  boolean(options?: FieldOptions<boolean>): FieldDefinition;
+  string(options?: FieldOptions<string>): FieldBuilderDefinition;
+  datetime(options?: FieldOptions<string>): FieldBuilderDefinition;
+  number(options?: FieldOptions<number>): FieldBuilderDefinition;
+  boolean(options?: FieldOptions<boolean>): FieldBuilderDefinition;
   enum<const Values extends readonly (string | number | boolean)[]>(
     values: Values,
     options?: FieldOptions<Values[number]>,
-  ): FieldDefinition;
-  object(fields?: Record<string, FieldDefinition>, options?: ObjectFieldOptions): FieldDefinition;
-  array(items?: FieldDefinition, options?: FieldOptions<unknown[]>): FieldDefinition;
-  json(options?: FieldOptions<unknown>): FieldDefinition;
-  meta(options?: FieldMetaOptions): FieldDefinition;
-  nullable(definition: FieldDefinition, options?: Omit<FieldOptions<unknown>, 'nullable'>): FieldDefinition;
-  computed(definition: FieldDefinition, resolver?: ComputedFieldResolver['resolve'] | ComputedFieldResolver): FieldDefinition;
+  ): FieldBuilderDefinition;
+  object(fields?: Record<string, FieldDefinition>, options?: ObjectFieldOptions): FieldBuilderDefinition;
+  array(items?: FieldDefinition, options?: FieldOptions<unknown[]>): FieldBuilderDefinition;
+  json(options?: FieldOptions<unknown>): FieldBuilderDefinition;
+  meta(options?: FieldMetaOptions): FieldBuilderDefinition;
+  nullable(definition: FieldDefinition, options?: Omit<FieldOptions<unknown>, 'nullable'>): FieldBuilderDefinition;
+  computed(definition: FieldDefinition, resolver?: ComputedFieldResolver['resolve'] | ComputedFieldResolver): FieldBuilderDefinition;
 };

@@ -20,8 +20,13 @@ npm run db -- schema validate
 npm run db -- viewer manifest --out ./src/generated/db.viewer.json
 npm run db -- operations build
 npm run db -- operations build --out ./src/generated/db.operations.json --refs-out ./src/generated/db.operation-refs.json
+npm run db -- contracts check
+npm run db -- contracts refs --out ./src/generated/db.contract-refs.json
+npm run db -- usage scan ./src --production
+npm run db -- usage scan ./src --production --out ./src/generated/db.usage.json
 npm run db -- doctor
 npm run db -- doctor --production
+npm run db -- doctor --production --usage ./src --json
 npm run db -- doctor --json
 npm run db -- check --strict --production
 npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
@@ -38,8 +43,10 @@ async-db types
 async-db schema validate
 async-db viewer manifest --out ./src/generated/db.viewer.json
 async-db operations build
+async-db usage scan ./src --production
 async-db doctor
 async-db doctor --production
+async-db doctor --production --usage ./src --json
 async-db check --strict --production
 async-db serve
 async-db generate hono
@@ -356,6 +363,16 @@ await client.query({ name: 'GetUser', ref: 'users.get' }, { id: 'u_1' });
 await client.query(operationRefs.operations.GetUser.ref, { id: 'u_1' });
 ```
 
+Package/runtime callers can also pass contract context for enforcement:
+
+```ts
+await db.query(operationRefs.operations.GetUser.ref, {
+  id: 'u_1',
+}, {
+  contract: 'public',
+});
+```
+
 String values passed to `query()` that start with `/`, or with an HTTP method
 followed by `/`, are literal REST templates. Other strings are registered query
 refs, such as an operation name or explicit ref, and call `POST
@@ -410,13 +427,20 @@ const handler = createDbOperationHandler(db, {
 
 const result = await handler.execute(operationRefs.operations.GetUser.ref, {
   id: 'u_1',
+}, {
+  contract: 'public',
 });
 ```
 
-Use `execute(ref, variables)` for direct calls or `executeRequest(ref, body)`
-when adapting an HTTP request body shaped as `{ variables }`. Framework adapters
-should pass registry, `acceptRefs`, `resolveRef`, or `validateRef` at handler
-creation time instead of relying on per-execution public options.
+Use `execute(ref, variables, options)` for direct calls or
+`executeRequest(ref, body, options)` when adapting an HTTP request body shaped
+as `{ variables, contract }`. Framework adapters should pass registry,
+`acceptRefs`, `resolveRef`, or `validateRef` at handler creation time, and pass
+the request contract at execution time.
+
+Use `buildContractRefsManifest()`, `checkContracts()`,
+`inferContractsFromTags()`, and `inferContractsFromUsage()` for build-tool
+workflows that need the same contract logic without shelling out to the CLI.
 
 Inline registries can use full operation objects or string REST templates. The
 registry key is used as the fallback name and ref, so custom build steps can
