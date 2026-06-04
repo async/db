@@ -236,11 +236,7 @@ export class Db {
   constructor(config: DbConfig, resources: DbResource[], diagnostics: unknown[] = [], scope?: DbScope) {
     const scoped = normalizeScopedConfig(config, scope);
     this.config = scoped.config as DbConfig;
-    this.resources = new DbResourceRegistry(
-      resources.map((resource) => [resource.name, resource]),
-      (name, options) => this.migrateResource(name, options),
-    );
-    assertNoResourceAliasCollisions(this.resources);
+    this.resources = this.createResourceRegistry(resources);
     this.diagnostics = diagnostics;
     this.schemaVersion = Date.now();
     this.scope = scoped.scope;
@@ -273,6 +269,21 @@ export class Db {
     this.routing = {
       set: (routes) => this.setRouting(routes),
     };
+  }
+
+  replaceResources(resources: DbResource[], diagnostics: unknown[] = this.diagnostics): void {
+    this.resources = this.createResourceRegistry(resources);
+    this.diagnostics = diagnostics;
+    this.schemaVersion = Date.now();
+  }
+
+  private createResourceRegistry(resources: DbResource[]): DbResourceRegistry {
+    const registry = new DbResourceRegistry(
+      resources.map((resource) => [resource.name, resource]),
+      (name, options) => this.migrateResource(name, options),
+    );
+    assertNoResourceAliasCollisions(registry);
+    return registry;
   }
 
   collection(name: string): DbCollection {

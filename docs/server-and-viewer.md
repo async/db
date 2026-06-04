@@ -302,10 +302,12 @@ curl 'http://127.0.0.1:7331/db/posts/p_1.json?expand=author&select=id,title,auth
 
 ## REST Batching
 
-REST batching is supported through:
+REST batching is supported through the scoped tool endpoint and the standalone
+development alias:
 
 ```txt
 POST /__db/batch
+POST /batch
 ```
 
 If `server.apiBase` is changed, the batch endpoint follows that base, for
@@ -341,6 +343,75 @@ Errors are shaped for humans and automation:
       "path": "users"
     }
   }
+}
+```
+
+## Canonical Resource Routes And Bulk Processing
+
+Standalone `async-db serve` also exposes canonical resource aliases:
+
+```txt
+GET     /resources/users
+GET     /resources/users/:id
+POST    /resources/users
+PATCH   /resources/users/:id
+DELETE  /resources/users/:id
+```
+
+These aliases use the same runtime resources, schema validation, response
+formats, and write behavior as `/db/*`, root REST, and `/__db/rest/*`.
+
+Bulk create sends an array of records to the collection route:
+
+```bash
+curl -X POST http://127.0.0.1:7331/resources/users \
+  -H 'content-type: application/json' \
+  -d '[{"id":"u_1","name":"Ada"},{"id":"u_2","name":"Grace"}]'
+```
+
+Bulk patch can apply one patch to several ids:
+
+```json
+{
+  "ids": ["u_1", "u_2"],
+  "patch": {
+    "active": false
+  }
+}
+```
+
+It can also accept per-record patch items:
+
+```json
+[
+  { "id": "u_1", "patch": { "name": "Ada Lovelace" } },
+  { "id": "u_2", "patch": { "name": "Grace Hopper" } }
+]
+```
+
+Bulk replace uses `PUT /resources/users` with a `records` array. Only listed ids
+are replaced; unlisted records are preserved. Replacement records must satisfy
+the resource schema.
+
+Bulk delete accepts repeated query ids or a body:
+
+```txt
+DELETE /resources/users?id=u_1&id=u_2
+```
+
+```json
+{ "ids": ["u_1", "u_2"] }
+```
+
+Bulk operations execute sequentially and do not roll back earlier successful
+items. Responses include per-item status and a summary:
+
+```json
+{
+  "results": [
+    { "index": 0, "id": "u_1", "status": 200, "body": { "id": "u_1" } }
+  ],
+  "summary": { "ok": 1, "errors": 0 }
 }
 ```
 
@@ -436,7 +507,11 @@ requests, and still require `graphql.enabled !== false`.
 
 ## GraphQL Boundary
 
-GraphQL is available at `/graphql` for apps that prefer it. It supports aliases, variables, `operationName`, `__typename`, named and inline fragments, `@include`/`@skip`, HTTP batching, and minimal `__schema`/`__type` introspection for local tooling.
+GraphQL is available at `/graphql` for apps that prefer it. A scoped alias is
+also available at `/__db/graphql` for embedded dev servers. It supports aliases,
+variables, `operationName`, `__typename`, named and inline fragments,
+`@include`/`@skip`, HTTP batching, and minimal `__schema`/`__type` introspection
+for local tooling.
 
 Set `graphql.enabled: false` when an app wants REST, schema, manifest, viewer, import, and events without a GraphQL endpoint. Root discovery reports the GraphQL link as unavailable, and direct GraphQL requests return a structured `GRAPHQL_DISABLED` error.
 
@@ -458,6 +533,53 @@ Unsupported in v1:
 - full GraphQL spec introspection
 - general-purpose GraphQL validation beyond @async/db's local subset
 - relation traversal from schema relation metadata; GraphQL projects stored fields in v1
+
+## Falcor Boundary
+
+Falcor is available at `/model.json` for browser clients using
+`falcor.HttpDataSource('/model.json')`. A scoped alias is also available at
+`/__db/model.json` for embedded dev servers.
+
+Supported v1 behavior:
+
+```txt
+get(pathSets)
+set(jsonGraphEnvelope)
+call(functionPath, args)
+```
+
+Collections expose JSONGraph list refs and by-id maps:
+
+```txt
+users.length
+users[0] -> usersById.u_1
+usersById.u_1.name
+```
+
+Singleton documents expose normal nested document paths, such as
+`settings.theme`.
+
+Falcor `set` is intentionally direct: it updates collection fields or document
+paths through normal @async/db runtime writes and schema validation, then returns
+the post-write JSONGraph for the written paths. Creates, deletes, reorders, and
+multi-step workflows should use `call`.
+
+Falcor `call` maps to registered operations:
+
+```json
+{
+  "method": "call",
+  "callPath": ["operations", "users.get"],
+  "arguments": [{ "id": "u_1" }]
+}
+```
+
+This executes the registered operation ref or name `users.get`. If the operation
+returns a JSONGraph envelope, @async/db passes it through. Otherwise the result
+is wrapped under `operations.users.get.result`.
+
+Set `falcor.enabled: false` when an app wants REST, GraphQL, schema, manifest,
+viewer, import, and events without a Falcor endpoint.
 
 ## Watch Behavior
 

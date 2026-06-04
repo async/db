@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { handleFalcorRequest } from '../../falcor/http.js';
 import { handleGraphqlRequest } from '../../graphql/http.js';
 import { sendJson } from '../../rest/handler.js';
 
@@ -13,6 +14,9 @@ type HttpFeatureDb = {
     graphql?: {
       enabled?: boolean;
     };
+    falcor?: {
+      enabled?: boolean;
+    };
     server?: {
       maxBodyBytes?: number;
     };
@@ -25,6 +29,9 @@ type HttpFeatureDb = {
 type HttpRoutes = {
   logPath: string;
   graphqlPath: string;
+  graphqlAliases?: string[];
+  falcorPath: string;
+  falcorAliases?: string[];
   [key: string]: unknown;
 };
 
@@ -57,6 +64,8 @@ export function defaultHttpFeatureRegistry(): HttpFeatureRegistry {
     runtimeLogHttpFeature(),
     graphqlDisabledHttpFeature(),
     graphqlHttpFeature(),
+    falcorDisabledHttpFeature(),
+    falcorHttpFeature(),
   ]);
 }
 
@@ -95,7 +104,7 @@ function graphqlHttpFeature(): HttpFeature {
     name: 'graphql',
     phase: 'postMock',
     match({ db, url, routes }) {
-      return db.config.graphql?.enabled !== false && url.pathname === routes.graphqlPath;
+      return db.config.graphql?.enabled !== false && routeMatches(url.pathname, routes.graphqlPath, routes.graphqlAliases);
     },
     async handle({ db, request, response }) {
       await handleGraphqlRequest(db, request as never, response as never);
@@ -108,7 +117,7 @@ function graphqlDisabledHttpFeature(): HttpFeature {
     name: 'graphql-disabled',
     phase: 'preMock',
     match({ db, url, routes }) {
-      return db.config.graphql?.enabled === false && url.pathname === routes.graphqlPath;
+      return db.config.graphql?.enabled === false && routeMatches(url.pathname, routes.graphqlPath, routes.graphqlAliases);
     },
     async handle({ response, routes }) {
       sendJson(response, 404, {
@@ -126,8 +135,48 @@ function graphqlDisabledHttpFeature(): HttpFeature {
   };
 }
 
+function falcorHttpFeature(): HttpFeature {
+  return {
+    name: 'falcor',
+    phase: 'postMock',
+    match({ db, url, routes }) {
+      return db.config.falcor?.enabled !== false && routeMatches(url.pathname, routes.falcorPath, routes.falcorAliases);
+    },
+    async handle({ db, request, response }) {
+      await handleFalcorRequest(db as never, request as never, response as never);
+    },
+  };
+}
+
+function falcorDisabledHttpFeature(): HttpFeature {
+  return {
+    name: 'falcor-disabled',
+    phase: 'preMock',
+    match({ db, url, routes }) {
+      return db.config.falcor?.enabled === false && routeMatches(url.pathname, routes.falcorPath, routes.falcorAliases);
+    },
+    async handle({ response, routes }) {
+      sendJson(response, 404, {
+        error: {
+          code: 'FALCOR_DISABLED',
+          message: 'Falcor endpoint is disabled.',
+          hint: 'Set falcor.enabled to true in db.config.mjs to enable the Falcor endpoint.',
+          details: {
+            falcorEnabled: false,
+            path: routes.falcorPath,
+          },
+        },
+      });
+    },
+  };
+}
+
 function featureInPhase(feature: HttpFeature, phase?: HttpFeaturePhase): boolean {
   return !phase || (feature.phase ?? 'postMock') === phase;
+}
+
+function routeMatches(pathname: string, primary: string, aliases: string[] = []): boolean {
+  return pathname === primary || aliases.includes(pathname);
 }
 
 function subscribeRuntimeLog(request: IncomingMessage, response: ServerResponse, db: HttpFeatureDb): void {

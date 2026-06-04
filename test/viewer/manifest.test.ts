@@ -143,11 +143,15 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
   assert.equal(manifest.api.batch, '/_db/batch');
   assert.equal(manifest.api.import, '/_db/import');
   assert.equal(manifest.api.graphql, '/_db/graphql');
+  assert.equal(manifest.api.falcor, '/model.json');
   assert.equal(manifest.api.restBasePath, '');
+  assert.equal(manifest.api.resourceBasePath, '/resources');
   assert.deepEqual(manifest.api.resources.projects, {
     kind: 'collection',
     list: '/projects',
     record: '/projects/{id}',
+    canonicalList: '/resources/projects',
+    canonicalRecord: '/resources/projects/{id}',
   });
   assert.equal(manifest.capabilities.collections, true);
   assert.equal(manifest.capabilities.documents, false);
@@ -155,6 +159,7 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
   assert.equal(manifest.capabilities.writes, true);
   assert.equal(manifest.capabilities.restBatch, true);
   assert.equal(manifest.capabilities.graphql, true);
+  assert.equal(manifest.capabilities.falcor, true);
   assert.equal(manifest.capabilities.csvImport, true);
   assert.equal(manifest.capabilities.liveEvents, true);
   assert.equal(manifest.collections.projects.kind, 'collection');

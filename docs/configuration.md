@@ -409,8 +409,9 @@ compact:
 [async-db:slow] GET /__db/rest/users/u_1 401 122ms route=hono-rest resource=users op=get hook=beforeRequest shortCircuit=true requestId=...
 ```
 
-Explicit integration options such as `createDbRequestHandler(db, { trace })`,
-`dbPlugin({ trace })`, `createDbHonoApp({ trace })`, and
+Explicit integration options such as `createDbRuntime({ handler: { trace } })`,
+`createDbRequestHandler(db, { trace })`, `dbPlugin({ trace })`,
+`createDbHonoApp({ trace })`, and
 `registerDbRoutes(app, db, { trace })` win over `db.config.mjs`
 `server.trace`.
 

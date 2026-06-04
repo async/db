@@ -1,6 +1,6 @@
 import { makeGeneratedSchema } from '../schema.js';
 import { serializeError } from '../errors.js';
-import { readJsonBody, sendJson, sendText } from '../rest/handler.js';
+import { readJsonBody, sendJson, sendText } from '../features/http/json-endpoint.js';
 import { executeGraphql } from './execute.js';
 
 type GraphqlHttpDb = {

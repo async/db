@@ -84,6 +84,36 @@ await db.close();
 
 Call `db.close()` when a long-running process is done with the database so stores with open handles, such as SQLite, can release them.
 
+Use `createDbRuntime()` when custom Node middleware should own the same
+development lifecycle as `async-db serve`: open the db, sync or hydrate, watch
+fixture sources, publish lifecycle events, expose request middleware, and clean
+everything up together.
+
+```ts
+import http from 'node:http';
+import { createDbRuntime } from '@async/db';
+
+const runtime = await createDbRuntime({
+  cwd: process.cwd(),
+  watch: true,
+});
+
+const server = http.createServer((request, response) => {
+  runtime.handleRequest(request, response).then((handled) => {
+    if (!handled) {
+      response.writeHead(404).end();
+    }
+  });
+});
+
+server.once('close', () => {
+  void runtime.close();
+});
+```
+
+Use `createDbRequestHandler(db, options)` only when app code already owns the
+database lifecycle and file watching.
+
 Singleton document usage:
 
 ```ts

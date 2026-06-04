@@ -333,6 +333,60 @@ test('request handler preserves standalone root REST and GraphQL routes', async 
   assert.deepEqual(graphql.json().data.users, [{ id: 'u_1' }]);
 });
 
+test('request handler exposes standalone batch and resources aliases', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada', active: true },
+  ]));
+
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
+  const resources = makeResponse();
+  const bulk = makeResponse();
+  const batch = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/resources/users'), resources), true);
+  assert.equal(await handler(makeRequest('PATCH', '/resources/users', {
+    ids: ['u_1'],
+    patch: { active: false },
+  }), bulk), true);
+  assert.equal(await handler(makeRequest('POST', '/batch', [
+    { method: 'GET', path: '/resources/users' },
+  ]), batch), true);
+
+  assert.equal(resources.status, 200);
+  assert.deepEqual(resources.json(), [{ id: 'u_1', name: 'Ada', active: true }]);
+  assert.equal(bulk.status, 200);
+  assert.deepEqual(bulk.json().summary, { ok: 1, errors: 0 });
+  assert.equal(batch.status, 200);
+  assert.deepEqual(batch.json()[0].body, [{ id: 'u_1', name: 'Ada', active: false }]);
+});
+
+test('request handler exposes scoped GraphQL and Falcor aliases', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada' },
+  ]));
+
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
+  const graphql = makeResponse();
+  const falcor = makeResponse();
+
+  assert.equal(await handler(makeRequest('POST', '/__db/graphql', {
+    query: '{ users { id } }',
+  }), graphql), true);
+  assert.equal(await handler(makeRequest('POST', '/__db/model.json', {
+    method: 'get',
+    paths: [['usersById', 'u_1', 'name']],
+  }), falcor), true);
+
+  assert.equal(graphql.status, 200);
+  assert.deepEqual(graphql.json().data.users, [{ id: 'u_1' }]);
+  assert.equal(falcor.status, 200);
+  assert.equal(falcor.json().jsonGraph.usersById.u_1.name, 'Ada');
+});
+
 test('request tracing is disabled by default', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
@@ -537,6 +591,43 @@ test('request handler disables GraphQL when graphql.enabled is false', async () 
   assert.equal(graphql.json().error.details.path, '/graphql');
 });
 
+test('request handler disables Falcor when falcor.enabled is false', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada' },
+  ]));
+  await writeConfig(cwd, `export default {
+    falcor: {
+      enabled: false
+    },
+    mock: {
+      delay: [0, 0],
+      errors: {
+        rate: 1,
+        status: 599,
+        message: 'forced chaos'
+      }
+    }
+  };`);
+
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const handler = createDbRequestHandler(db);
+  const users = makeResponse();
+  const falcor = makeResponse();
+
+  assert.equal(await handler(makeRequest('GET', '/users'), users), true);
+  assert.equal(await handler(makeRequest('POST', '/model.json', {
+    method: 'get',
+    paths: [['usersById', 'u_1', 'name']],
+  }), falcor), true);
+
+  assert.equal(users.status, 599);
+  assert.equal(users.json().mock, true);
+  assert.equal(falcor.status, 404);
+  assert.equal(falcor.json().error.code, 'FALCOR_DISABLED');
+  assert.equal(falcor.json().error.details.path, '/model.json');
+});
+
 test('request handler disables generated REST routes when rest.enabled is false', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
@@ -555,16 +646,22 @@ test('request handler disables generated REST routes when rest.enabled is false'
   const handler = createDbRequestHandler(db);
   const root = makeResponse();
   const users = makeResponse();
+  const resources = makeResponse();
   const batch = makeResponse();
+  const standaloneBatch = makeResponse();
   const schema = makeResponse();
   const manifest = makeResponse();
   const graphql = makeResponse();
 
   assert.equal(await handler(makeRequest('GET', '/'), root), true);
   assert.equal(await handler(makeRequest('GET', '/users'), users), true);
+  assert.equal(await handler(makeRequest('GET', '/resources/users'), resources), true);
   assert.equal(await handler(makeRequest('POST', '/__db/batch', [
     { method: 'GET', path: '/users' },
   ]), batch), true);
+  assert.equal(await handler(makeRequest('POST', '/batch', [
+    { method: 'GET', path: '/users' },
+  ]), standaloneBatch), true);
   assert.equal(await handler(makeRequest('GET', '/__db/schema'), schema), true);
   assert.equal(await handler(makeRequest('GET', '/__db/manifest'), manifest), true);
   assert.equal(await handler(makeRequest('POST', '/graphql', {
@@ -575,9 +672,13 @@ test('request handler disables generated REST routes when rest.enabled is false'
   assert.deepEqual(root.json().links.resources, {});
   assert.equal(users.status, 404);
   assert.equal(users.json().error.code, 'REST_DISABLED');
+  assert.equal(resources.status, 404);
+  assert.equal(resources.json().error.code, 'REST_DISABLED');
   assert.equal(users.json().error.details.resource, 'users');
   assert.equal(batch.status, 404);
   assert.equal(batch.json().error.code, 'REST_DISABLED');
+  assert.equal(standaloneBatch.status, 404);
+  assert.equal(standaloneBatch.json().error.code, 'REST_DISABLED');
   assert.equal(schema.status, 200);
   assert.equal(schema.json().resources.users.routePath, '/users');
   assert.equal(manifest.status, 200);
@@ -1232,6 +1333,7 @@ test('request handler applies route exposure policies beyond REST', async (t) =>
     server: {
       expose: {
         graphql: false,
+        falcor: false,
         viewer: 'dev',
         schema: 'disabled',
         manifest: 'registered-only',
@@ -1240,6 +1342,7 @@ test('request handler applies route exposure policies beyond REST', async (t) =>
   });
   const handler = createDbRequestHandler(db);
   const graphql = makeResponse();
+  const falcor = makeResponse();
   const viewer = makeResponse();
   const schema = makeResponse();
   const manifest = makeResponse();
@@ -1248,6 +1351,10 @@ test('request handler applies route exposure policies beyond REST', async (t) =>
   assert.equal(await handler(makeRequest('POST', '/graphql', {
     query: '{ users { id } }',
   }), graphql), true);
+  assert.equal(await handler(makeRequest('POST', '/model.json', {
+    method: 'get',
+    paths: [['usersById', 'u_1', 'name']],
+  }), falcor), true);
   assert.equal(await handler(makeRequest('GET', '/__db'), viewer), true);
   assert.equal(await handler(makeRequest('GET', '/__db/schema'), schema), true);
   assert.equal(await handler(makeRequest('GET', '/__db/manifest.json'), manifest), true);
@@ -1255,6 +1362,8 @@ test('request handler applies route exposure policies beyond REST', async (t) =>
 
   assert.equal(graphql.status, 404);
   assert.equal(graphql.json().error.code, 'GRAPHQL_DISABLED');
+  assert.equal(falcor.status, 404);
+  assert.equal(falcor.json().error.code, 'FALCOR_DISABLED');
   assert.equal(viewer.status, 404);
   assert.equal(viewer.json().error.code, 'VIEWER_DEV_ONLY');
   assert.equal(schema.status, 404);

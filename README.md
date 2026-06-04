@@ -436,11 +436,12 @@ pnpm db serve
 
 See [docs/package-api.md](./docs/package-api.md) for CLI and package export details.
 
-## REST, GraphQL, And Viewer
+## REST, GraphQL, Falcor, And Viewer
 
-The local server exposes REST routes for collections and singleton documents, plus a focused GraphQL endpoint at `/graphql` for apps that prefer GraphQL. REST remains the default path because it pairs directly with the viewer and local fixture workflow.
-Set `rest.enabled: false` when an app wants schema, manifest, viewer, import, events, and GraphQL routes without generated REST resource routes or REST batching.
+The local server exposes REST routes for collections and singleton documents, plus focused GraphQL and Falcor endpoints at `/graphql` and `/model.json`. REST remains the default path because it pairs directly with the viewer and local fixture workflow.
+Set `rest.enabled: false` when an app wants schema, manifest, viewer, import, events, GraphQL, and Falcor routes without generated REST resource routes or REST batching.
 Set `graphql.enabled: false` when an app wants REST and dev-tool routes without a GraphQL endpoint.
+Set `falcor.enabled: false` when an app wants REST, GraphQL, and dev-tool routes without a Falcor JSONGraph endpoint.
 
 ```txt
 GET     /db/users.json
@@ -453,6 +454,19 @@ GET     /db/settings.json
 PUT     /db/settings
 PATCH   /db/settings
 ```
+
+Standalone dev also exposes canonical REST aliases and a meta batch endpoint:
+
+```txt
+GET     /resources/users
+GET     /resources/users/:id
+POST    /resources/users
+PATCH   /resources/users/:id
+DELETE  /resources/users/:id
+POST    /batch
+```
+
+Bulk resource requests use the collection route: `POST /resources/users` accepts an array of records, `PATCH /resources/users` accepts `{ "ids": [...], "patch": {...} }` or per-record patch items, `PUT /resources/users` replaces listed records, and `DELETE /resources/users?id=u_1&id=u_2` deletes multiple records.
 
 Use `select`, `offset`, and `limit` when a prototype only needs part of a collection:
 
@@ -468,9 +482,11 @@ The `.json` route is a fixture-like URL for the synced runtime resource:
 `db/users.json` maps to `GET /db/users.json`, while local writes still go to
 the selected runtime store. See [Fixture-Like `.json` Routes](./docs/server-and-viewer.md#fixture-like-json-routes).
 
+GraphQL remains available at `/graphql`, and Falcor browser clients can point `falcor.HttpDataSource` at `/model.json`. Scoped aliases also exist under the tool base as `/__db/graphql`, `/__db/model.json`, and `/__db/batch` for embedded dev servers.
+
 The viewer at `/__db` lets you inspect resources, import CSV files into the configured fixture folder, view generated schema metadata, read GraphQL SDL/operation references, and try REST requests without writing client code first.
 
-The built-in viewer and custom viewer UIs use the same JSON manifest at `/__db/manifest.json`. `/__db/manifest.html` opens a formatted JSON viewer, `/__db/manifest.md` returns an AI-friendly Markdown wrapper, and `/__db/manifest` chooses from registered media types in `Accept`. Apps can use `api.formats` from the manifest to discover supported extensions and build their own viewer UI against REST or GraphQL records.
+The built-in viewer and custom viewer UIs use the same JSON manifest at `/__db/manifest.json`. `/__db/manifest.html` opens a formatted JSON viewer, `/__db/manifest.md` returns an AI-friendly Markdown wrapper, and `/__db/manifest` chooses from registered media types in `Accept`. Apps can use `api.formats` from the manifest to discover supported extensions and build their own viewer UI against REST, GraphQL, or Falcor records.
 
 See [docs/server-and-viewer.md](./docs/server-and-viewer.md). When local
 `/db/*` routes are ready to become `/api/db/*` or `/api/*` production API

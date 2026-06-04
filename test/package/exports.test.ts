@@ -45,7 +45,7 @@ async function declarationFiles(directory: string): Promise<string[]> {
 
 test('consumer projects can import package APIs through the @async/db package', async () => {
   const cwd = await makeProject();
-  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createIndexedDbCacheStorage, createMemoryFs, loadDbSchema, openDb } from '@async/db';
+  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
 import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
@@ -61,6 +61,9 @@ if (typeof loadDbSchema !== 'function') throw new Error('missing schema API');
 if (typeof createDbOperationHandler !== 'function') throw new Error('missing operation handler API');
 if (typeof createDbRequestHandler !== 'function') throw new Error('missing request handler API');
 if (typeof createMemoryFs !== 'function') throw new Error('missing memory fs helper');
+if (typeof createDbRuntime !== 'function') throw new Error('missing runtime API');
+if (typeof reloadDb !== 'function') throw new Error('missing runtime reload API');
+if (typeof watchDbSources !== 'function') throw new Error('missing runtime watch API');
 if (typeof createDbClient !== 'function') throw new Error('missing client API');
 if (typeof createIndexedDbCacheStorage !== 'function') throw new Error('missing indexeddb cache API');
 if (typeof createClientIndexedDbCacheStorage !== 'function') throw new Error('missing client indexeddb cache API');
@@ -122,6 +125,7 @@ export type DbTypes = {
   await writeFile(path.join(cwd, 'src/check-package.ts'), `import {
   createDbOperationHandler,
   createDbRequestHandler,
+  createDbRuntime,
   createIndexedDbCacheStorage,
   createMemoryFs,
   loadDbSchema,
@@ -130,6 +134,11 @@ export type DbTypes = {
   type DbDocumentPath,
   type DbFileSystem,
   type DbOptions,
+  type DbRuntime,
+  type DbRuntimeLifecycleEvent,
+  type DbRuntimeOptions,
+  type DbSourceWatcher,
+  type DbWatchOptions,
 } from '@async/db';
 import { createDbClient, type DbClient } from '@async/db/client';
 import { defineConfig, type DbConfig } from '@async/db/config';
@@ -196,6 +205,24 @@ const contentSchema = collection({
 });
 
 const dbPromise: Promise<Db<DbTypes>> = openDb<DbTypes>(options);
+const runtimeOptions: DbRuntimeOptions = {
+  cwd: '.',
+  watch: false,
+  handler: {
+    rootRoutes: false,
+  },
+};
+const runtimePromise: Promise<DbRuntime> = createDbRuntime(runtimeOptions);
+const watchOptions: DbWatchOptions = { debounceMs: 20 };
+let watcher: DbSourceWatcher | null = null;
+let runtimeEvent: DbRuntimeLifecycleEvent | null = null;
+void runtimePromise.then((runtime) => {
+  runtime.events.subscribe((event) => {
+    runtimeEvent = event;
+  });
+  watcher = runtime.watcher;
+  void runtime.close();
+});
 void dbPromise.then(async (db) => {
   await db.forks.create('tenant_acme', { from: 'main', metadata: { purpose: 'tenant' } });
   const tenant = await db.forks.open('tenant_acme');
@@ -255,6 +282,9 @@ void contentSchema;
 void memoryFs.readFile('db/users.json', 'utf8');
 void memoryOptions;
 void documentPath;
+void watchOptions;
+void watcher;
+void runtimeEvent;
 `, 'utf8');
 
   await execFileAsync(process.execPath, [tscPath, '-p', 'tsconfig.json'], {

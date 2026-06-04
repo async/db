@@ -2,14 +2,8 @@ import { access, mkdir, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { serializeError } from '../src/errors.js';
-import { assertOperationStrictModeReady } from '../src/features/operations/readiness.js';
-import { openDb } from '../src/index.js';
+import { createDbRuntime } from '../src/index.js';
 import { sendJson } from '../src/rest/handler.js';
-import {
-  createDbRequestHandler,
-  createViewerEventHub,
-  watchSourceDir,
-} from '../src/server.js';
 
 /**
  * Create one example runtime. Uses `serve-example.mjs` when the example ships it;
@@ -66,46 +60,27 @@ export async function createExampleRuntime(context) {
 async function createStockExampleRuntime(context) {
   const { cwd, url } = context;
   const basePath = normalizeBasePath(context.basePath);
-  const db = await openDb({
+  const runtime = await createDbRuntime({
     cwd,
     allowSourceErrors: true,
+    handler: {
+      rootRoutes: true,
+      apiBase: joinPaths(basePath, '/__db'),
+      dataPath: joinPaths(basePath, '/db'),
+      graphqlPath: joinPaths(basePath, '/graphql'),
+    },
   });
-
-  try {
-    await assertOperationStrictModeReady(db.config);
-  } catch (error) {
-    await db.close?.();
-    throw error;
-  }
-
-  const events = createViewerEventHub();
-  const requestHandler = createDbRequestHandler(db, {
-    events,
-    rootRoutes: true,
-    apiBase: joinPaths(basePath, '/__db'),
-    dataPath: joinPaths(basePath, '/db'),
-    graphqlPath: joinPaths(basePath, '/graphql'),
-  });
-  let watcher;
   let closed = false;
-
-  try {
-    watcher = await watchSourceDir(db, events);
-  } catch (error) {
-    events.close();
-    await db.close?.();
-    throw error;
-  }
 
   return {
     starterKind: 'db',
-    db,
+    db: runtime.db,
     viewerUrl: `${url}/__db`,
     demoUrl: undefined,
     demoLinks: [],
     async handleRequest(request, response) {
       try {
-        await requestHandler(request, response);
+        await runtime.handleRequest(request, response);
       } catch (error) {
         sendJson(response, error.status ?? 500, serializeError(error, 'SERVER_ERROR'));
       }
@@ -115,9 +90,7 @@ async function createStockExampleRuntime(context) {
         return;
       }
       closed = true;
-      watcher?.close();
-      events.close();
-      await db.close?.();
+      await runtime.close();
     },
   };
 }

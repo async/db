@@ -134,6 +134,9 @@ test('REST root returns JSON discovery links by default', async () => {
     manifestMarkdown: '/__db/manifest.md',
     schema: '/__db/schema',
     graphql: '/graphql',
+    falcor: '/model.json',
+    batchAliases: ['/__db/batch'],
+    resourceBasePath: '/resources',
     links: {
       viewer: '/__db',
       viewers: [{
@@ -148,8 +151,14 @@ test('REST root returns JSON discovery links by default', async () => {
       manifestMarkdown: '/__db/manifest.md',
       schema: '/__db/schema',
       graphql: '/graphql',
+      falcor: '/model.json',
+      batchAliases: ['/__db/batch'],
+      resourceBasePath: '/resources',
       resources: {
         users: '/users',
+      },
+      resourceAliases: {
+        users: '/resources/users',
       },
     },
   });
@@ -195,6 +204,9 @@ test('REST root discovery links use configured server apiBase', async () => {
     manifestMarkdown: '/_db/manifest.md',
     schema: '/_db/schema',
     graphql: '/graphql',
+    falcor: '/model.json',
+    batchAliases: ['/_db/batch'],
+    resourceBasePath: '/resources',
     links: {
       viewer: '/_db',
       viewers: [{
@@ -209,8 +221,14 @@ test('REST root discovery links use configured server apiBase', async () => {
       manifestMarkdown: '/_db/manifest.md',
       schema: '/_db/schema',
       graphql: '/graphql',
+      falcor: '/model.json',
+      batchAliases: ['/_db/batch'],
+      resourceBasePath: '/resources',
       resources: {
         users: '/users',
+      },
+      resourceAliases: {
+        users: '/resources/users',
       },
     },
   });
@@ -1522,6 +1540,154 @@ test('REST batch is sequential and keeps earlier successful writes when a later 
       email: 'ada@example.com',
       role: 'admin',
     },
+  ]);
+});
+
+test('REST bulk create returns per-item results and keeps earlier successful writes', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "email": { "type": "string", "required": true },
+      "role": { "type": "enum", "values": ["admin", "user"] }
+    },
+    "seed": []
+  }`);
+
+  const db = await openDb({ cwd });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('POST', [
+      { id: 'u_1', email: 'ada@example.com', role: 'admin' },
+      { id: 'u_2', email: 'grace@example.com', role: 'owner' },
+    ]),
+    response,
+    new URL('http://db.local/resources/users'),
+    { resourceBasePath: '/resources' },
+  );
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(response.json().summary, { ok: 1, errors: 1 });
+  assert.equal(response.json().results[0].status, 201);
+  assert.equal(response.json().results[1].status, 400);
+  assert.equal(response.json().results[1].body.error.code, 'DB_SCHEMA_VALIDATION_FAILED');
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_1', email: 'ada@example.com', role: 'admin' },
+  ]);
+});
+
+test('REST bulk patch supports shared and per-record patch bodies', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada', active: true },
+    { id: 'u_2', name: 'Grace', active: true },
+  ]));
+
+  const db = await openDb({ cwd });
+  const shared = makeResponse();
+  const perRecord = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('PATCH', {
+      ids: ['u_1', 'u_2'],
+      patch: { active: false },
+    }),
+    shared,
+    new URL('http://db.local/resources/users'),
+    { resourceBasePath: '/resources' },
+  );
+  await handleRestRequest(
+    db,
+    makeRequest('PATCH', [
+      { id: 'u_1', patch: { name: 'Ada Lovelace' } },
+      { id: 'missing', patch: { name: 'Missing' } },
+    ]),
+    perRecord,
+    new URL('http://db.local/resources/users'),
+    { resourceBasePath: '/resources' },
+  );
+
+  assert.equal(shared.status, 200);
+  assert.deepEqual(shared.json().summary, { ok: 2, errors: 0 });
+  assert.equal(perRecord.status, 200);
+  assert.deepEqual(perRecord.json().summary, { ok: 1, errors: 1 });
+  assert.equal(perRecord.json().results[1].status, 404);
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_1', name: 'Ada Lovelace', active: false },
+    { id: 'u_2', name: 'Grace', active: false },
+  ]);
+});
+
+test('REST bulk replace preserves unlisted records', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada', active: true },
+    { id: 'u_2', name: 'Grace', active: true },
+  ]));
+
+  const db = await openDb({ cwd });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('PUT', {
+      records: [
+        { id: 'u_1', name: 'Ada Lovelace', active: false },
+      ],
+    }),
+    response,
+    new URL('http://db.local/resources/users'),
+    { resourceBasePath: '/resources' },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.json().summary, { ok: 1, errors: 0 });
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_1', name: 'Ada Lovelace', active: false },
+    { id: 'u_2', name: 'Grace', active: true },
+  ]);
+});
+
+test('REST bulk delete supports repeated id query parameters and body ids', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada' },
+    { id: 'u_2', name: 'Grace' },
+    { id: 'u_3', name: 'Katherine' },
+  ]));
+
+  const db = await openDb({ cwd });
+  const queryDelete = makeResponse();
+  const bodyDelete = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('DELETE'),
+    queryDelete,
+    new URL('http://db.local/resources/users?id=u_1&id=missing'),
+    { resourceBasePath: '/resources' },
+  );
+  await handleRestRequest(
+    db,
+    makeRequest('DELETE', { ids: ['u_2'] }),
+    bodyDelete,
+    new URL('http://db.local/resources/users'),
+    { resourceBasePath: '/resources' },
+  );
+
+  assert.equal(queryDelete.status, 200);
+  assert.deepEqual(queryDelete.json().summary, { ok: 1, errors: 1 });
+  assert.equal(queryDelete.json().results[0].status, 204);
+  assert.equal(queryDelete.json().results[1].status, 404);
+  assert.equal(bodyDelete.status, 200);
+  assert.deepEqual(bodyDelete.json().summary, { ok: 1, errors: 0 });
+  assert.deepEqual(await db.collection('users').all(), [
+    { id: 'u_3', name: 'Katherine' },
   ]);
 });
 

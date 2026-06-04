@@ -1,14 +1,9 @@
 import http from 'node:http';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { openDb } from '../../../dist/index.js';
+import { createDbRuntime } from '../../../dist/index.js';
 import { serializeError } from '../../../dist/errors.js';
 import { sendJson } from '../../../dist/rest/handler.js';
-import {
-  createDbRequestHandler,
-  createViewerEventHub,
-  watchSourceDir,
-} from '../../../dist/server.js';
 import { handleSchemaUiSsrRequest } from './schema-ui-ssr-handler.mjs';
 
 /**
@@ -24,35 +19,20 @@ export async function createSchemaUiRuntime(options) {
   } = options;
   const normalizedBasePath = normalizeBasePath(basePath);
 
-  const db = await openDb({
+  const runtime = await createDbRuntime({
     cwd,
     allowSourceErrors: true,
     syncOnOpen: !skipSync,
+    handler: {
+      rootRoutes: true,
+      apiBase: joinPaths(normalizedBasePath, '/__db'),
+      dataPath: joinPaths(normalizedBasePath, '/db'),
+      graphqlPath: joinPaths(normalizedBasePath, '/graphql'),
+    },
   });
-
-  if (skipSync) {
-    await db.runtime.hydrate();
-  }
-
-  const events = createViewerEventHub();
-  const dbHandler = createDbRequestHandler(db, {
-    events,
-    rootRoutes: true,
-    apiBase: joinPaths(normalizedBasePath, '/__db'),
-    dataPath: joinPaths(normalizedBasePath, '/db'),
-    graphqlPath: joinPaths(normalizedBasePath, '/graphql'),
-  });
+  const db = runtime.db;
   const manifestUrl = pathToFileURL(path.join(cwd, 'src/generated/db.schema.json'));
-  let watcher;
   let closed = false;
-
-  try {
-    watcher = await watchSourceDir(db, events);
-  } catch (error) {
-    events.close();
-    await db.close?.();
-    throw error;
-  }
 
   return {
     db,
@@ -68,7 +48,7 @@ export async function createSchemaUiRuntime(options) {
           return;
         }
 
-        await dbHandler(request, response);
+        await runtime.handleRequest(request, response);
       } catch (error) {
         sendJson(response, error.status ?? 500, serializeError(error, 'SERVER_ERROR'));
       }
@@ -78,9 +58,7 @@ export async function createSchemaUiRuntime(options) {
         return;
       }
       closed = true;
-      watcher?.close();
-      events.close();
-      await db.close?.();
+      await runtime.close();
     },
   };
 }

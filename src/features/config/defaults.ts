@@ -72,6 +72,10 @@ type DefaultConfig = {
     enabled: boolean;
     path: string;
   };
+  falcor: {
+    enabled: boolean;
+    path: string;
+  };
   operations: {
     enabled: boolean;
     sourceDir: string;
@@ -167,6 +171,10 @@ export const DEFAULT_CONFIG: DefaultConfig = {
   graphql: {
     enabled: true,
     path: '/graphql',
+  },
+  falcor: {
+    enabled: true,
+    path: '/model.json',
   },
   operations: {
     enabled: false,

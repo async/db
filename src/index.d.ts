@@ -638,6 +638,7 @@ export type DbOptions = {
     expose?: {
       rest?: DbRouteExposure;
       graphql?: DbRouteExposure;
+      falcor?: DbRouteExposure;
       viewer?: DbRouteExposure;
       schema?: DbRouteExposure;
       manifest?: DbRouteExposure;
@@ -653,6 +654,12 @@ export type DbOptions = {
     /** Enable the focused dependency-free GraphQL endpoint. */
     enabled?: boolean;
     /** GraphQL HTTP path. Defaults to "/graphql". */
+    path?: string;
+  };
+  falcor?: {
+    /** Enable the dependency-free Falcor JSONGraph endpoint. */
+    enabled?: boolean;
+    /** Falcor HTTP path. Defaults to "/model.json". */
     path?: string;
   };
   /** Optional registered REST operation settings. */
@@ -1007,6 +1014,10 @@ export type DbRequestHandlerOptions = {
   restBasePath?: string;
   /** GraphQL endpoint path. Defaults to configured graphql.path or "/graphql". */
   graphqlPath?: string;
+  /** Falcor endpoint path. Defaults to configured falcor.path or "/model.json". */
+  falcorPath?: string;
+  /** Canonical REST resource alias base. Defaults to "/resources". */
+  resourceBasePath?: string;
   /** Explicit request trace option. Wins over db.config.mjs server.trace. */
   trace?: DbTraceOptions;
 };
@@ -1016,6 +1027,47 @@ export type DbRequestHandler = (
   response: ServerResponse,
   next?: () => void,
 ) => Promise<boolean>;
+
+export type DbRuntimeLifecycleEvent =
+  | { type: 'synced' | 'synced-with-errors'; version: number; diagnostics: unknown[] }
+  | { type: 'sync-error'; version: number; diagnostics: unknown[] }
+  | { type: 'watch-disabled'; version: number; diagnostics: unknown[] };
+
+export type DbRuntimeLifecycleEvents = {
+  subscribe(listener: (event: DbRuntimeLifecycleEvent) => void): () => void;
+  publish(event: DbRuntimeLifecycleEvent): void;
+  close(): void;
+};
+
+export type DbWatchOptions = {
+  /** Milliseconds to debounce source file changes before reloading. Defaults to 75. */
+  debounceMs?: number;
+  /** Receives watcher availability warnings. Defaults to console.warn. */
+  warn?: (message: string) => unknown;
+};
+
+export type DbSourceWatcher = {
+  readonly enabled: boolean;
+  close(): void;
+};
+
+export type DbRuntimeOptions = DbOpenOptions & {
+  /** Request handler route options. Defaults to root routes enabled. */
+  handler?: DbRequestHandlerOptions;
+  /** Enable source watching, customize it, or disable it. Defaults to true. */
+  watch?: boolean | DbWatchOptions;
+  /** Hydrate the runtime mirror when syncOnOpen is false. Defaults to true. */
+  hydrateOnOpen?: boolean;
+};
+
+export type DbRuntime = {
+  db: Db;
+  events: DbRuntimeLifecycleEvents;
+  watcher: DbSourceWatcher | null;
+  handleRequest: DbRequestHandler;
+  reload(options?: { allowErrors?: boolean }): Promise<unknown>;
+  close(): Promise<void>;
+};
 
 export type DbServer = {
   server: Server;
@@ -1031,7 +1083,9 @@ export function createIndexedDbCacheStorage(options?: {
   key?: string;
   indexedDB?: unknown;
 }): DbCacheStorage;
+export function createDbRuntime(options?: DbRuntimeOptions | string): Promise<DbRuntime>;
 export function createDbRequestHandler(db: Db, options?: DbRequestHandlerOptions): DbRequestHandler;
+export function handleFalcorRequest(db: Db, request: IncomingMessage, response: ServerResponse): Promise<void>;
 export function createDbOperationHandler(db: Db, options?: DbOperationsOptions | { operations?: boolean | 'auto' | DbOperationsOptions }): DbOperationHandler;
 export function loadConfig(options?: DbOptions): Promise<DbOptions>;
 export function loadDbSchema(options?: DbOptions | string): Promise<DbLoadedSchema>;
@@ -1047,6 +1101,8 @@ export function loadProjectSchema(config: DbOptions, options?: { load?: DbSchema
 export function runDbDoctor(config: DbOptions): Promise<DbDoctorResult>;
 export function startDbServer(options?: DbOpenOptions & { host?: string; port?: number }): Promise<DbServer>;
 export function syncDb(config: DbOptions, options?: { allowErrors?: boolean }): Promise<unknown>;
+export function reloadDb(db: Db, options?: { allowErrors?: boolean }): Promise<unknown>;
+export function watchDbSources(db: Db, options?: DbWatchOptions): Promise<DbSourceWatcher>;
 export function generateTypes(config: DbOptions, options?: { outFile?: string }): Promise<{ content: string; outFiles: string[] }>;
 export function generateSchemaManifest(config: DbOptions, options?: { outFile?: string }): Promise<{ manifest: unknown; content: string; outFiles: string[] }>;
 export function renderSchemaManifest(resources: unknown[], config?: DbOptions): unknown;
