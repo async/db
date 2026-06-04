@@ -151,11 +151,10 @@ Keep the package public through `publishConfig.access: "public"` and the workflo
 npm publish --access public
 ```
 
-The publish steps intentionally clear `NODE_AUTH_TOKEN` so npm Trusted
-Publishing uses the GitHub OIDC identity instead of a stale token. Keep
-`package.json` `repository.url` exactly aligned with
-`https://github.com/async-framework/async-db`, because npm validates trusted
-publishing against the GitHub repository identity.
+The publish steps intentionally do not define `NODE_AUTH_TOKEN`; npm Trusted
+Publishing should use the GitHub OIDC identity directly. Keep `package.json`
+`repository.url` exactly aligned with `https://github.com/async-framework/async-db`,
+because npm validates trusted publishing against the GitHub repository identity.
 
 If Trusted Publishing is not configured yet, the release workflow can create the release PR and GitHub release, but npm publish will fail until npm trusts this repository and workflow.
 

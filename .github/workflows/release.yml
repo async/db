@@ -88,8 +88,6 @@ jobs:
 
       - name: Publish to npm
         if: ${{ steps.release.outputs.release_created == 'true' && steps.npm_version.outputs.published != 'true' }}
-        env:
-          NODE_AUTH_TOKEN: ""
         run: npm publish --access public "${{ steps.pack.outputs.tarball }}"
 
       - name: Attach package tarball to GitHub Release
@@ -155,8 +153,6 @@ jobs:
 
       - name: Publish to npm
         if: ${{ steps.npm_version.outputs.published != 'true' }}
-        env:
-          NODE_AUTH_TOKEN: ""
         run: npm publish --access public "${{ steps.pack.outputs.tarball }}"
 
       - name: Ensure GitHub Release exists

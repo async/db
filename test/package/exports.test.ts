@@ -373,7 +373,7 @@ test('release automation creates release PRs and publishes npm from pinned actio
   assert.match(workflow, /actions\/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6\.0\.2/);
   assert.match(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6/);
   assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /NODE_AUTH_TOKEN: ""/);
+  assert.doesNotMatch(workflow, /NODE_AUTH_TOKEN/);
   assert.match(workflow, /npm publish --access public/);
   assert.match(workflow, /npm run release:check/);
   assert.deepEqual(releaseConfig.packages['.'], {
