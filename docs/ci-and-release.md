@@ -143,6 +143,19 @@ package: @async/db
 owner/repo: async-framework/async-db
 workflow: release.yml
 environment: none
+allowed action: npm publish
+```
+
+Use a current npm CLI when creating the trusted publisher. Older `npm trust`
+commands may fail with `E400` because npm now requires an explicit allowed
+action:
+
+```bash
+npx --yes npm@latest trust github @async/db \
+  --file release.yml \
+  --repo async-framework/async-db \
+  --allow-publish
+npx --yes npm@latest trust list @async/db
 ```
 
 Keep the package public through `publishConfig.access: "public"` and the workflow publish command:
