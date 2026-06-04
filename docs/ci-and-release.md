@@ -151,6 +151,10 @@ Keep the package public through `publishConfig.access: "public"` and the workflo
 npm publish --access public
 ```
 
+The publish steps intentionally set `NPM_CONFIG_USERCONFIG=/dev/null` and clear
+`NODE_AUTH_TOKEN` so npm Trusted Publishing uses the GitHub OIDC identity rather
+than the temporary token-oriented npm config created by `actions/setup-node`.
+
 If Trusted Publishing is not configured yet, the release workflow can create the release PR and GitHub release, but npm publish will fail until npm trusts this repository and workflow.
 
 If Trusted Publishing is not configured and the npm publish step fails, publish manually from an npm account with `@async` scope write access, then rerun the tag workflow to reconcile the GitHub release:

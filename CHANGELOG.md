@@ -1,9 +1,12 @@
 # Changelog
 
-## [0.3.0](https://github.com/async-framework/async-db/releases/tag/v0.3.0) - 2026-06-04
+## [0.4.0](https://github.com/async-framework/async-db/releases/tag/v0.4.0) - 2026-06-04
 
 ### Added
 
+- Added REST bulk resource aliases, standalone batch routes, and shared JSON endpoint plumbing for request batching.
+- Added Falcor JSONGraph endpoint support through `/model.json` and scoped `__db` routes.
+- Added the public `createDbRuntime()` lifecycle API with shared reload/watch/runtime middleware support.
 - Added a public `createMemoryFs()` helper and `openDb({ fs })` support so callers can run against a custom or in-memory file system before choosing where to persist generated state.
 - Added document path support for JSON Pointer strings, array paths, and bare top-level fields across runtime documents, SQLite documents, and generated Hono GraphQL document facades.
 
