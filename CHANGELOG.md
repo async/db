@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/async-framework/async-db/releases/tag/v0.3.0) - 2026-06-04
+
+### Added
+
+- Added a public `createMemoryFs()` helper and `openDb({ fs })` support so callers can run against a custom or in-memory file system before choosing where to persist generated state.
+- Added document path support for JSON Pointer strings, array paths, and bare top-level fields across runtime documents, SQLite documents, and generated Hono GraphQL document facades.
+
+### Fixed
+
+- Hardened document path access against prototype-sensitive segments such as `__proto__`, `prototype`, and `constructor`.
+
 ## [0.2.1](https://github.com/async-framework/async-db/releases/tag/v0.2.1) - 2026-06-01
 
 ### Fixed
