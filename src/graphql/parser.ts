@@ -1,6 +1,6 @@
 import { dbError } from '../errors.js';
 
-export type GraphqlToken = {
+type GraphqlToken = {
   type: 'name' | 'number' | 'punctuation' | 'string' | 'eof';
   value: string;
 };

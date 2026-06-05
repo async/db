@@ -5,7 +5,7 @@ export type RuntimeEvent = RuntimeEventChange & {
   timestamp: string;
 };
 
-export type RuntimeEventSubscriber = (event: RuntimeEvent) => void;
+type RuntimeEventSubscriber = (event: RuntimeEvent) => void;
 
 export function createRuntimeEventHub() {
   let version = 0;

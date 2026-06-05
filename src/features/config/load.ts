@@ -17,6 +17,25 @@ type LoadConfigOptions = string | (ConfigRecord & {
   load?: SchemaLoadMode;
 });
 
+type NormalizedLoadConfigOptions = ConfigRecord & {
+  configPath?: string;
+  cwd?: string;
+  fs?: DbFileSystem;
+  from?: string;
+  load?: SchemaLoadMode;
+};
+
+type SchemaLocatorResult = Awaited<ReturnType<typeof resolveSchemaLocator>>;
+
+type ResolveConfigContext = {
+  rawOptions: NormalizedLoadConfigOptions;
+  locator: SchemaLocatorResult;
+  cwd: string;
+  configPath: string | null;
+  userConfig: ConfigRecord;
+  inlineOptions: ConfigRecord;
+};
+
 type UnsupportedRuntimeConfigDiagnostic = {
   code: 'CONFIG_UNSUPPORTED_RUNTIME_BOUNDARY';
   severity: 'error';
@@ -31,103 +50,168 @@ type ConfigLoadError = Error & {
 };
 
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<ConfigRecord> {
-  const rawOptions = typeof options === 'string' ? { from: options } : options;
+  const rawOptions = normalizeLoadConfigOptions(options);
   const locator = await resolveSchemaLocator(rawOptions);
   const fs = dbFileSystem(rawOptions);
   const cwd = locator.cwd;
-  const configPath = rawOptions.configPath
-    ? resolveFrom(cwd, rawOptions.configPath)
-    : rawOptions.fs
-      ? null
-      : await findConfigPath(cwd, fs);
+  const configPath = await resolveConfigPath(rawOptions, cwd, fs);
+  const userConfig = await loadUserConfig(configPath);
+  const inlineOptions = inlineConfigOptions(rawOptions);
 
-  let userConfig: ConfigRecord = {};
-  if (configPath) {
-    const url = pathToFileURL(configPath);
-    url.searchParams.set('dbConfigLoad', String(Date.now()));
-    const module = await import(url.href);
-    userConfig = module.default ?? module.config ?? {};
+  rejectUnsupportedPublicConfig(userConfig, inlineOptions);
+
+  const merged = mergeConfig(userConfig, inlineOptions);
+  resolveConfigPaths(merged, {
+    rawOptions,
+    locator,
+    cwd,
+    configPath,
+    userConfig,
+    inlineOptions,
+  });
+
+  return merged;
+}
+
+function normalizeLoadConfigOptions(options: LoadConfigOptions): NormalizedLoadConfigOptions {
+  return typeof options === 'string' ? { from: options } : options;
+}
+
+async function resolveConfigPath(rawOptions: NormalizedLoadConfigOptions, cwd: string, fs: DbFileSystem): Promise<string | null> {
+  if (rawOptions.configPath) {
+    return resolveFrom(cwd, rawOptions.configPath);
   }
 
+  if (rawOptions.fs) {
+    return null;
+  }
+
+  return await findConfigPath(cwd, fs);
+}
+
+async function loadUserConfig(configPath: string | null): Promise<ConfigRecord> {
+  if (!configPath) {
+    return {};
+  }
+
+  const url = pathToFileURL(configPath);
+  url.searchParams.set('dbConfigLoad', String(Date.now()));
+  const module = await import(url.href);
+  return module.default ?? module.config ?? {};
+}
+
+function inlineConfigOptions(rawOptions: NormalizedLoadConfigOptions): ConfigRecord {
   const inlineOptions: ConfigRecord = { ...rawOptions };
   delete inlineOptions.cwd;
   delete inlineOptions.configPath;
   delete inlineOptions.from;
   delete inlineOptions.load;
+  return inlineOptions;
+}
 
+function rejectUnsupportedPublicConfig(userConfig: ConfigRecord, inlineOptions: ConfigRecord): void {
   rejectUnsupportedRuntimeConfig(userConfig);
   rejectUnsupportedRuntimeConfig(inlineOptions);
   rejectRemovedFixtureForkConfig(userConfig);
   rejectRemovedFixtureForkConfig(inlineOptions);
+}
 
+function mergeConfig(userConfig: ConfigRecord, inlineOptions: ConfigRecord): ConfigRecord {
   const merged = mergeDeep(mergeDeep(structuredClone(DEFAULT_CONFIG), userConfig), inlineOptions) as ConfigRecord;
   normalizeOutputAliases(merged, userConfig, inlineOptions);
-  merged.cwd = cwd;
-  merged.configPath = configPath;
+  return merged;
+}
+
+function resolveConfigPaths(config: ConfigRecord, context: ResolveConfigContext): void {
+  const {
+    rawOptions,
+    locator,
+    cwd,
+    configPath,
+  } = context;
+
+  config.cwd = cwd;
+  config.configPath = configPath;
+  config.sourceDir = resolveConfiguredSourceDir(config, context);
+  config.dbDir = config.sourceDir;
+  config.schemaLocator = {
+    ...locator,
+    cwd,
+    sourceDir: config.sourceDir,
+  };
+  config.schemaLoadMode = normalizeSchemaLoadMode(rawOptions.load ?? 'data');
+
+  resolveOutputPaths(config, cwd);
+}
+
+function resolveConfiguredSourceDir(config: ConfigRecord, context: ResolveConfigContext): string {
+  const {
+    rawOptions,
+    locator,
+    cwd,
+    userConfig,
+    inlineOptions,
+  } = context;
+
   const hasInlineSourceDir = hasOwnConfigValue(inlineOptions, 'sourceDir') || hasOwnConfigValue(inlineOptions, 'dbDir');
   const hasUserSourceDir = hasOwnConfigValue(userConfig, 'sourceDir') || hasOwnConfigValue(userConfig, 'dbDir');
   const sourceDir = hasInlineSourceDir
-    ? (hasOwnConfigValue(inlineOptions, 'sourceDir') ? merged.sourceDir : merged.dbDir)
+    ? (hasOwnConfigValue(inlineOptions, 'sourceDir') ? config.sourceDir : config.dbDir)
     : rawOptions.from
       ? locator.sourceDir
       : hasUserSourceDir
-        ? (hasOwnConfigValue(userConfig, 'sourceDir') ? merged.sourceDir : merged.dbDir)
-        : merged.dbDir;
-  merged.sourceDir = resolveFrom(cwd, sourceDir);
-  merged.dbDir = merged.sourceDir;
-  merged.schemaLocator = {
-    ...locator,
-    cwd,
-    sourceDir: merged.sourceDir,
-  };
-  merged.schemaLoadMode = normalizeSchemaLoadMode(rawOptions.load ?? 'data');
-  merged.stateDir = resolveFrom(cwd, merged.stateDir);
-  merged.outputs.stateDir = merged.stateDir;
+        ? (hasOwnConfigValue(userConfig, 'sourceDir') ? config.sourceDir : config.dbDir)
+        : config.dbDir;
 
-  if (merged.types?.outFile) {
-    merged.types.outFile = resolveFrom(cwd, merged.types.outFile);
+  return resolveFrom(cwd, sourceDir);
+}
+
+function resolveOutputPaths(config: ConfigRecord, cwd: string): void {
+  config.stateDir = resolveFrom(cwd, config.stateDir);
+  config.outputs.stateDir = config.stateDir;
+
+  if (config.types?.outFile) {
+    config.types.outFile = resolveFrom(cwd, config.types.outFile);
   }
-  merged.outputs.types = merged.types?.outFile ?? null;
+  config.outputs.types = config.types?.outFile ?? null;
 
-  if (merged.types?.commitOutFile) {
-    merged.types.commitOutFile = resolveFrom(cwd, merged.types.commitOutFile);
+  if (config.types?.commitOutFile) {
+    config.types.commitOutFile = resolveFrom(cwd, config.types.commitOutFile);
   }
-  merged.outputs.committedTypes = merged.types?.commitOutFile ?? null;
+  config.outputs.committedTypes = config.types?.commitOutFile ?? null;
 
-  if (merged.schemaOutFile) {
-    merged.schemaOutFile = resolveFrom(cwd, merged.schemaOutFile);
+  if (config.schemaOutFile) {
+    config.schemaOutFile = resolveFrom(cwd, config.schemaOutFile);
   }
-  merged.outputs.schemaManifest = merged.schemaOutFile ?? null;
+  config.outputs.schemaManifest = config.schemaOutFile ?? null;
 
-  if (merged.viewerManifestOutFile) {
-    merged.viewerManifestOutFile = resolveFrom(cwd, merged.viewerManifestOutFile);
+  if (config.viewerManifestOutFile) {
+    config.viewerManifestOutFile = resolveFrom(cwd, config.viewerManifestOutFile);
   }
-  merged.outputs.viewerManifest = merged.viewerManifestOutFile ?? null;
+  config.outputs.viewerManifest = config.viewerManifestOutFile ?? null;
 
-  if (merged.operations?.sourceDir) {
-    merged.operations.sourceDir = resolveFrom(cwd, merged.operations.sourceDir);
+  if (config.operations?.sourceDir) {
+    config.operations.sourceDir = resolveFrom(cwd, config.operations.sourceDir);
   }
 
-  if (merged.operations?.outFile) {
-    merged.operations.outFile = resolveFrom(cwd, merged.operations.outFile);
+  if (config.operations?.outFile) {
+    config.operations.outFile = resolveFrom(cwd, config.operations.outFile);
   }
-  merged.outputs.operationRegistry = merged.operations?.outFile ?? null;
+  config.outputs.operationRegistry = config.operations?.outFile ?? null;
 
-  if (merged.operations?.refsOutFile) {
-    merged.operations.refsOutFile = resolveFrom(cwd, merged.operations.refsOutFile);
+  if (config.operations?.refsOutFile) {
+    config.operations.refsOutFile = resolveFrom(cwd, config.operations.refsOutFile);
   }
-  merged.outputs.operationRefs = merged.operations?.refsOutFile ?? null;
+  config.outputs.operationRefs = config.operations?.refsOutFile ?? null;
 
-  if (merged.outputs?.contractRefs) {
-    merged.outputs.contractRefs = resolveFrom(cwd, merged.outputs.contractRefs);
+  if (config.outputs?.contractRefs) {
+    config.outputs.contractRefs = resolveFrom(cwd, config.outputs.contractRefs);
   }
 
-  if (merged.generate?.hono?.outDir) {
-    merged.generate.hono.outDir = resolveFrom(cwd, merged.generate.hono.outDir);
+  if (config.generate?.hono?.outDir) {
+    config.generate.hono.outDir = resolveFrom(cwd, config.generate.hono.outDir);
   }
-  merged.outputs.honoStarterDir = merged.generate?.hono?.outDir ?? null;
-
-  return merged;
+  config.outputs.honoStarterDir = config.generate?.hono?.outDir ?? null;
 }
 
 function normalizeOutputAliases(config: ConfigRecord, userConfig: ConfigRecord, inlineOptions: ConfigRecord): void {

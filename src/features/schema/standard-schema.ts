@@ -10,7 +10,7 @@ export type StandardSchemaV1 = {
   };
 };
 
-export type SchemaFieldDefinition = {
+type StandardSchemaFieldDefinition = {
   type: string;
   required?: boolean;
   nullable?: boolean;
@@ -22,8 +22,8 @@ export type SchemaFieldDefinition = {
   minLength?: number;
   maxLength?: number;
   pattern?: string;
-  items?: SchemaFieldDefinition;
-  fields?: Record<string, SchemaFieldDefinition>;
+  items?: StandardSchemaFieldDefinition;
+  fields?: Record<string, StandardSchemaFieldDefinition>;
   additionalProperties?: boolean;
   metadataOnly?: boolean;
   [key: string]: unknown;
@@ -79,7 +79,7 @@ export function standardSchemaVendor(schema: StandardSchemaV1 | null | undefined
 }
 
 export function standardJsonSchemaFields(schema: StandardSchemaV1 | null | undefined, resourceName: string): {
-  fields: Record<string, SchemaFieldDefinition>;
+  fields: Record<string, StandardSchemaFieldDefinition>;
   authoritative: boolean;
   diagnostics: SchemaDiagnostic[];
 } {
@@ -120,9 +120,9 @@ export function standardJsonSchemaFields(schema: StandardSchemaV1 | null | undef
 }
 
 export function mergeStandardSchemaFields(
-  inferredFields: Record<string, SchemaFieldDefinition> | null | undefined,
-  overlayFields: Record<string, SchemaFieldDefinition> | null | undefined,
-): Record<string, SchemaFieldDefinition> {
+  inferredFields: Record<string, StandardSchemaFieldDefinition> | null | undefined,
+  overlayFields: Record<string, StandardSchemaFieldDefinition> | null | undefined,
+): Record<string, StandardSchemaFieldDefinition> {
   const inferred = inferredFields ?? {};
   const overlay = overlayFields ?? {};
   const names = new Set([...Object.keys(inferred), ...Object.keys(overlay)]);
@@ -164,9 +164,9 @@ export function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 }
 
 function mergeStandardSchemaField(
-  inferredField: SchemaFieldDefinition | undefined,
-  overlayField: SchemaFieldDefinition | undefined,
-): SchemaFieldDefinition {
+  inferredField: StandardSchemaFieldDefinition | undefined,
+  overlayField: StandardSchemaFieldDefinition | undefined,
+): StandardSchemaFieldDefinition {
   if (!overlayField) {
     return inferredField ?? { type: 'unknown' };
   }
@@ -186,7 +186,7 @@ function mergeStandardSchemaField(
   return merged;
 }
 
-function fieldsFromJsonSchemaObject(schema: unknown): Record<string, SchemaFieldDefinition> | null {
+function fieldsFromJsonSchemaObject(schema: unknown): Record<string, StandardSchemaFieldDefinition> | null {
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
     return null;
   }
@@ -202,7 +202,7 @@ function fieldsFromJsonSchemaObject(schema: unknown): Record<string, SchemaField
   ]));
 }
 
-function fieldFromJsonSchema(schema: unknown, required = false): SchemaFieldDefinition {
+function fieldFromJsonSchema(schema: unknown, required = false): StandardSchemaFieldDefinition {
   if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
     return {
       type: 'unknown',
@@ -214,7 +214,7 @@ function fieldFromJsonSchema(schema: unknown, required = false): SchemaFieldDefi
   const types = Array.isArray(jsonSchema.type) ? jsonSchema.type : [jsonSchema.type].filter(Boolean);
   const nullable = types.includes('null');
   const type = types.find((candidate) => candidate !== 'null') ?? (jsonSchema.enum ? 'enum' : 'unknown');
-  const field: SchemaFieldDefinition = {
+  const field: StandardSchemaFieldDefinition = {
     type: asyncDbFieldType(type),
     required,
   };

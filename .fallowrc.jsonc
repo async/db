@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "ignorePatterns": [
+    "examples/**"
+  ],
+  "entry": [
+    "db.config.example.mjs",
+    "scripts/**/*.js",
+    "scripts/**/*.ts",
+    "src/**/*.test.ts",
+    "test/**/*.test.ts"
+  ]
+}
