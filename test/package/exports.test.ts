@@ -388,6 +388,35 @@ test('release automation creates release PRs and publishes npm from pinned actio
   });
 });
 
+test('CI runs Fallow PR review without adding a package dependency', async () => {
+  const workflow = await readFile(path.resolve('.github/workflows/ci.yml'), 'utf8');
+  const packageJson = JSON.parse(await readFile(path.resolve('package.json'), 'utf8'));
+  const expectedWorkflowSnippets = [
+    'name: CI',
+    'pull_request:',
+    'Fallow PR review',
+    'FALLOW_VERSION: 2.84.0',
+    'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6',
+    'fetch-depth: 0',
+    'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6',
+    'github.event.pull_request.base.sha',
+    'FALLOW_BASE=HEAD~1',
+    'npm exec --yes --package "fallow@${FALLOW_VERSION}" -- fallow audit',
+    '--diff-file -',
+    '--gate new-only',
+    '--no-cache',
+    '--fail-on-issues',
+  ];
+
+  for (const snippet of expectedWorkflowSnippets) {
+    assert(workflow.includes(snippet), snippet);
+  }
+
+  for (const dependencyKey of ['dependencies', 'devDependencies', 'optionalDependencies'] as const) {
+    assert.equal(Object.hasOwn(packageJson[dependencyKey] ?? {}, 'fallow'), false);
+  }
+});
+
 test('public GraphQL declarations expose operation names and structured errors', async () => {
   const declarations = await readFile(path.resolve('dist/index.d.ts'), 'utf8');
 

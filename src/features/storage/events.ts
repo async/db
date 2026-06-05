@@ -1,6 +1,6 @@
-export type RuntimeEventChange = Record<string, unknown>;
+type RuntimeEventChange = Record<string, unknown>;
 
-export type RuntimeEvent = RuntimeEventChange & {
+type RuntimeEvent = RuntimeEventChange & {
   version: number;
   timestamp: string;
 };

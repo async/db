@@ -12,6 +12,44 @@ permissions:
   contents: read
 
 jobs:
+  fallow-pr-review:
+    name: Fallow PR review
+    runs-on: ubuntu-latest
+
+    env:
+      FALLOW_VERSION: 2.84.0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+
+      - name: Resolve Fallow base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "FALLOW_BASE=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            echo "FALLOW_BASE=HEAD~1" >> "$GITHUB_ENV"
+          else
+            echo "FALLOW_BASE=HEAD" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run Fallow PR review
+        run: |
+          set -o pipefail
+          git diff --unified=0 "$FALLOW_BASE"...HEAD | npm exec --yes --package "fallow@${FALLOW_VERSION}" -- fallow audit \
+            --diff-file - \
+            --gate new-only \
+            --no-cache \
+            --format markdown \
+            --fail-on-issues
+
   test:
     name: Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest

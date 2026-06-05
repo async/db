@@ -36,6 +36,24 @@ type ResolveConfigContext = {
   inlineOptions: ConfigRecord;
 };
 
+type OutputPathResolution = {
+  configPath: ConfigPath;
+  outputPath?: ConfigPath;
+};
+
+const OUTPUT_PATH_RESOLUTIONS: readonly OutputPathResolution[] = [
+  { configPath: ['stateDir'], outputPath: ['outputs', 'stateDir'] },
+  { configPath: ['types', 'outFile'], outputPath: ['outputs', 'types'] },
+  { configPath: ['types', 'commitOutFile'], outputPath: ['outputs', 'committedTypes'] },
+  { configPath: ['schemaOutFile'], outputPath: ['outputs', 'schemaManifest'] },
+  { configPath: ['viewerManifestOutFile'], outputPath: ['outputs', 'viewerManifest'] },
+  { configPath: ['operations', 'sourceDir'] },
+  { configPath: ['operations', 'outFile'], outputPath: ['outputs', 'operationRegistry'] },
+  { configPath: ['operations', 'refsOutFile'], outputPath: ['outputs', 'operationRefs'] },
+  { configPath: ['outputs', 'contractRefs'] },
+  { configPath: ['generate', 'hono', 'outDir'], outputPath: ['outputs', 'honoStarterDir'] },
+];
+
 type UnsupportedRuntimeConfigDiagnostic = {
   code: 'CONFIG_UNSUPPORTED_RUNTIME_BOUNDARY';
   severity: 'error';
@@ -153,65 +171,69 @@ function resolveConfiguredSourceDir(config: ConfigRecord, context: ResolveConfig
     inlineOptions,
   } = context;
 
-  const hasInlineSourceDir = hasOwnConfigValue(inlineOptions, 'sourceDir') || hasOwnConfigValue(inlineOptions, 'dbDir');
-  const hasUserSourceDir = hasOwnConfigValue(userConfig, 'sourceDir') || hasOwnConfigValue(userConfig, 'dbDir');
-  const sourceDir = hasInlineSourceDir
-    ? (hasOwnConfigValue(inlineOptions, 'sourceDir') ? config.sourceDir : config.dbDir)
-    : rawOptions.from
-      ? locator.sourceDir
-      : hasUserSourceDir
-        ? (hasOwnConfigValue(userConfig, 'sourceDir') ? config.sourceDir : config.dbDir)
-        : config.dbDir;
+  return resolveFrom(cwd, configuredSourceDirValue({
+    config,
+    rawOptions,
+    locator,
+    userConfig,
+    inlineOptions,
+  }));
+}
 
-  return resolveFrom(cwd, sourceDir);
+function configuredSourceDirValue({
+  config,
+  rawOptions,
+  locator,
+  userConfig,
+  inlineOptions,
+}: {
+  config: ConfigRecord;
+  rawOptions: NormalizedLoadConfigOptions;
+  locator: SchemaLocatorResult;
+  userConfig: ConfigRecord;
+  inlineOptions: ConfigRecord;
+}): string {
+  if (hasSourceDirOverride(inlineOptions)) {
+    return selectedSourceDir(config, inlineOptions);
+  }
+
+  if (rawOptions.from) {
+    return locator.sourceDir;
+  }
+
+  if (hasSourceDirOverride(userConfig)) {
+    return selectedSourceDir(config, userConfig);
+  }
+
+  return config.dbDir;
+}
+
+function hasSourceDirOverride(config: ConfigRecord): boolean {
+  return hasOwnConfigValue(config, 'sourceDir') || hasOwnConfigValue(config, 'dbDir');
+}
+
+function selectedSourceDir(config: ConfigRecord, sourceConfig: ConfigRecord): string {
+  return hasOwnConfigValue(sourceConfig, 'sourceDir') ? config.sourceDir : config.dbDir;
 }
 
 function resolveOutputPaths(config: ConfigRecord, cwd: string): void {
-  config.stateDir = resolveFrom(cwd, config.stateDir);
-  config.outputs.stateDir = config.stateDir;
-
-  if (config.types?.outFile) {
-    config.types.outFile = resolveFrom(cwd, config.types.outFile);
+  for (const resolution of OUTPUT_PATH_RESOLUTIONS) {
+    const value = resolvePathValue(config, resolution.configPath, cwd);
+    if (resolution.outputPath) {
+      setPath(config, resolution.outputPath, value ?? null);
+    }
   }
-  config.outputs.types = config.types?.outFile ?? null;
+}
 
-  if (config.types?.commitOutFile) {
-    config.types.commitOutFile = resolveFrom(cwd, config.types.commitOutFile);
-  }
-  config.outputs.committedTypes = config.types?.commitOutFile ?? null;
-
-  if (config.schemaOutFile) {
-    config.schemaOutFile = resolveFrom(cwd, config.schemaOutFile);
-  }
-  config.outputs.schemaManifest = config.schemaOutFile ?? null;
-
-  if (config.viewerManifestOutFile) {
-    config.viewerManifestOutFile = resolveFrom(cwd, config.viewerManifestOutFile);
-  }
-  config.outputs.viewerManifest = config.viewerManifestOutFile ?? null;
-
-  if (config.operations?.sourceDir) {
-    config.operations.sourceDir = resolveFrom(cwd, config.operations.sourceDir);
+function resolvePathValue(config: ConfigRecord, configPath: ConfigPath, cwd: string): unknown {
+  const value = getPath(config, configPath);
+  if (!value) {
+    return value;
   }
 
-  if (config.operations?.outFile) {
-    config.operations.outFile = resolveFrom(cwd, config.operations.outFile);
-  }
-  config.outputs.operationRegistry = config.operations?.outFile ?? null;
-
-  if (config.operations?.refsOutFile) {
-    config.operations.refsOutFile = resolveFrom(cwd, config.operations.refsOutFile);
-  }
-  config.outputs.operationRefs = config.operations?.refsOutFile ?? null;
-
-  if (config.outputs?.contractRefs) {
-    config.outputs.contractRefs = resolveFrom(cwd, config.outputs.contractRefs);
-  }
-
-  if (config.generate?.hono?.outDir) {
-    config.generate.hono.outDir = resolveFrom(cwd, config.generate.hono.outDir);
-  }
-  config.outputs.honoStarterDir = config.generate?.hono?.outDir ?? null;
+  const resolved = resolveFrom(cwd, value as string);
+  setPath(config, configPath, resolved);
+  return resolved;
 }
 
 function normalizeOutputAliases(config: ConfigRecord, userConfig: ConfigRecord, inlineOptions: ConfigRecord): void {
@@ -297,25 +319,35 @@ async function findConfigPath(cwd: string, fs: DbFileSystem): Promise<string | n
   return null;
 }
 
-export function mergeDeep(base: unknown, override: unknown): unknown {
-  if (!isPlainObject(base) || !isPlainObject(override)) {
+function mergeDeep(base: unknown, override: unknown): unknown {
+  if (!areMergeableRecords(base, override)) {
     return override === undefined ? base : override;
   }
 
+  return mergeRecords(base, override);
+}
+
+function areMergeableRecords(base: unknown, override: unknown): base is ConfigRecord {
+  return isPlainObject(base) && isPlainObject(override);
+}
+
+function mergeRecords(base: ConfigRecord, override: ConfigRecord): ConfigRecord {
   const output = { ...base };
   for (const [key, value] of Object.entries(override)) {
-    if (value === undefined) {
-      continue;
-    }
-
-    if (isPlainObject(value) && isPlainObject(output[key])) {
-      output[key] = mergeDeep(output[key], value);
-    } else {
-      output[key] = value;
-    }
+    mergeRecordValue(output, key, value);
   }
 
   return output;
+}
+
+function mergeRecordValue(output: ConfigRecord, key: string, value: unknown): void {
+  if (value === undefined) {
+    return;
+  }
+
+  output[key] = isPlainObject(value) && isPlainObject(output[key])
+    ? mergeDeep(output[key], value)
+    : value;
 }
 
 function isPlainObject(value: unknown): value is ConfigRecord {
