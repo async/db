@@ -26,6 +26,7 @@ This folder is the durable markdown manual for @async/db. The root [README](../R
 - [Prototype To Production REST Guide](./prototype-to-production.md): move `/db/*` prototypes to `/api/db/*` or `/api/*`, registered operation refs, and route lockdown.
 - [Package API](./package-api.md): CLI commands, runtime API, HTTP client operations, schema/config helpers, and package export map.
 - [Integrations](./integrations.md): Vite plugin, Hono route registration, SQLite starter generation, and optional dependency boundaries.
+- [AI Agent Migration Playbook](./migration.md): agent runbook for detecting current `@async/db` usage, choosing migration depth, and using CLI inspection/import tooling.
 
 ## Maintain The Repo
 
