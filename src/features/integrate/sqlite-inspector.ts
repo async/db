@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { suppressNodeSqliteExperimentalWarning } from '../sqlite/node-sqlite-warning.js';
 
 const require = createRequire(import.meta.url);
 
@@ -345,7 +346,9 @@ function openReadOnlySqlite(filePath: string): SqliteDatabase {
 
 function importNodeSqliteSync(): { DatabaseSync: DatabaseSyncConstructor } {
   try {
-    return require('node:sqlite') as { DatabaseSync: DatabaseSyncConstructor };
+    return suppressNodeSqliteExperimentalWarning(
+      () => require('node:sqlite') as { DatabaseSync: DatabaseSyncConstructor },
+    );
   } catch (error) {
     const runtimeError = error as Error;
     throw new Error(`SQLite integration inspection requires Node.js with node:sqlite support. ${runtimeError.message}`);

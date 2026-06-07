@@ -18,6 +18,10 @@ import {
   type CollectionAggregate,
   type CollectionQuery,
 } from '../features/runtime/query.js';
+import {
+  suppressNodeSqliteExperimentalWarning,
+  suppressNodeSqliteExperimentalWarningAsync,
+} from '../features/sqlite/node-sqlite-warning.js';
 
 const require = createRequire(import.meta.url);
 
@@ -992,7 +996,9 @@ function missingKeyError(resource: SqliteResource, keyFields: string[], missing:
 
 async function importNodeSqlite(): Promise<{ DatabaseSync: DatabaseSyncConstructor }> {
   try {
-    return await import('node:sqlite') as unknown as { DatabaseSync: DatabaseSyncConstructor };
+    return await suppressNodeSqliteExperimentalWarningAsync(
+      async () => await import('node:sqlite') as unknown as { DatabaseSync: DatabaseSyncConstructor },
+    );
   } catch (error) {
     throw sqliteRuntimeUnavailableError(error);
   }
@@ -1000,7 +1006,9 @@ async function importNodeSqlite(): Promise<{ DatabaseSync: DatabaseSyncConstruct
 
 function importNodeSqliteSync(): { DatabaseSync: DatabaseSyncConstructor } {
   try {
-    return require('node:sqlite') as { DatabaseSync: DatabaseSyncConstructor };
+    return suppressNodeSqliteExperimentalWarning(
+      () => require('node:sqlite') as { DatabaseSync: DatabaseSyncConstructor },
+    );
   } catch (error) {
     throw sqliteRuntimeUnavailableError(error);
   }

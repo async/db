@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.1](https://github.com/async-framework/async-db/releases/tag/v0.5.1) - 2026-06-07
+
+### Fixed
+
+- Suppressed the optional `node:sqlite` experimental warning while Async DB loads SQLite support, keeping `async-db integrate inspect` stdout/stderr stable on Node.js 22.
+
 ## [0.5.0](https://github.com/async-framework/async-db/releases/tag/v0.5.0) - 2026-06-07
 
 ### Added

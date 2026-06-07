@@ -80,7 +80,7 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | Hono integration | preview | Optional route registration and lifecycle hooks exported from `@async/db/hono`. |
 | Vite integration | preview | Optional Vite plugin/config surface exported from `@async/db/vite`. |
 | SQLite integration | preview | `sqliteStore` is Async DB-owned SQLite storage; `openSqliteDb({ tables })` maps resources to existing tables, supports read-only/no-migrate mode, table/column mappings, injected handles, and compound object-key reads/writes. |
-| SQLite compat | preview | `adaptSqliteDatabase`, `openCompatSqlite`, `openLegacySqlite`, `compoundKeyId`, `defineSqliteImportPlan`, and `runSqliteImportPlan` bridge low-level `node:sqlite`, `better-sqlite3`, `sqlite3`, and `sqlite` handles without making raw SQL the app-facing API. |
+| SQLite compat | preview | `adaptSqliteDatabase`, `openCompatSqlite`, `openLegacySqlite`, `compoundKeyId`, `defineSqliteImportPlan`, and `runSqliteImportPlan` bridge low-level `node:sqlite`, `better-sqlite3`, `sqlite3`, and `sqlite` handles without making raw SQL the app-facing API. Async DB suppresses only the optional `node:sqlite` experimental warning while loading that driver so CLI reports keep stdout/stderr stable on Node.js 22. |
 | Optional stores | preview | SQLite, Postgres, KV, and Redis-like store adapter helpers remain optional integration surfaces. |
 
 ## HTTP Surface

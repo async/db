@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { dbError } from './errors.js';
 import { openDb } from './db.js';
+import { suppressNodeSqliteExperimentalWarningAsync } from './features/sqlite/node-sqlite-warning.js';
 import { openSqliteDb, sqliteStore, type SqliteDatabase, type SqliteRunResult, type SqliteStatement, type SqliteTableMapping } from './integrations/sqlite.js';
 
 const require = createRequire(import.meta.url);
@@ -100,7 +101,9 @@ export async function openCompatSqlite(options: SqliteCompatOpenOptions): Promis
 
   if (driver === 'node:sqlite') {
     try {
-      const { DatabaseSync } = await import('node:sqlite') as any;
+      const { DatabaseSync } = await suppressNodeSqliteExperimentalWarningAsync(
+        async () => await import('node:sqlite') as any,
+      );
       return adaptSqliteDatabase(
         readOnly
           ? new DatabaseSync(options.file, { open: true, readOnly: true })
