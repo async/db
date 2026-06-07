@@ -23,6 +23,8 @@ Product direction:
 Important files:
 
 - `SPEC.md`: product behavior and acceptance criteria.
+- `API_SURFACE.md`: public contract ledger and review anchor for package exports, CLI, runtime APIs, HTTP surfaces, generated contracts, and config boundaries.
+- `docs/package-api.md`: user-facing package API reference with examples for CLI commands, runtime APIs, integrations, and package exports.
 - `src/cli.js`: `db` command implementation.
 - `src/schema.js`: source discovery, schema loading, inference, diagnostics, REST/GraphQL metadata.
 - `src/types.js`: TypeScript type generation.
@@ -46,6 +48,7 @@ Important files:
 
 Common edit paths:
 
+- Public API surface or user-facing package usage: update `API_SURFACE.md` for the contract ledger and `docs/package-api.md` for reference/examples when the same change affects both.
 - Source discovery or custom readers: start in `src/features/schema/sources.js`.
 - Schema inference or field normalization: start in `src/features/schema/fields.js` and `src/features/schema/resource.js`.
 - Schema validation or diagnostics: start in `src/features/schema/validation.js`.
@@ -74,6 +77,7 @@ Run these before handing off changes:
 
 ```bash
 npm run check
+npm run api-surface:check
 npm test
 npm pack --dry-run
 ```
@@ -121,6 +125,9 @@ If a smoke command writes `.db/` inside any example, remove those generated file
 ## Implementation Rules
 
 - Keep the package ESM and dependency-light. Prefer Node standard library APIs unless a feature clearly needs a dependency.
+- `API_SURFACE.md` is the current-state public contract ledger, not a tutorial or changelog. Update it whenever a change adds, removes, renames, or changes package exports, declaration names, CLI commands/flags/output, runtime package methods, HTTP routes, generated contract shapes, or config keys. If a public-adjacent change does not require an `API_SURFACE.md` update, be ready to explain why.
+- `docs/package-api.md` is the user-facing package API reference. Update it when a public API or CLI behavior needs discoverable usage guidance, examples, option documentation, or migration notes.
+- When a change both alters a public contract and changes how users should call it, update both files: `API_SURFACE.md` for the contract boundary and `docs/package-api.md` for the usage/reference story.
 - Preserve support for Node.js 20 and newer.
 - Treat `.schema.mjs`, `db.config.mjs`, source readers, format renderers, and schema manifest hooks as trusted project code because they execute locally.
 - Remember that `async-db serve` exposes writable local development endpoints on loopback by default, and the viewer CSV import endpoint writes into the configured `dbDir`.

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/async-framework/async-db/releases/tag/v0.5.0) - 2026-06-07
+
+### Added
+
+- Added store-neutral collection query helpers with `find`, `count`, and `aggregate`, plus append-only `writePolicy` resources and `collection.append(record)`.
+- Added `@async/db/sqlite/compat` for low-level SQLite driver adapters, deterministic compound-key ids, legacy SQLite import plans, and explicit import-once migration helpers without new mandatory dependencies.
+- Added SQLite import planning through `async-db integrate inspect --target-state` and dry-run importer generation through `async-db integrate generate importer`.
+- Added `npm run api-surface:check` to fail when watched public-surface files change without an `API_SURFACE.md` update.
+
+### Changed
+
+- Expanded existing-table SQLite integration so apps can keep app-owned SQLite files, injected handles, read-only/no-migrate mode, table and column mappings, read models, and compound object-key helpers.
+- Updated SQLite integration guidance to keep existing SQLite as the default write source of truth, recommend wrapper/read-model/table-backed/app-owned paths, and keep ORM support advisory.
+- Documented minimal collection queries, wrapper-first SQLite adoption, explicit import mode, and the `API_SURFACE.md` plus `docs/package-api.md` update rule for agents.
+
 ## [0.4.2](https://github.com/async-framework/async-db/releases/tag/v0.4.2) - 2026-06-07
 
 ### Added

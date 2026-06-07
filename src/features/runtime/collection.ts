@@ -2,6 +2,13 @@ import { dbError } from '../../errors.js';
 import { createSchemaValidator, validateUniqueCollectionFields } from '../../schema.js';
 import { applyDefaultsToRecord } from '../../sync.js';
 import { createRuntime } from '../storage/runtime.js';
+import {
+  aggregateCollectionRecords,
+  applyCollectionQuery,
+  countCollectionRecords,
+  type CollectionAggregate,
+  type CollectionQuery,
+} from './query.js';
 
 type RuntimeRecord = Record<string, unknown>;
 
@@ -21,6 +28,7 @@ type RuntimeResource = {
   name: string;
   kind?: string;
   idField?: string;
+  writePolicy?: string;
   [key: string]: unknown;
 };
 
@@ -80,7 +88,27 @@ export class DbCollection {
     return await this.get(id) !== null;
   }
 
+  async find(query: CollectionQuery = {}): Promise<RuntimeRecord[]> {
+    return applyCollectionQuery(await this.all(), query);
+  }
+
+  async count(query: CollectionQuery = {}): Promise<number> {
+    return countCollectionRecords(await this.all(), query);
+  }
+
+  async aggregate(aggregate: CollectionAggregate): Promise<RuntimeRecord[]> {
+    return aggregateCollectionRecords(await this.all(), aggregate);
+  }
+
   async create(record: RuntimeRecord): Promise<RuntimeRecord> {
+    return this.createWithOperation(record, 'create');
+  }
+
+  async append(record: RuntimeRecord): Promise<RuntimeRecord> {
+    return this.createWithOperation(record, 'append');
+  }
+
+  private async createWithOperation(record: RuntimeRecord, operation: 'create' | 'append'): Promise<RuntimeRecord> {
     this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
@@ -119,13 +147,14 @@ export class DbCollection {
       assertUniqueCollectionRecords([...records, validatedRecord], this.resource);
       const nextRecords = [...records, validatedRecord];
       await this.adapter().writeResource?.(this.resource, nextRecords);
-      this.emit('create', { id });
+      this.emit(operation, { id });
       return validatedRecord;
     });
   }
 
   async update(id: unknown, patch: RuntimeRecord): Promise<RuntimeRecord | null> {
     this.db.assertResourceWritable?.(this.resource.name);
+    this.assertMutable('update');
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
       const index = records.findIndex((record) => idMatches(record?.[this.resource.idField], id));
@@ -157,6 +186,7 @@ export class DbCollection {
 
   async delete(id: unknown): Promise<boolean> {
     this.db.assertResourceWritable?.(this.resource.name);
+    this.assertMutable('delete');
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
       const nextRecords = records.filter((record) => !idMatches(record?.[this.resource.idField], id));
@@ -171,6 +201,7 @@ export class DbCollection {
 
   async replaceAll(records: RuntimeRecord[]): Promise<RuntimeRecord[]> {
     this.db.assertResourceWritable?.(this.resource.name);
+    this.assertMutable('replaceAll');
     return this.adapter().withResourceWrite(this.resource, async () => {
       const validatedRecords = [];
       for (const [index, record] of records.entries()) {
@@ -197,6 +228,25 @@ export class DbCollection {
       op,
       ...details,
     });
+  }
+
+  private assertMutable(operation: string): void {
+    if (this.resource.writePolicy !== 'append-only') {
+      return;
+    }
+    throw dbError(
+      'DB_APPEND_ONLY_RESOURCE',
+      `Cannot ${operation} "${this.resource.name}" because it is append-only.`,
+      {
+        status: 405,
+        hint: `Use collection("${this.resource.name}").append(record) for append-only resources.`,
+        details: {
+          resource: this.resource.name,
+          operation,
+          writePolicy: this.resource.writePolicy,
+        },
+      },
+    );
   }
 }
 

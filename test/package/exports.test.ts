@@ -51,6 +51,7 @@ import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCac
 import { defineConfig } from '@async/db/config';
 import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
 import { sqliteStore } from '@async/db/sqlite';
+import { compoundKeyId, defineSqliteImportPlan, openLegacySqlite } from '@async/db/sqlite/compat';
 import { postgresStore } from '@async/db/postgres';
 import { kvStore } from '@async/db/kv';
 import { redisStore } from '@async/db/redis';
@@ -77,6 +78,9 @@ if ('recordFiles' in jsonModule) throw new Error('json record files helper shoul
 if (typeof readJsonState !== 'function') throw new Error('missing json read helper');
 if (typeof writeJsonState !== 'function') throw new Error('missing json write helper');
 if (typeof sqliteStore !== 'function') throw new Error('missing sqlite store API');
+if (typeof compoundKeyId !== 'function') throw new Error('missing sqlite compat compound key helper');
+if (typeof defineSqliteImportPlan !== 'function') throw new Error('missing sqlite compat import plan helper');
+if (typeof openLegacySqlite !== 'function') throw new Error('missing sqlite compat legacy opener');
 if (typeof postgresStore !== 'function') throw new Error('missing postgres store API');
 if (typeof kvStore !== 'function') throw new Error('missing kv store API');
 if (typeof redisStore !== 'function') throw new Error('missing redis store API');
@@ -160,6 +164,7 @@ import { postgresStore } from '@async/db/postgres';
 import { redisStore } from '@async/db/redis';
 import { collection, field, files, type ResourceDefinition } from '@async/db/schema';
 import { sqliteStore } from '@async/db/sqlite';
+import { compoundKeyId, defineSqliteImportPlan, type SqliteCompatDriver, type SqliteImportPlan } from '@async/db/sqlite/compat';
 import type { DbTypes, User } from './generated/db.types.d.ts';
 
 const config = defineConfig({
@@ -275,6 +280,16 @@ void s3Storage({
 });
 void jsonCapabilities;
 void sqliteStore({ file: ':memory:' });
+const sqliteCompatDriver: SqliteCompatDriver = 'node:sqlite';
+const sqliteImportPlan: SqliteImportPlan = defineSqliteImportPlan({
+  version: 1,
+  kind: 'sqlite.importPlan',
+  source: { sqliteFile: './data/app.sqlite', driver: sqliteCompatDriver },
+  target: { stateFile: './data/app.asyncdb' },
+  resources: [],
+});
+compoundKeyId(['name', 'version'], { name: '@async/db', version: '0.4.2' });
+void sqliteImportPlan;
 void postgresStore({ client: { query: async () => ({ rows: [] }) } });
 void kvStore({ client: { get: async () => null, set: async () => undefined } });
 void redisStore({ client: { get: async () => null, set: async () => undefined } });
@@ -306,6 +321,8 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.equal(packageJson.exports['./schema'].types, './dist/schema.d.ts');
   assert.equal(packageJson.exports['./json'].default, './dist/json.js');
   assert.equal(packageJson.exports['./json'].types, './dist/json.d.ts');
+  assert.equal(packageJson.exports['./sqlite/compat'].default, './dist/sqlite-compat.js');
+  assert.equal(packageJson.exports['./sqlite/compat'].types, './dist/sqlite-compat.d.ts');
   assert.deepEqual(packageJson.repository, {
     type: 'git',
     url: 'https://github.com/async-framework/async-db',
@@ -360,6 +377,7 @@ test('published declarations do not include migration suppressions', async () =>
 
 test('release automation creates release PRs and publishes npm from pinned actions', async () => {
   const workflow = await readFile(path.resolve('.github/workflows/release.yml'), 'utf8');
+  const packageJson = JSON.parse(await readFile(path.resolve('package.json'), 'utf8'));
   const releaseConfig = JSON.parse(await readFile(path.resolve('release-please-config.json'), 'utf8'));
   const releaseManifest = JSON.parse(await readFile(path.resolve('.release-please-manifest.json'), 'utf8'));
 
@@ -389,7 +407,7 @@ test('release automation creates release PRs and publishes npm from pinned actio
     'include-component-in-tag': false,
   });
   assert.deepEqual(releaseManifest, {
-    '.': '0.4.2',
+    '.': packageJson.version,
   });
 });
 

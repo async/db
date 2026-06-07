@@ -20,6 +20,7 @@ type RawSchema = {
   kind?: ResourceKind;
   idField?: string;
   description?: string;
+  writePolicy?: string;
   seed?: unknown;
   fields?: Record<string, unknown>;
   validator?: unknown;
@@ -64,6 +65,7 @@ type BuiltResource = {
   kind: ResourceKind;
   idField: string;
   description?: string;
+  writePolicy?: string;
   fields: Record<string, SchemaField>;
   seed: unknown;
   dataPath?: string | null;
@@ -135,6 +137,7 @@ export function buildResource({
       kind,
       idField,
       description: rawSchema.description,
+      writePolicy: normalizeWritePolicy(rawSchema.writePolicy),
       fields,
       seed: idResult.seed,
       dataPath,
@@ -168,6 +171,7 @@ export function buildResource({
     name,
     kind,
     idField,
+    writePolicy: undefined,
     fields,
     seed: idResult.seed,
     dataPath,
@@ -279,6 +283,10 @@ function withComputedMetadata(resource: Omit<BuiltResource, 'typeName' | 'routeP
   };
   next.relations = relationsForResource(next as Parameters<typeof relationsForResource>[0]);
   return next;
+}
+
+function normalizeWritePolicy(value: unknown): string | undefined {
+  return value === 'append-only' ? value : undefined;
 }
 
 function inferKindFromData(data: unknown): ResourceKind {

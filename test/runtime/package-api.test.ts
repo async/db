@@ -199,6 +199,79 @@ test('collection.exists returns whether an id is present', async () => {
   assert.equal(await users.exists('missing'), false);
 });
 
+test('collection query helpers support filtered reads, counts, and aggregates', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'install-events.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "package": { "type": "string", "required": true },
+      "decision": { "type": "string", "required": true },
+      "bytes": { "type": "number" },
+      "at": { "type": "string" }
+    },
+    "seed": [
+      { "id": "1", "package": "@async/db", "decision": "allow", "bytes": 100, "at": "2026-06-07T10:00:00Z" },
+      { "id": "2", "package": "@async/web", "decision": "block", "bytes": 50, "at": "2026-06-07T11:00:00Z" },
+      { "id": "3", "package": "@async/db", "decision": "allow", "bytes": 25, "at": "2026-06-07T12:00:00Z" }
+    ]
+  }`);
+
+  const db = await openDb({ cwd });
+  const events = db.collection('installEvents');
+
+  assert.deepEqual(await events.find({
+    where: {
+      package: { contains: 'db' },
+      bytes: { gte: 25 },
+    },
+    orderBy: '-bytes',
+    limit: 1,
+  }), [
+    { id: '1', package: '@async/db', decision: 'allow', bytes: 100, at: '2026-06-07T10:00:00Z' },
+  ]);
+  assert.equal(await events.count({ where: { decision: 'allow' } }), 2);
+  assert.deepEqual(await events.aggregate({
+    groupBy: 'decision',
+    metrics: {
+      count: 'count',
+      bytes: { op: 'sum', field: 'bytes' },
+    },
+    orderBy: 'decision',
+  }), [
+    { decision: 'allow', count: 2, bytes: 125 },
+    { decision: 'block', count: 1, bytes: 50 },
+  ]);
+});
+
+test('append-only collections allow append and reject mutation APIs', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'install-events.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "writePolicy": "append-only",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "decision": { "type": "string", "required": true }
+    },
+    "seed": []
+  }`);
+
+  const db = await openDb({ cwd });
+  const events = db.collection('installEvents');
+  assert.deepEqual(await events.append({ decision: 'allow' }), {
+    id: '1',
+    decision: 'allow',
+  });
+  await assert.rejects(() => events.patch('1', { decision: 'block' }), (error: any) => {
+    assert.equal(error.code, 'DB_APPEND_ONLY_RESOURCE');
+    return true;
+  });
+  await assert.rejects(() => events.delete('1'), /append-only/);
+  await assert.rejects(() => events.replaceAll([]), /append-only/);
+});
+
 test('openDb can read and write through an injected memory filesystem', async () => {
   const cwd = await makeProject();
   const fs = createMemoryFs({

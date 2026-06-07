@@ -31,6 +31,11 @@ type UsageManifest = {
 
 type IntegrationReport = {
   sqlite: {
+    drivers?: {
+      detected: string[];
+      recommended: string | null;
+      ormDetected: string[];
+    };
     tables: Array<{
       name: string;
       classification: string;
@@ -46,7 +51,34 @@ type IntegrationReport = {
     table: string | null;
     message: string;
     nextStep: string;
+    adoptionPath?: {
+      kind: string;
+      asyncDbSurface: string;
+      storageMigration: string;
+    };
   }>;
+  suggestions: Array<{
+    code: string;
+    severity: string;
+    table: string | null;
+    message: string;
+    hint: string;
+  }>;
+  importPlan?: {
+    target: {
+      stateFile: string;
+    };
+    source: {
+      sqliteFile: string;
+      driver: string | null;
+    };
+    resources: Array<{
+      resource: string;
+      table: string;
+      importKind: string;
+    }>;
+    warnings: string[];
+  };
   suggestedFiles: Array<{
     path: string;
     purpose: string;
@@ -95,7 +127,8 @@ Usage:
   async-db contracts check [--json]
   async-db contracts refs [--out <file>]
   async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]
-  async-db integrate inspect [target] --sqlite <file> [--json] [--out <file>] [--check <file>]
+  async-db integrate inspect [target] --sqlite <file> [--target-state <file>] [--json] [--out <file>] [--check <file>]
+  async-db integrate generate importer --plan <report.json> --out <file>
   async-db viewer manifest [--out <file>]
   async-db doctor [--strict] [--json] [--production] [--usage [target]]
   async-db check [--strict] [--json] [--production] [--usage [target]]
@@ -229,24 +262,51 @@ export function printIntegrateHelp(): void {
   console.log(`async-db integrate
 
 Usage:
-  async-db integrate inspect [target] --sqlite <file> [--json] [--out <file>] [--check <file>]
+  async-db integrate inspect [target] --sqlite <file> [--target-state <file>] [--json] [--out <file>] [--check <file>]
+  async-db integrate generate importer --plan <report.json> --out <file>
 
 Options:
-  --sqlite <file> Existing SQLite database file to inspect
-  --json          Print machine-readable integration report
-  --out <file>   Write the integration report to this path
-  --check <file> Fail if the generated report differs from this path, ignoring generatedAt
-  --cwd <dir>     Project directory
-  --config <file> Config file path
+  --sqlite <file>       Existing SQLite database file to inspect
+  --target-state <file> Explicit Async DB-owned SQLite state file for import planning
+  --plan <report.json>  Integration report containing importPlan
+  --json                Print machine-readable integration report
+  --out <file>          Write the integration report or generated importer to this path
+  --check <file>        Fail if the generated report differs from this path, ignoring generatedAt
+  --cwd <dir>           Project directory
+  --config <file>       Config file path
 `);
 }
 
 export function printIntegrationReport(report: IntegrationReport): void {
   console.log(`async-db integrate inspect found ${report.sqlite.tables.length} SQLite table${report.sqlite.tables.length === 1 ? '' : 's'} and ${report.source.matches.length} source match${report.source.matches.length === 1 ? '' : 'es'} in ${report.source.filesWithMatches}/${report.source.filesScanned} scanned file${report.source.filesScanned === 1 ? '' : 's'}`);
+  console.log('Existing SQLite remains the write source of truth. Start by wrapping current DB calls with Async DB operations/contracts; migrate storage only after parity tests pass.');
+  if (report.sqlite.drivers?.detected?.length) {
+    console.log(`drivers: ${report.sqlite.drivers.detected.join(', ')}; recommended compat driver: ${report.sqlite.drivers.recommended ?? 'manual'}`);
+  }
   for (const recommendation of report.recommendations) {
     const target = recommendation.table ? ` ${recommendation.table}` : '';
     console.log(`info: ${recommendation.kind}${target}: ${recommendation.message}`);
     console.log(`  next: ${recommendation.nextStep}`);
+    if (recommendation.adoptionPath) {
+      console.log(`  path: ${recommendation.adoptionPath.kind} via ${recommendation.adoptionPath.asyncDbSurface}; storage migration ${recommendation.adoptionPath.storageMigration}`);
+    }
+  }
+  if (report.importPlan) {
+    console.log(`import plan: ${report.importPlan.source.sqliteFile} -> ${report.importPlan.target.stateFile}`);
+    if (report.importPlan.source.driver) {
+      console.log(`  driver: ${report.importPlan.source.driver}`);
+    }
+    for (const resource of report.importPlan.resources) {
+      console.log(`  ${resource.table} -> ${resource.resource} (${resource.importKind})`);
+    }
+  }
+  if (report.suggestions?.length > 0) {
+    console.log('suggestions:');
+    for (const suggestion of report.suggestions) {
+      const target = suggestion.table ? ` ${suggestion.table}` : '';
+      console.log(`  ${suggestion.severity}: ${suggestion.code}${target}: ${suggestion.message}`);
+      console.log(`    hint: ${suggestion.hint}`);
+    }
   }
   if (report.suggestedFiles.length > 0) {
     console.log('suggested files:');

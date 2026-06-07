@@ -26,6 +26,8 @@ npm run db -- usage scan ./src --production
 npm run db -- usage scan ./src --production --out ./src/generated/db.usage.json
 npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite
 npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
+npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --target-state ./data/app.asyncdb --out ./src/generated/db.integration.json
+npm run db -- integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-sqlite.js
 npm run db -- doctor
 npm run db -- doctor --production
 npm run db -- doctor --production --usage ./src --json
@@ -47,6 +49,8 @@ async-db viewer manifest --out ./src/generated/db.viewer.json
 async-db operations build
 async-db usage scan ./src --production
 async-db integrate inspect ./src --sqlite ./data/app.sqlite --json
+async-db integrate inspect ./src --sqlite ./data/app.sqlite --target-state ./data/app.asyncdb --out ./src/generated/db.integration.json
+async-db integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-sqlite.js
 async-db doctor
 async-db doctor --production
 async-db doctor --production --usage ./src --json
@@ -89,8 +93,83 @@ await users.create({
 const ada = await users.get('u_1');
 const hasGrace = await users.exists('u_2');
 
+const recentAdmins = await users.find({
+  where: { role: 'admin' },
+  orderBy: '-createdAt',
+  limit: 10,
+});
+const userCount = await users.count({ where: { active: true } });
+
 await db.close();
 ```
+
+Collections also expose small store-neutral query helpers for local app reads:
+`find({ where, orderBy, limit, offset })`, `count({ where })`, and
+`aggregate({ groupBy, metrics })`. These helpers run over the collection API
+first, so JSON stores, Async DB-owned SQLite stores, and table-backed SQLite
+resources share one app-facing shape.
+
+### Minimal Collection Queries
+
+Minimal queries are intended for local app reads, admin screens, dashboards, and
+small read models before you need a custom operation or store-specific query
+planner. The first implementation runs over `collection.all()`, which means it
+works for the default JSON-backed store without extra setup.
+
+```ts
+const packages = db.collection('packages');
+
+const blocked = await packages.find({
+  where: {
+    status: 'blocked',
+    requestCount: { gte: 5 },
+    name: { contains: '@company/' },
+  },
+  orderBy: [{ field: 'requestCount', direction: 'desc' }, 'name'],
+  limit: 25,
+  offset: 0,
+});
+
+const blockedCount = await packages.count({
+  where: { status: 'blocked' },
+});
+```
+
+`where` supports equality shorthand plus small operator objects:
+
+```ts
+await packages.find({
+  where: {
+    status: { in: ['blocked', 'review'] },
+    requestCount: { gt: 0, lte: 100 },
+    sourceRegistry: { ne: 'internal' },
+  },
+});
+```
+
+Supported operators are `eq`, `ne`, `in`, `gt`, `gte`, `lt`, `lte`, and
+`contains`. `orderBy` accepts a field name, a `-field` descending shorthand, a
+`{ field, direction }` object, or an array of those entries.
+
+Aggregates return plain rows. Group fields are copied onto each result row, and
+metrics are named by the keys you choose:
+
+```ts
+const byStatus = await packages.aggregate({
+  where: { sourceRegistry: 'npm' },
+  groupBy: 'status',
+  metrics: {
+    count: 'count',
+    requests: { op: 'sum', field: 'requestCount' },
+    maxRequests: { op: 'max', field: 'requestCount' },
+  },
+  orderBy: '-requests',
+});
+```
+
+Supported aggregate operations are `count`, `sum`, `min`, `max`, and `avg`.
+Use registered operations or a store-specific adapter when a query needs indexes,
+joins, full SQL semantics, or must stay efficient over large collections.
 
 Call `db.close()` when a long-running process is done with the database so stores with open handles, such as SQLite, can release them.
 
@@ -125,10 +204,10 @@ Use `createDbRequestHandler(db, options)` only when app code already owns the
 database lifecycle and file watching.
 
 Use `inspectSqliteIntegration()` when an existing app already owns SQLite
-tables and you want an adoption plan before changing storage. The inspector is
-read-only: it opens the SQLite file for schema metadata, scans source text for
-common SQLite usage, and returns a versioned report for people or coding
-agents.
+tables and you want an adoption plan before changing storage. Existing SQLite
+stays the source of truth by default. The inspector is read-only: it opens the
+SQLite file for schema metadata, scans source text for common SQLite usage, and
+returns a versioned report for people or coding agents.
 
 ```ts
 import { inspectSqliteIntegration } from '@async/db';
@@ -137,6 +216,8 @@ const report = await inspectSqliteIntegration({
   cwd: process.cwd(),
   target: './src',
   sqliteFile: './data/app.sqlite',
+  // Optional: only when planning an explicit import into Async DB-owned state.
+  targetState: './data/local-registry.asyncdb',
 });
 
 console.log(report.recommendations);
@@ -145,10 +226,96 @@ console.log(report.recommendations);
 The report has `kind: "db.integrationReport"` and includes:
 
 - SQLite inventory: tables, columns, primary keys, indexes, foreign keys, row counts, and table classifications.
-- Source inventory: high-confidence SQLite imports, prepared statements, raw SQL, migration files, and ORM/query-builder signals.
+- Source inventory: high-confidence SQLite imports, prepared statements, raw SQL, migration files, low-level driver hints, and ORM/query-builder signals.
 - Recommendations: `direct-resource`, `read-model`, `custom-store`, `app-owned-sql`, or `manual-review`.
+- Suggestions: wrapper-first adoption guidance such as keeping existing SQLite as source of truth, using operations for compound keys, and exposing read models first.
+- Adoption paths: `operation-wrapper`, `read-model`, `table-backed-adapter`, or `app-owned-sql` with storage migration marked as optional or not recommended.
+- Import plan: only when `targetState` or CLI `--target-state` is provided, with explicit legacy-table to Async DB-owned resource mapping.
 - Suggested files: `db.config.mjs`, resource schemas, committed schema/viewer manifests, and optional adapter/read-model modules.
-- Agent instructions: a short next-step checklist that favors read-only integration before replacing app-owned writes.
+- Agent instructions: a short next-step checklist that favors wrapping existing DB calls before replacing app-owned writes.
+
+For existing SQLite apps, prefer this order:
+
+1. Wrap current DB facade methods with Async DB operations.
+2. Expose views, event logs, and dashboard tables as read-only resources.
+3. Use `openSqliteDb({ tables })` for simple table-backed resources.
+4. Move storage only after app parity tests pass.
+
+`sqliteStore()` is Async DB-owned SQLite storage for resource JSON envelopes.
+Use `openSqliteDb({ tables })` when the app already owns relational SQLite
+tables and the database file must stay in place:
+
+```ts
+import { openSqliteDb } from '@async/db/sqlite';
+
+const db = await openSqliteDb({
+  cwd: process.cwd(),
+  file: './data/app.sqlite',
+  migrate: false,
+  tables: {
+    users: {
+      table: 'app_users',
+      columns: {
+        id: 'user_id',
+        name: 'full_name',
+      },
+      primaryKey: 'id',
+    },
+    packageVersions: {
+      table: 'package_versions',
+      primaryKey: ['name', 'version'],
+    },
+  },
+});
+
+await db.table('users').get('u_1');
+await db.table('packageVersions').get({ name: '@async/db', version: '0.4.0' });
+```
+
+Use `@async/db/sqlite/compat` when transitional code already has a low-level
+SQLite driver handle. Compat supports `node:sqlite`, `better-sqlite3`,
+`sqlite3`, and the `sqlite` promise wrapper without adding mandatory
+dependencies:
+
+```ts
+import { openLegacySqlite, compoundKeyId } from '@async/db/sqlite/compat';
+
+const legacy = await openLegacySqlite({
+  driver: 'node:sqlite',
+  file: './data/local-registry.sqlite',
+  readOnly: true,
+  tables: {
+    packageVersions: {
+      table: 'package_versions',
+      primaryKey: ['name', 'version'],
+    },
+  },
+});
+
+const packageVersion = await legacy.table('packageVersions').get({
+  name: '@async/db',
+  version: '0.4.0',
+});
+const id = compoundKeyId(['name', 'version'], packageVersion);
+```
+
+For explicit import mode, generate a dry-run importer from an integration
+report:
+
+```bash
+async-db integrate inspect ./src --sqlite ./data/local-registry.sqlite \
+  --target-state ./data/local-registry.asyncdb \
+  --out ./src/generated/db.integration.json
+async-db integrate generate importer \
+  --plan ./src/generated/db.integration.json \
+  --out ./scripts/import-legacy-sqlite.js
+node ./scripts/import-legacy-sqlite.js
+node ./scripts/import-legacy-sqlite.js --apply
+```
+
+Event-log resources can use `writePolicy: "append-only"` and
+`collection.append(record)`. Append-only collections reject patch, update,
+delete, and replace-all calls while still allowing append-style event writes.
 
 Singleton document usage:
 
@@ -428,6 +595,7 @@ with `operations.acceptRefs`.
 | `@async/db/vite` | Optional Vite dev server plugin. |
 | `@async/db/hono` | Optional Hono route registration helpers. |
 | `@async/db/sqlite` | Optional SQLite adapter helpers. |
+| `@async/db/sqlite/compat` | Low-level SQLite driver adapters for migration wrappers and generated importers. |
 | `@async/db/postgres` | Optional Postgres runtime store helpers using an injected client. |
 | `@async/db/kv` | Optional generic KV runtime store helpers using an injected `get`/`set` client. |
 | `@async/db/redis` | Optional Redis-named helper over the generic KV store. |

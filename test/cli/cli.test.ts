@@ -238,6 +238,30 @@ test('CLI integrate inspect prints JSON for a SQLite-backed project', async (t) 
   assert.equal(report.target.path, 'src');
   assert.equal(report.sqlite.tables.some((table) => table.name === 'users'), true);
   assert.equal(report.source.matches.some((match) => match.kind === 'node-sqlite-import'), true);
+  assert.equal(report.suggestions.some((suggestion) => suggestion.code === 'INTEGRATE_KEEP_EXISTING_SQLITE_SOURCE'), true);
+});
+
+test('CLI integrate inspect prints wrapper-first SQLite guidance', async (t) => {
+  const sqliteFile = await createSqliteIntegrationFixture(t);
+  if (!sqliteFile) return;
+  const cwd = path.dirname(path.dirname(sqliteFile));
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'inspect',
+    './src',
+    '--sqlite',
+    './data/app.sqlite',
+    '--cwd',
+    cwd,
+  ]);
+
+  assert.equal(stderr, '');
+  assert.match(stdout, /Existing SQLite remains the write source of truth/);
+  assert.match(stdout, /suggestions:/);
+  assert.match(stdout, /INTEGRATE_KEEP_EXISTING_SQLITE_SOURCE/);
+  assert.match(stdout, /path: table-backed-adapter via table-adapter/);
 });
 
 test('CLI integrate inspect writes and checks reports relative to cwd', async (t) => {
@@ -275,6 +299,55 @@ test('CLI integrate inspect writes and checks reports relative to cwd', async (t
   assert.match(written.stdout, /Generated src\/generated\/db\.integration\.json/);
   assert.equal(report.kind, 'db.integrationReport');
   assert.match(checked.stdout, /Integration report matches src\/generated\/db\.integration\.json/);
+});
+
+test('CLI integrate inspect target-state writes import plans and generated importers', async (t) => {
+  const sqliteFile = await createSqliteIntegrationFixture(t);
+  if (!sqliteFile) return;
+  const cwd = path.dirname(path.dirname(sqliteFile));
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await mkdir(path.join(cwd, 'scripts'), { recursive: true });
+
+  const written = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'inspect',
+    './src',
+    '--sqlite',
+    './data/app.sqlite',
+    '--target-state',
+    './data/local-registry.asyncdb',
+    '--cwd',
+    cwd,
+    '--out',
+    './src/generated/db.integration.json',
+  ]);
+  const report = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.integration.json'), 'utf8'));
+  const generated = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'generate',
+    'importer',
+    '--plan',
+    './src/generated/db.integration.json',
+    '--out',
+    './scripts/import-legacy-sqlite.js',
+    '--cwd',
+    cwd,
+  ]);
+  const importer = await readFile(path.join(cwd, 'scripts/import-legacy-sqlite.js'), 'utf8');
+
+  assert.match(written.stdout, /Generated src\/generated\/db\.integration\.json/);
+  assert.equal(report.importPlan.kind, 'sqlite.importPlan');
+  assert.equal(report.importPlan.target.stateFile, 'data/local-registry.asyncdb');
+  assert.equal(report.suggestions.some((suggestion) => suggestion.code === 'INTEGRATE_IMPORT_TO_ASYNC_DB_STATE'), true);
+  assert.match(generated.stdout, /Generated scripts\/import-legacy-sqlite\.js/);
+  assert.match(importer, /from '@async\/db'/);
+  assert.match(importer, /from '@async\/db\/sqlite'/);
+  assert.match(importer, /from '@async\/db\/sqlite\/compat'/);
+  assert.doesNotMatch(importer, /from ['"]node:sqlite['"]|from ['"]better-sqlite3['"]|from ['"]sqlite3['"]/);
+  assert.doesNotMatch(importer, /\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b/i);
+  assert.match(importer, /--apply/);
 });
 
 test('CLI contracts infer from tags and write contract refs', async () => {

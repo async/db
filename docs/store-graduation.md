@@ -88,25 +88,101 @@ SQLite keeps the deployment simple, but it still changes the operational boundar
 
 ## Inspecting Existing SQLite Apps
 
-When an app already has SQLite tables, inspect before migrating:
+When an app already has SQLite tables, inspect before migrating. The default
+story is wrapper-first: keep the SQLite file, schema, migrations, indexes, ORM
+layer, and existing DB facade as the write source of truth.
 
 ```bash
 async-db integrate inspect ./src --sqlite ./data/app.sqlite
 async-db integrate inspect ./src --sqlite ./data/app.sqlite --json
 async-db integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
+async-db integrate inspect ./src --sqlite ./data/app.sqlite \
+  --target-state ./data/app.asyncdb \
+  --out ./src/generated/db.integration.json
 ```
 
 The inspector is advisory and read-only. It inventories tables, primary keys,
-indexes, foreign keys, row counts, source files with SQLite usage, and suggested
+indexes, foreign keys, row counts, source files with SQLite usage, suggested
+adoption paths, low-level driver hints, optional import plans, and suggested
 files for an incremental `@async/db` adoption.
 
 Use the recommendation as the migration path:
 
-- `direct-resource`: add an explicit `db/<resource>.schema.jsonc` and consider a normal `@async/db` resource boundary.
-- `read-model`: keep writes app-owned and expose dashboard or reporting data through an `@async/db` read model.
-- `custom-store`: keep the table app-owned until a custom store or adapter preserves compound keys, joins, or specialized SQL.
-- `app-owned-sql`: leave direct SQL in place until the app defines a stable resource id or operation boundary.
-- `manual-review`: inspect ORM/query-builder code before deciding whether `@async/db` should wrap it.
+- `operation-wrapper`: keep current SQLite writes and expose existing DB facade methods through Async DB operations.
+- `read-model`: keep writes app-owned and expose views, event logs, dashboards, or reporting data as read-only Async DB resources.
+- `table-backed-adapter`: map a simple single-primary-key table with `openSqliteDb({ tables })` while the SQLite file stays in place.
+- `app-owned-sql`: leave compound-key, join-table, no-primary-key, specialized SQL, high-write, or ORM-owned tables app-owned.
+- `manual-review`: inspect ORM/query-builder code and wrap it instead of bypassing its schema, hooks, or migrations.
+
+Compound-key tables should keep their real identity. Do not add a surrogate id
+by default. Expose operation inputs that match the SQLite key, such as
+`{ name, version }`, and only add a new id column during an explicit
+storage-model migration.
+
+Low-level SQLite driver imports can move behind `@async/db/sqlite/compat`.
+Compat adapts `node:sqlite`, `better-sqlite3`, `sqlite3`, and the `sqlite`
+promise wrapper so transitional wrappers and generated importers do not import
+those packages directly. Drizzle, Kysely, and Prisma stay advisory in this pass:
+wrap their existing facade instead of bypassing their migrations or hooks.
+
+For existing tables, `sqliteStore()` is not the right first move: it stores
+Async DB resource envelopes in its own `_db_resources` table. Use
+`openSqliteDb({ tables, migrate: false })` or operation wrappers when the app
+already owns relational SQLite tables:
+
+```js
+const db = await openSqliteDb({
+  file: './data/app.sqlite',
+  migrate: false,
+  tables: {
+    users: {
+      table: 'app_users',
+      columns: { id: 'user_id', name: 'full_name' },
+      primaryKey: 'id',
+    },
+    packageVersions: {
+      table: 'package_versions',
+      primaryKey: ['name', 'version'],
+    },
+  },
+});
+```
+
+Only use import mode when the app intentionally wants to retire direct SQLite
+and copy rows into an Async DB-owned state file:
+
+```bash
+async-db integrate generate importer \
+  --plan ./src/generated/db.integration.json \
+  --out ./scripts/import-legacy-sqlite.js
+node ./scripts/import-legacy-sqlite.js
+node ./scripts/import-legacy-sqlite.js --apply
+```
+
+Generated import plans map single-primary-key tables to collections, compound
+keys to deterministic import ids while preserving the real key fields, settings
+tables to documents, and event/log tables to append-only collections. The
+generated importer is dry-run by default and only writes when passed `--apply`.
+
+For dashboard reads that used to be small SQL queries, prefer collection helper
+methods before adding app SQL back:
+
+```js
+const events = db.collection('installEvents');
+const recentBlocks = await events.find({
+  where: { decision: 'block' },
+  orderBy: '-at',
+  limit: 50,
+});
+const byDecision = await events.aggregate({
+  groupBy: 'decision',
+  metrics: { count: 'count', bytes: { op: 'sum', field: 'bytes' } },
+});
+```
+
+Event logs can opt into `writePolicy: 'append-only'` and write through
+`collection.append(record)`, which blocks update, patch, delete, and replace-all
+calls for that resource.
 
 For example, a local package registry with firewall tables may keep package
 blocking writes in app-owned SQLite, while using `@async/db` for dashboard

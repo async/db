@@ -59,6 +59,7 @@ export type ObjectFieldOptions = FieldOptions<Record<string, unknown>> & {
 export type ResourceDefinition = {
   description?: string;
   idField?: string;
+  writePolicy?: 'append-only';
   source?: FilesSourceDefinition | string | readonly string[];
   fields: Record<string, FieldDefinition>;
   seed?: unknown;

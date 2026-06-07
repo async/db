@@ -142,7 +142,7 @@ Expected values:
 
 ```txt
 @async/db
-./src/cli.js
+./dist/cli.js
 ```
 
 ### First Release

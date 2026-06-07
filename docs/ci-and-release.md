@@ -74,11 +74,15 @@ dist/**/*.d.ts
 examples/*/README.md
 examples/*/example.json
 examples/*/package.json
+examples/*/serve-example.mjs
+examples/*/framework/**
+examples/*/server/**
 examples/*/db/**
 examples/*/db.config.mjs
 examples/*/src/**
 docs/**/*.md
 !docs/goals/**
+API_SURFACE.md
 db.config.example.mjs
 CHANGELOG.md
 README.md

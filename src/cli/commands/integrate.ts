@@ -1,8 +1,9 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   inspectSqliteIntegration,
   normalizeIntegrationReportForCheck,
+  renderSqliteImporter,
   writeIntegrationReport,
   type SqliteIntegrationReport,
 } from '../../features/integrate/sqlite-inspector.js';
@@ -15,16 +16,22 @@ type CliConfig = {
 };
 
 export async function runIntegrate(config: CliConfig, args: string[]): Promise<void> {
+  const cwd = path.resolve(config.cwd ?? process.cwd());
+
   if (isHelpRequested(args)) {
     printIntegrateHelp();
     return;
   }
 
-  if (args[0] !== 'inspect') {
-    throw new Error('Unknown integrate command. Use async-db integrate inspect.');
+  if (args[0] === 'generate' && args[1] === 'importer') {
+    await generateImporter(cwd, args.slice(2));
+    return;
   }
 
-  const cwd = path.resolve(config.cwd ?? process.cwd());
+  if (args[0] !== 'inspect') {
+    throw new Error('Unknown integrate command. Use async-db integrate inspect or async-db integrate generate importer.');
+  }
+
   const inspectArgs = args.slice(1);
   const sqliteFile = valueAfter(inspectArgs, '--sqlite');
   if (!sqliteFile) {
@@ -33,10 +40,12 @@ export async function runIntegrate(config: CliConfig, args: string[]): Promise<v
 
   const outFile = valueAfter(inspectArgs, '--out');
   const checkFile = valueAfter(inspectArgs, '--check');
+  const targetState = valueAfter(inspectArgs, '--target-state');
   const report = await inspectSqliteIntegration({
     cwd,
     target: scanTarget(inspectArgs),
     sqliteFile,
+    targetState,
     ignorePaths: [outFile, checkFile].filter((filePath): filePath is string => Boolean(filePath)),
   });
 
@@ -59,6 +68,23 @@ export async function runIntegrate(config: CliConfig, args: string[]): Promise<v
   if (!outFile && !checkFile) {
     printIntegrationReport(report);
   }
+}
+
+async function generateImporter(cwd: string, args: string[]): Promise<void> {
+  const planFile = valueAfter(args, '--plan');
+  const outFile = valueAfter(args, '--out');
+  if (!planFile) {
+    throw new Error('async-db integrate generate importer requires --plan <report.json>.');
+  }
+  if (!outFile) {
+    throw new Error('async-db integrate generate importer requires --out <file>.');
+  }
+  const report = JSON.parse(await readFile(resolveOutputPath(cwd, planFile), 'utf8') as string) as SqliteIntegrationReport;
+  const rendered = renderSqliteImporter(report);
+  const resolved = resolveOutputPath(cwd, outFile);
+  await mkdir(path.dirname(resolved), { recursive: true });
+  await writeFile(resolved, rendered, 'utf8');
+  console.log(`Generated ${relativeOutputPath(cwd, resolved)}`);
 }
 
 async function checkIntegrationReport(cwd: string, filePath: string, report: SqliteIntegrationReport): Promise<void> {

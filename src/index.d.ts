@@ -45,6 +45,80 @@ export type DbIntegrationRecommendationKind =
 
 export type DbIntegrationConfidence = 'high' | 'medium' | 'low';
 
+export type DbSqliteIntegrationAdoptionPathKind =
+  | 'operation-wrapper'
+  | 'read-model'
+  | 'table-backed-adapter'
+  | 'app-owned-sql';
+
+export type DbSqliteIntegrationSuggestionCode =
+  | 'INTEGRATE_KEEP_EXISTING_SQLITE_SOURCE'
+  | 'INTEGRATE_WRAP_EXISTING_DB_FACADE'
+  | 'INTEGRATE_USE_SQLITE_COMPAT_DRIVER'
+  | 'INTEGRATE_IMPORT_TO_ASYNC_DB_STATE'
+  | 'INTEGRATE_COMPOUND_KEY_USE_OPERATIONS'
+  | 'INTEGRATE_APPEND_ONLY_EVENT_LOG'
+  | 'INTEGRATE_QUERY_AGGREGATION_API'
+  | 'INTEGRATE_READ_MODEL_FIRST'
+  | 'INTEGRATE_SIMPLE_TABLE_ADAPTER_CANDIDATE'
+  | 'INTEGRATE_ORM_MANUAL_REVIEW';
+
+export type DbSqliteIntegrationDriver = 'node:sqlite' | 'better-sqlite3' | 'sqlite3' | 'sqlite';
+
+export type DbSqliteIntegrationAdoptionPath = {
+  kind: DbSqliteIntegrationAdoptionPathKind;
+  sourceOfTruth: 'existing-sqlite';
+  asyncDbSurface: 'operations' | 'read-model' | 'table-adapter' | 'app-owned-sql';
+  storageMigration: 'not-recommended' | 'optional-later';
+  reason: string;
+};
+
+export type DbSqliteIntegrationSuggestion = {
+  code: DbSqliteIntegrationSuggestionCode;
+  severity: 'info' | 'warning';
+  table: string | null;
+  message: string;
+  hint: string;
+  details: Record<string, unknown>;
+};
+
+export type DbSqliteIntegrationImportKeyStrategy =
+  | { kind: 'single-primary-key'; field: string }
+  | { kind: 'compound-generated-id'; fields: string[]; idField: string }
+  | { kind: 'key-value-document'; keyField: string; valueField: string }
+  | { kind: 'append-only'; idField?: string };
+
+export type DbSqliteIntegrationImportResource = {
+  resource: string;
+  table: string;
+  kind: 'collection' | 'document';
+  importKind: 'collection' | 'document' | 'append-only';
+  primaryKey: string[];
+  idField?: string;
+  writePolicy?: 'append-only';
+  fields: Record<string, {
+    type: string;
+    required?: boolean;
+  }>;
+  columns: Record<string, string>;
+  keyStrategy: DbSqliteIntegrationImportKeyStrategy;
+  warnings: string[];
+};
+
+export type DbSqliteIntegrationImportPlan = {
+  version: 1;
+  kind: 'sqlite.importPlan';
+  source: {
+    sqliteFile: string;
+    driver: DbSqliteIntegrationDriver | null;
+  };
+  target: {
+    stateFile: string;
+  };
+  resources: DbSqliteIntegrationImportResource[];
+  warnings: string[];
+};
+
 export type DbSqliteIntegrationReport = {
   version: 1;
   kind: 'db.integrationReport';
@@ -55,6 +129,11 @@ export type DbSqliteIntegrationReport = {
   };
   sqlite: {
     path: string;
+    drivers: {
+      detected: DbSqliteIntegrationDriver[];
+      recommended: DbSqliteIntegrationDriver | null;
+      ormDetected: string[];
+    };
     tables: Array<{
       name: string;
       type: string;
@@ -100,8 +179,11 @@ export type DbSqliteIntegrationReport = {
     confidence: DbIntegrationConfidence;
     message: string;
     nextStep: string;
+    adoptionPath?: DbSqliteIntegrationAdoptionPath;
     details: Record<string, unknown>;
   }>;
+  suggestions: DbSqliteIntegrationSuggestion[];
+  importPlan?: DbSqliteIntegrationImportPlan;
   suggestedFiles: Array<{
     path: string;
     purpose: string;
@@ -113,6 +195,7 @@ export type DbInspectSqliteIntegrationOptions = {
   cwd?: string;
   target?: string;
   sqliteFile: string;
+  targetState?: string;
   generatedAt?: string;
   ignorePaths?: string[];
 };
@@ -888,11 +971,52 @@ export type DbOpenOptions = Omit<DbOptions, 'schema'> & {
   schema?: DbSchemaConfig | DbLoadedSchema;
 };
 
+export type DbCollectionWhereOperator = {
+  eq?: unknown;
+  ne?: unknown;
+  in?: unknown[];
+  gt?: unknown;
+  gte?: unknown;
+  lt?: unknown;
+  lte?: unknown;
+  contains?: unknown;
+};
+
+export type DbCollectionWhere = Record<string, unknown | DbCollectionWhereOperator>;
+
+export type DbCollectionOrderBy =
+  | string
+  | { field: string; direction?: 'asc' | 'desc' }
+  | Array<string | { field: string; direction?: 'asc' | 'desc' }>;
+
+export type DbCollectionQuery = {
+  where?: DbCollectionWhere;
+  orderBy?: DbCollectionOrderBy;
+  limit?: number;
+  offset?: number;
+};
+
+export type DbCollectionAggregateMetric =
+  | 'count'
+  | {
+    op: 'count' | 'sum' | 'min' | 'max' | 'avg';
+    field?: string;
+  };
+
+export type DbCollectionAggregate = DbCollectionQuery & {
+  groupBy?: string | string[];
+  metrics?: Record<string, DbCollectionAggregateMetric>;
+};
+
 export type DbCollection<RecordType> = {
   all(): Promise<RecordType[]>;
   get(id: string): Promise<RecordType | null>;
   exists(id: string): Promise<boolean>;
+  find(options?: DbCollectionQuery): Promise<RecordType[]>;
+  count(options?: DbCollectionQuery): Promise<number>;
+  aggregate(options: DbCollectionAggregate): Promise<Array<Record<string, unknown>>>;
   create(record: RecordType): Promise<RecordType>;
+  append(record: RecordType): Promise<RecordType>;
   update(id: string, patch: Partial<RecordType>): Promise<RecordType | null>;
   patch(id: string, patch: Partial<RecordType>): Promise<RecordType | null>;
   delete(id: string): Promise<boolean>;

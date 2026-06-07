@@ -8,7 +8,9 @@ current-state ledger, not a changelog or tutorial. For usage examples, see
 
 When a change touches a public contract, inspect `git diff` for the matching
 surface below and update this file when the contract changes. If no update is
-needed, the review should be able to say why.
+needed, the review should be able to say why. `npm run api-surface:check`
+enforces the review rule by failing when watched public-surface files changed
+without an `API_SURFACE.md` diff.
 
 | If this changes | Inspect these diffs |
 | --- | --- |
@@ -30,6 +32,7 @@ needed, the review should be able to say why.
 | `@async/db/json` | `./dist/json.js` | `./dist/json.d.ts` | stable | First-party JSON store helpers and JSON state utilities. |
 | `@async/db/hono` | `./dist/hono.js` | `./dist/hono.d.ts` | preview | Optional Hono integration. Hono stays an app dependency, not a required package dependency. |
 | `@async/db/sqlite` | `./dist/sqlite.js` | `./dist/sqlite.d.ts` | preview | Optional SQLite adapter using dynamic `node:sqlite` support. |
+| `@async/db/sqlite/compat` | `./dist/sqlite-compat.js` | `./dist/sqlite-compat.d.ts` | preview | Low-level SQLite driver adapters and explicit legacy import helpers for migration bridges. |
 | `@async/db/postgres` | `./dist/postgres.js` | `./dist/postgres.d.ts` | preview | Optional Postgres-like store adapter boundary. |
 | `@async/db/kv` | `./dist/kv.js` | `./dist/kv.d.ts` | preview | Optional generic KV store adapter boundary. |
 | `@async/db/redis` | `./dist/redis.js` | `./dist/redis.d.ts` | preview | Optional Redis-like store adapter boundary. |
@@ -52,6 +55,8 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | `async-db operations build [--out <file>] [--refs-out <file>]` | stable | Build operation registry and client-safe operation refs. |
 | `async-db operations contract [--out <file>] [--check]` | stable | Write or check the client operation contract. |
 | `async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]` | preview | Scan app source text for @async/db usage and emit a `db.usageManifest`. |
+| `async-db integrate inspect [target] --sqlite <file> [--target-state <file>] [--json] [--out <file>] [--check <file>]` | preview | Inspect an existing SQLite app without mutating it, emit wrapper-first adoption guidance, and optionally include an explicit import-to-Async-DB-state plan. |
+| `async-db integrate generate importer --plan <report.json> --out <file>` | preview | Generate a dry-run legacy SQLite importer from an integration report import plan. |
 | `async-db viewer manifest [--out <file>]` | generated | Render the viewer manifest contract. |
 | `async-db doctor [--strict] [--json] [--production] [--usage [target]]` | stable | Report schema/data drift, production-readiness guidance, and opt-in usage findings. |
 | `async-db check [--strict] [--json] [--production] [--usage [target]]` | stable | CI-oriented alias for doctor/check behavior. |
@@ -63,7 +68,7 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 
 | Surface | Stability | Public contract |
 | --- | --- | --- |
-| Runtime database | stable | `openDb`, `Db`, collection APIs, document APIs, forks, branches, snapshots, migrations, and `close`. |
+| Runtime database | stable | `openDb`, `Db`, collection APIs including `find`, `count`, `aggregate`, and `append`, document APIs, forks, branches, snapshots, migrations, and `close`. |
 | Runtime lifecycle | stable | `createDbRuntime`, `reloadDb`, `watchDbSources`, and `createDbRequestHandler` for custom local servers. |
 | Schema loading | stable | `loadDbSchema`, validators, computed field resolvers, metadata-only loading, and schema locator support. |
 | Schema authoring | stable | `@async/db/schema` helpers for collection/document/field/files authoring in trusted local schema files. |
@@ -71,8 +76,11 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | JSON store | stable | `jsonStore`, `fileStorage`, `s3Storage`, JSON state helpers, capabilities, and atomic/write-lock helpers exported from `@async/db/json`. |
 | Memory filesystem | stable | `createMemoryFs` for tests and programmatic schema/runtime loading. |
 | Operations | stable | Operation manifests, registered operation handlers, refs, hashing, and readiness checks. |
+| SQLite inspection | preview | `inspectSqliteIntegration`, `DbSqliteIntegrationReport`, report suggestions, adoption paths, driver hints, and optional import plans for wrapper-first SQLite adoption or explicit import planning. |
 | Hono integration | preview | Optional route registration and lifecycle hooks exported from `@async/db/hono`. |
 | Vite integration | preview | Optional Vite plugin/config surface exported from `@async/db/vite`. |
+| SQLite integration | preview | `sqliteStore` is Async DB-owned SQLite storage; `openSqliteDb({ tables })` maps resources to existing tables, supports read-only/no-migrate mode, table/column mappings, injected handles, and compound object-key reads/writes. |
+| SQLite compat | preview | `adaptSqliteDatabase`, `openCompatSqlite`, `openLegacySqlite`, `compoundKeyId`, `defineSqliteImportPlan`, and `runSqliteImportPlan` bridge low-level `node:sqlite`, `better-sqlite3`, `sqlite3`, and `sqlite` handles without making raw SQL the app-facing API. |
 | Optional stores | preview | SQLite, Postgres, KV, and Redis-like store adapter helpers remain optional integration surfaces. |
 
 ## HTTP Surface
@@ -122,7 +130,7 @@ metadata are not public API.
 | `operations` | stable | Registered operation registry, refs, contract output, source directory, accept-ref policy, and opt-in strict readiness. |
 | `mock` | stable | Local mock delay/error behavior. |
 | `stores` | preview | Store factory configuration and optional adapter selection. |
-| `resources` / `collections` | stable | Per-resource schema, source, store, route, validation, defaults, relation, and UI metadata. |
+| `resources` / `collections` | stable | Per-resource schema, source, store, route, validation, defaults, relation, append-only `writePolicy`, and UI metadata. |
 | `defaults` / `seed` | stable | Default application and seed/hydration behavior. |
 
 ## Internal Boundaries

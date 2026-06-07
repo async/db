@@ -1,13 +1,14 @@
 {
   "name": "@async/db",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "The Async data workflow package for fixtures, generated types, local APIs, runtime stores, and database-backed graduation.",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
     "build": "tsc -p tsconfig.build.json && cp src/*.d.ts dist/",
     "build:test": "tsc -p tsconfig.test.json",
-    "check": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/check-syntax.js",
+    "check": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/check-syntax.js && node ./.tmp/test-build/scripts/check-api-surface.js",
     "test": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/run-tests.js",
+    "api-surface:check": "npm run build:test --silent && node ./.tmp/test-build/scripts/check-api-surface.js",
     "release:check": "npm run check && npm test && npm pack --dry-run",
     "release:pack": "npm pack",
     "release:publish": "npm publish --access public",
@@ -54,6 +55,10 @@
     "./sqlite": {
       "types": "./dist/sqlite.d.ts",
       "default": "./dist/sqlite.js"
+    },
+    "./sqlite/compat": {
+      "types": "./dist/sqlite-compat.d.ts",
+      "default": "./dist/sqlite-compat.js"
     },
     "./postgres": {
       "types": "./dist/postgres.d.ts",
