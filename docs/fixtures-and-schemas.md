@@ -267,6 +267,49 @@ the value.
 }
 ```
 
+Identity columns and generated database defaults should also be marked derived
+so creates do not require app code to supply those values:
+
+```json
+{
+  "kind": "collection",
+  "idField": "id",
+  "fields": {
+    "id": {
+      "type": "number",
+      "readOnly": true,
+      "derived": {
+        "source": "database",
+        "kind": "identity"
+      }
+    },
+    "email": { "type": "string", "required": true }
+  }
+}
+```
+
+For read models backed by database views, use derived metadata for columns that
+come from SQL expressions or aggregates:
+
+```json
+{
+  "kind": "collection",
+  "idField": "packageName",
+  "fields": {
+    "packageName": { "type": "string", "required": true },
+    "downloadCount": {
+      "type": "number",
+      "readOnly": true,
+      "derived": {
+        "source": "database",
+        "kind": "view-column",
+        "owner": "package_download_summary"
+      }
+    }
+  }
+}
+```
+
 Executable schema files can use `field.derived(...)`:
 
 ```js
