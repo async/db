@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.1](https://github.com/async-framework/async-db/releases/tag/v0.4.1) - 2026-06-07
+
+### Changed
+
+- Refactored config loading internals into named path resolution, module loading, inline option, output mirroring, and absolute path normalization helpers without changing the public package API.
+
+### Fixed
+
+- Added a Fallow PR review gate that installs Fallow in CI without adding a package dependency, while ignoring examples for the analysis workflow.
+- Removed unused internal source wrappers and tightened duplicate internal export names surfaced by Fallow.
+
 ## [0.4.0](https://github.com/async-framework/async-db/releases/tag/v0.4.0) - 2026-06-04
 
 ### Added
