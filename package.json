@@ -64,6 +64,10 @@
       "types": "./dist/postgres.d.ts",
       "default": "./dist/postgres.js"
     },
+    "./postgres/compat": {
+      "types": "./dist/postgres-compat.d.ts",
+      "default": "./dist/postgres-compat.js"
+    },
     "./kv": {
       "types": "./dist/kv.d.ts",
       "default": "./dist/kv.js"

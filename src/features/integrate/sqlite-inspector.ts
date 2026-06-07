@@ -285,7 +285,7 @@ export async function inspectSqliteIntegration(options: InspectSqliteIntegration
   }
 }
 
-export async function writeIntegrationReport(filePath: string, report: SqliteIntegrationReport): Promise<void> {
+export async function writeIntegrationReport(filePath: string, report: unknown): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 }

@@ -15,6 +15,7 @@ export { createDbRuntime, reloadDb, watchDbSources } from './runtime.js';
 export { syncDb } from './sync.js';
 export { generateTypes, renderTypes } from './types.js';
 export { inspectSqliteIntegration } from './features/integrate/sqlite-inspector.js';
+export { inspectPostgresIntegration } from './features/integrate/postgres-inspector.js';
 export { buildOperationManifest, createDbOperationHandler, hashOperation } from './operations.js';
 export {
   assertOperationAllowedByContract,

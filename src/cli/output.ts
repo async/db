@@ -29,7 +29,7 @@ type UsageManifest = {
   }>;
 };
 
-type IntegrationReport = {
+type SqliteOutputIntegrationReport = {
   sqlite: {
     drivers?: {
       detected: string[];
@@ -86,6 +86,83 @@ type IntegrationReport = {
   agentInstructions: string[];
 };
 
+type PostgresOutputIntegrationReport = {
+  postgres: {
+    mode: 'source-only' | 'catalog' | 'partial';
+    connectionStringEnv: string | null;
+    schemas: string[];
+    drivers?: {
+      detected: string[];
+      recommended: string | null;
+      ormDetected: string[];
+    };
+    catalog: {
+      tables: Array<{
+        schema: string;
+        name: string;
+        classification: string;
+      }>;
+    };
+    errors: Array<{
+      code: string;
+      message: string;
+    }>;
+  };
+  source: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: unknown[];
+  };
+  recommendations: Array<{
+    kind: string;
+    table: string | null;
+    message: string;
+    nextStep: string;
+    adoptionPath?: {
+      kind: string;
+      asyncDbSurface: string;
+      storageMigration: string;
+    };
+  }>;
+  suggestions: Array<{
+    code: string;
+    severity: string;
+    table: string | null;
+    message: string;
+    hint: string;
+  }>;
+  importPlan?: {
+    target:
+      | {
+        kind: 'sqlite-state';
+        stateFile: string;
+      }
+      | {
+        kind: 'postgres-envelope';
+        schema: string;
+        table: string;
+      };
+    source: {
+      connectionStringEnv: string;
+      driver: string | null;
+    };
+    resources: Array<{
+      resource: string;
+      schema: string;
+      table: string;
+      importKind: string;
+    }>;
+    warnings: string[];
+  };
+  suggestedFiles: Array<{
+    path: string;
+    purpose: string;
+  }>;
+  agentInstructions: string[];
+};
+
+type IntegrationReport = SqliteOutputIntegrationReport | PostgresOutputIntegrationReport;
+
 export function printDiagnostic(diagnostic: CliDiagnostic): void {
   const prefix = diagnostic.severity === 'error' ? 'error' : 'warn';
   console.error(`${prefix}: ${diagnostic.message}`);
@@ -128,6 +205,7 @@ Usage:
   async-db contracts refs [--out <file>]
   async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]
   async-db integrate inspect [target] --sqlite <file> [--target-state <file>] [--json] [--out <file>] [--check <file>]
+  async-db integrate inspect [target] --postgres [--postgres-url-env <env>] [--schema <schema>] [--target-postgres-table <schema.table>] [--target-state <file>] [--allow-partial] [--json] [--out <file>] [--check <file>]
   async-db integrate generate importer --plan <report.json> --out <file>
   async-db viewer manifest [--out <file>]
   async-db doctor [--strict] [--json] [--production] [--usage [target]]
@@ -263,11 +341,20 @@ export function printIntegrateHelp(): void {
 
 Usage:
   async-db integrate inspect [target] --sqlite <file> [--target-state <file>] [--json] [--out <file>] [--check <file>]
+  async-db integrate inspect [target] --postgres [--postgres-url-env <env>] [--schema <schema>] [--target-postgres-table <schema.table>] [--target-state <file>] [--allow-partial] [--json] [--out <file>] [--check <file>]
   async-db integrate generate importer --plan <report.json> --out <file>
 
 Options:
   --sqlite <file>       Existing SQLite database file to inspect
+  --postgres            Inspect Postgres source usage and optionally a live read-only catalog
+  --postgres-url-env <env>
+                        Environment variable containing the Postgres connection URL
+  --schema <schema>     Postgres schema to inspect, defaulting to public; comma-separated values are accepted
+  --target-postgres-table <schema.table>
+                        Explicit Async DB-owned Postgres envelope table for import planning
   --target-state <file> Explicit Async DB-owned SQLite state file for import planning
+  --exact-row-counts    Opt into exact Postgres row counts; default uses estimates
+  --allow-partial       Emit a partial Postgres report instead of failing when catalog inspection cannot connect
   --plan <report.json>  Integration report containing importPlan
   --json                Print machine-readable integration report
   --out <file>          Write the integration report or generated importer to this path
@@ -278,6 +365,11 @@ Options:
 }
 
 export function printIntegrationReport(report: IntegrationReport): void {
+  if ('postgres' in report) {
+    printPostgresIntegrationReport(report);
+    return;
+  }
+
   console.log(`async-db integrate inspect found ${report.sqlite.tables.length} SQLite table${report.sqlite.tables.length === 1 ? '' : 's'} and ${report.source.matches.length} source match${report.source.matches.length === 1 ? '' : 'es'} in ${report.source.filesWithMatches}/${report.source.filesScanned} scanned file${report.source.filesScanned === 1 ? '' : 's'}`);
   console.log('Existing SQLite remains the write source of truth. Start by wrapping current DB calls with Async DB operations/contracts; migrate storage only after parity tests pass.');
   if (report.sqlite.drivers?.detected?.length) {
@@ -298,6 +390,64 @@ export function printIntegrationReport(report: IntegrationReport): void {
     }
     for (const resource of report.importPlan.resources) {
       console.log(`  ${resource.table} -> ${resource.resource} (${resource.importKind})`);
+    }
+  }
+  if (report.suggestions?.length > 0) {
+    console.log('suggestions:');
+    for (const suggestion of report.suggestions) {
+      const target = suggestion.table ? ` ${suggestion.table}` : '';
+      console.log(`  ${suggestion.severity}: ${suggestion.code}${target}: ${suggestion.message}`);
+      console.log(`    hint: ${suggestion.hint}`);
+    }
+  }
+  if (report.suggestedFiles.length > 0) {
+    console.log('suggested files:');
+    for (const file of report.suggestedFiles) {
+      console.log(`  ${file.path}: ${file.purpose}`);
+    }
+  }
+  if (report.agentInstructions.length > 0) {
+    console.log('agent instructions:');
+    for (const instruction of report.agentInstructions) {
+      console.log(`  - ${instruction}`);
+    }
+  }
+}
+
+function printPostgresIntegrationReport(report: PostgresOutputIntegrationReport): void {
+  const tables = report.postgres.catalog.tables;
+  console.log(`async-db integrate inspect found ${tables.length} Postgres catalog object${tables.length === 1 ? '' : 's'} and ${report.source.matches.length} source match${report.source.matches.length === 1 ? '' : 'es'} in ${report.source.filesWithMatches}/${report.source.filesScanned} scanned file${report.source.filesScanned === 1 ? '' : 's'} (${report.postgres.mode})`);
+  console.log('Existing Postgres remains the write source of truth. Start by wrapping current DB calls with Async DB operations/contracts; migrate storage only after parity tests pass.');
+  if (report.postgres.connectionStringEnv) {
+    console.log(`connection: ${report.postgres.connectionStringEnv} (value redacted)`);
+  }
+  if (report.postgres.drivers?.detected?.length) {
+    console.log(`drivers: ${report.postgres.drivers.detected.join(', ')}; recommended compat driver: ${report.postgres.drivers.recommended ?? 'manual'}`);
+  }
+  if (report.postgres.drivers?.ormDetected?.length) {
+    console.log(`orm/query builders: ${report.postgres.drivers.ormDetected.join(', ')}`);
+  }
+  for (const error of report.postgres.errors) {
+    console.log(`warning: ${error.code}: ${error.message}`);
+  }
+  for (const recommendation of report.recommendations) {
+    const target = recommendation.table ? ` ${recommendation.table}` : '';
+    console.log(`info: ${recommendation.kind}${target}: ${recommendation.message}`);
+    console.log(`  next: ${recommendation.nextStep}`);
+    if (recommendation.adoptionPath) {
+      console.log(`  path: ${recommendation.adoptionPath.kind} via ${recommendation.adoptionPath.asyncDbSurface}; storage migration ${recommendation.adoptionPath.storageMigration}`);
+    }
+  }
+  if (report.importPlan) {
+    const target = report.importPlan.target.kind === 'sqlite-state'
+      ? report.importPlan.target.stateFile
+      : `${report.importPlan.target.schema}.${report.importPlan.target.table}`;
+    console.log(`import plan: ${report.importPlan.source.connectionStringEnv} -> ${target}`);
+    if (report.importPlan.source.driver) {
+      console.log(`  driver: ${report.importPlan.source.driver}`);
+    }
+    for (const resource of report.importPlan.resources) {
+      console.log(`  ${resource.schema}.${resource.table} -> ${resource.resource} (${resource.importKind})`);
     }
   }
   if (report.suggestions?.length > 0) {

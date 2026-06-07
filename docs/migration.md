@@ -83,9 +83,13 @@ rewrite a consumer app.
 | Validate current fixtures, schema, and config | `async-db doctor` or `async-db check --strict` |
 | Find app usage of Async DB APIs and route exposure | `async-db usage scan ./src --production` |
 | Inventory existing SQLite and source usage | `async-db integrate inspect ./src --sqlite ./data/app.sqlite` |
+| Inventory Postgres source usage | `async-db integrate inspect ./src --postgres` |
+| Inventory Postgres source plus read-only catalog | `async-db integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public` |
 | Write a stable integration report | `async-db integrate inspect ... --out ./src/generated/db.integration.json` |
 | Plan an explicit import into Async DB-owned state | `async-db integrate inspect ... --target-state ./data/app.asyncdb --out ...` |
+| Plan an explicit import into Async DB-owned Postgres envelopes | `async-db integrate inspect ... --postgres --postgres-url-env DATABASE_URL --target-postgres-table public._async_db_resources --out ...` |
 | Generate a dry-run legacy SQLite importer | `async-db integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-sqlite.js` |
+| Generate a dry-run legacy Postgres importer | `async-db integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-postgres.js` |
 | Generate schema/types/runtime state | `async-db sync` and `async-db types` |
 | Build operation registry and client refs | `async-db operations build` and `async-db contracts refs` |
 
@@ -247,6 +251,111 @@ node ./scripts/import-legacy-sqlite.js --apply
 The generated importer is dry-run by default. In import mode, compound-key
 tables can receive deterministic generated import ids while preserving the real
 key fields. That is an import strategy, not a default wrapper strategy.
+
+## Existing Postgres
+
+For Postgres apps, start with source-only inspection. Add live catalog
+inspection only when the human provides an env var that contains a read-only
+connection URL:
+
+```bash
+async-db integrate inspect ./src --postgres
+async-db integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public --json
+async-db integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public --out ./src/generated/db.integration.json
+```
+
+The CLI prints the env var name but never the connection string value. If the
+human provides `--postgres-url-env` and catalog access fails, the command fails
+unless `--allow-partial` is passed. Exact row counts are opt-in with
+`--exact-row-counts`; the default report uses catalog estimates.
+
+Read these parts of the report:
+
+- `postgres.mode`: `source-only`, `catalog`, or `partial`.
+- `postgres.catalog.tables[]`: schemas, tables, views, materialized views, columns, primary keys, unique indexes, foreign keys, triggers, RLS policies, and estimated rows.
+- `source.matches[]`: low-level driver imports, raw SQL, DB facade files, migration/schema ownership files, and ORM/query-builder hints.
+- `suggestions[]`: wrapper-first guidance, compat driver hints, object-key guidance, read-model candidates, and explicit import warnings.
+- `recommendations[].adoptionPath`: wrapper, read-model, table-backed, or app-owned SQL.
+- `importPlan`: present only when `--target-postgres-table` or `--target-state` was explicitly requested.
+
+Default rules:
+
+- Existing Postgres remains the write source of truth unless the human explicitly chooses import mode.
+- Keep compound keys as real identity in wrapper mode. Use operation inputs such as `{ tenantId, slug }`; do not invent surrogate ids.
+- Use `read-model` for views, materialized views, dashboards, reporting tables, and event/log tables.
+- Use `table-backed-adapter` only for simple single non-generated primary-key tables where row-level writes preserve database behavior.
+- Use `app-owned-sql` for compound-key tables, join tables, no-primary-key tables, generated/identity write paths, partitioned tables, RLS-heavy tables, trigger-dependent writes, ORM-owned models, transactions, and complex SQL.
+- Keep Prisma, Drizzle, Kysely, Knex, Sequelize, TypeORM, MikroORM, Objection, Slonik, and Supabase advisory. Wrap the existing facade instead of bypassing their migrations, hooks, transactions, or RLS assumptions.
+
+### Wrapper-First Postgres
+
+Wrapper-first means current Postgres code keeps ownership of schema,
+migrations, indexes, transactions, RLS, triggers, and writes. Async DB exposes
+a safer app-facing surface through registered operations or a small async
+facade. Use low-level compat helpers only at the boundary:
+
+```ts
+import { adaptPostgresClient } from '@async/db/postgres/compat';
+
+const asyncDbClient = adaptPostgresClient(existingPool, {
+  driver: 'pg',
+});
+```
+
+Do not expose raw SQL as the new public app API. Wrap existing repository or
+service methods with operation names and refs that match user workflows.
+
+### Existing Postgres Table Mapping
+
+When a table is simple enough to map directly, use the existing-table Postgres
+surface instead of `postgresStore()`:
+
+```ts
+import { openPostgresDb } from '@async/db/postgres';
+
+const db = await openPostgresDb({
+  client: pool,
+  migrate: false,
+  readOnly: true,
+  tables: {
+    users: {
+      schema: 'public',
+      table: 'app_users',
+      columns: { id: 'user_id', name: 'full_name' },
+      primaryKey: 'id',
+    },
+  },
+});
+```
+
+`postgresStore()` is Async DB-owned JSONB envelope storage. It is the right
+choice for new Async DB state in a Postgres table such as
+`public._async_db_resources`, not for preserving an existing relational schema
+unchanged.
+
+### Import Once From Postgres
+
+Use import mode only after the human chooses to retire the old Postgres source
+of truth or copy selected data into Async DB-owned storage:
+
+```bash
+async-db integrate inspect ./src \
+  --postgres \
+  --postgres-url-env DATABASE_URL \
+  --target-postgres-table public._async_db_resources \
+  --out ./src/generated/db.integration.json
+
+async-db integrate generate importer \
+  --plan ./src/generated/db.integration.json \
+  --out ./scripts/import-legacy-postgres.js
+
+node ./scripts/import-legacy-postgres.js
+node ./scripts/import-legacy-postgres.js --apply
+```
+
+Use `--target-state ./data/app.asyncdb` instead when the selected import target
+is an Async DB-owned local SQLite state file. The generated importer is dry-run
+by default and reads connection strings from env vars only.
 
 ## Refactor Rules
 

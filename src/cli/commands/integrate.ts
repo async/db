@@ -7,6 +7,12 @@ import {
   writeIntegrationReport,
   type SqliteIntegrationReport,
 } from '../../features/integrate/sqlite-inspector.js';
+import {
+  inspectPostgresIntegration,
+  normalizePostgresIntegrationReportForCheck,
+  renderPostgresImporter,
+  type PostgresIntegrationReport,
+} from '../../features/integrate/postgres-inspector.js';
 import { isHelpRequested, valueAfter } from '../args.js';
 import { printIntegrateHelp, printIntegrationReport } from '../output.js';
 
@@ -34,20 +40,36 @@ export async function runIntegrate(config: CliConfig, args: string[]): Promise<v
 
   const inspectArgs = args.slice(1);
   const sqliteFile = valueAfter(inspectArgs, '--sqlite');
-  if (!sqliteFile) {
-    throw new Error('async-db integrate inspect requires --sqlite <file>.');
+  const isPostgres = inspectArgs.includes('--postgres');
+  if (sqliteFile && isPostgres) {
+    throw new Error('async-db integrate inspect accepts either --sqlite <file> or --postgres, not both.');
+  }
+  if (!sqliteFile && !isPostgres) {
+    throw new Error('async-db integrate inspect requires --sqlite <file> or --postgres.');
   }
 
   const outFile = valueAfter(inspectArgs, '--out');
   const checkFile = valueAfter(inspectArgs, '--check');
   const targetState = valueAfter(inspectArgs, '--target-state');
-  const report = await inspectSqliteIntegration({
-    cwd,
-    target: scanTarget(inspectArgs),
-    sqliteFile,
-    targetState,
-    ignorePaths: [outFile, checkFile].filter((filePath): filePath is string => Boolean(filePath)),
-  });
+  const report = sqliteFile
+    ? await inspectSqliteIntegration({
+      cwd,
+      target: scanTarget(inspectArgs),
+      sqliteFile,
+      targetState,
+      ignorePaths: [outFile, checkFile].filter((filePath): filePath is string => Boolean(filePath)),
+    })
+    : await inspectPostgresIntegration({
+      cwd,
+      target: scanTarget(inspectArgs),
+      postgresUrlEnv: valueAfter(inspectArgs, '--postgres-url-env'),
+      schemas: csvValues(valueAfter(inspectArgs, '--schema')),
+      targetState,
+      targetPostgresTable: valueAfter(inspectArgs, '--target-postgres-table'),
+      exactRowCounts: inspectArgs.includes('--exact-row-counts'),
+      allowPartial: inspectArgs.includes('--allow-partial'),
+      ignorePaths: [outFile, checkFile].filter((filePath): filePath is string => Boolean(filePath)),
+    });
 
   if (checkFile) {
     await checkIntegrationReport(cwd, checkFile, report);
@@ -79,26 +101,36 @@ async function generateImporter(cwd: string, args: string[]): Promise<void> {
   if (!outFile) {
     throw new Error('async-db integrate generate importer requires --out <file>.');
   }
-  const report = JSON.parse(await readFile(resolveOutputPath(cwd, planFile), 'utf8') as string) as SqliteIntegrationReport;
-  const rendered = renderSqliteImporter(report);
+  const report = JSON.parse(await readFile(resolveOutputPath(cwd, planFile), 'utf8') as string) as IntegrationReport;
+  const rendered = report.importPlan?.kind === 'postgres.importPlan'
+    ? renderPostgresImporter(report as PostgresIntegrationReport)
+    : renderSqliteImporter(report as SqliteIntegrationReport);
   const resolved = resolveOutputPath(cwd, outFile);
   await mkdir(path.dirname(resolved), { recursive: true });
   await writeFile(resolved, rendered, 'utf8');
   console.log(`Generated ${relativeOutputPath(cwd, resolved)}`);
 }
 
-async function checkIntegrationReport(cwd: string, filePath: string, report: SqliteIntegrationReport): Promise<void> {
+type IntegrationReport = SqliteIntegrationReport | PostgresIntegrationReport;
+
+async function checkIntegrationReport(cwd: string, filePath: string, report: IntegrationReport): Promise<void> {
   const resolved = resolveOutputPath(cwd, filePath);
-  const current = JSON.parse(await readFile(resolved, 'utf8') as string) as SqliteIntegrationReport;
-  if (JSON.stringify(normalizeIntegrationReportForCheck(current)) === JSON.stringify(normalizeIntegrationReportForCheck(report))) {
+  const current = JSON.parse(await readFile(resolved, 'utf8') as string) as IntegrationReport;
+  if (JSON.stringify(normalizeReportForCheck(current)) === JSON.stringify(normalizeReportForCheck(report))) {
     return;
   }
 
-  const error = new Error(`Integration report check failed for ${relativeOutputPath(cwd, resolved)}. Run async-db integrate inspect --sqlite <file> --out ${filePath} to update it.`) as Error & {
+  const error = new Error(`Integration report check failed for ${relativeOutputPath(cwd, resolved)}. Run async-db integrate inspect with the same flags and --out ${filePath} to update it.`) as Error & {
     code?: string;
   };
   error.code = 'INTEGRATION_REPORT_CHECK_FAILED';
   throw error;
+}
+
+function normalizeReportForCheck(report: IntegrationReport): unknown {
+  return 'postgres' in report
+    ? normalizePostgresIntegrationReportForCheck(report)
+    : normalizeIntegrationReportForCheck(report);
 }
 
 function scanTarget(args: string[]): string | undefined {
@@ -106,6 +138,10 @@ function scanTarget(args: string[]): string | undefined {
     index === 0
     && !arg.startsWith('-')
   ));
+}
+
+function csvValues(value: string | undefined): string[] | undefined {
+  return value?.split(',').map((entry) => entry.trim()).filter(Boolean);
 }
 
 function resolveOutputPath(cwd: string, filePath: string): string {

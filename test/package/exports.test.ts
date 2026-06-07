@@ -52,7 +52,8 @@ import { defineConfig } from '@async/db/config';
 import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
 import { sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, openLegacySqlite } from '@async/db/sqlite/compat';
-import { postgresStore } from '@async/db/postgres';
+import { openPostgresDb, postgresStore } from '@async/db/postgres';
+import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, openLegacyPostgres } from '@async/db/postgres/compat';
 import { kvStore } from '@async/db/kv';
 import { redisStore } from '@async/db/redis';
 
@@ -82,6 +83,11 @@ if (typeof compoundKeyId !== 'function') throw new Error('missing sqlite compat 
 if (typeof defineSqliteImportPlan !== 'function') throw new Error('missing sqlite compat import plan helper');
 if (typeof openLegacySqlite !== 'function') throw new Error('missing sqlite compat legacy opener');
 if (typeof postgresStore !== 'function') throw new Error('missing postgres store API');
+if (typeof openPostgresDb !== 'function') throw new Error('missing postgres table adapter API');
+if (typeof adaptPostgresClient !== 'function') throw new Error('missing postgres compat adapter');
+if (typeof postgresCompoundKeyId !== 'function') throw new Error('missing postgres compat compound key helper');
+if (typeof definePostgresImportPlan !== 'function') throw new Error('missing postgres compat import plan helper');
+if (typeof openLegacyPostgres !== 'function') throw new Error('missing postgres compat legacy opener');
 if (typeof kvStore !== 'function') throw new Error('missing kv store API');
 if (typeof redisStore !== 'function') throw new Error('missing redis store API');
 `);
@@ -160,7 +166,8 @@ import {
   type JsonStoreCapabilities,
 } from '@async/db/json';
 import { kvStore } from '@async/db/kv';
-import { postgresStore } from '@async/db/postgres';
+import { openPostgresDb, postgresStore, type PostgresTableMapping } from '@async/db/postgres';
+import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, type PostgresCompatDriver, type PostgresImportPlan } from '@async/db/postgres/compat';
 import { redisStore } from '@async/db/redis';
 import { collection, field, files, type ResourceDefinition } from '@async/db/schema';
 import { sqliteStore } from '@async/db/sqlite';
@@ -290,6 +297,31 @@ const sqliteImportPlan: SqliteImportPlan = defineSqliteImportPlan({
 });
 compoundKeyId(['name', 'version'], { name: '@async/db', version: '0.4.2' });
 void sqliteImportPlan;
+const postgresCompatDriver: PostgresCompatDriver = 'pg';
+const postgresImportPlan: PostgresImportPlan = definePostgresImportPlan({
+  version: 1,
+  kind: 'postgres.importPlan',
+  source: { connectionStringEnv: 'DATABASE_URL', driver: postgresCompatDriver, schemas: ['public'] },
+  target: {
+    kind: 'postgres-envelope',
+    connectionStringEnv: 'DATABASE_URL',
+    driver: postgresCompatDriver,
+    schema: 'public',
+    table: '_async_db_resources',
+  },
+  resources: [],
+  batchSize: 500,
+});
+const postgresTableMapping: PostgresTableMapping = {
+  schema: 'public',
+  table: 'users',
+  primaryKey: 'id',
+};
+adaptPostgresClient({ query: async () => ({ rows: [] }) }, { driver: postgresCompatDriver });
+postgresCompoundKeyId(['tenantId', 'slug'], { tenantId: 'acme', slug: 'core' });
+void postgresImportPlan;
+void postgresTableMapping;
+void openPostgresDb({ client: { query: async () => ({ rows: [] }) }, project: { resources: [] }, migrate: false });
 void postgresStore({ client: { query: async () => ({ rows: [] }) } });
 void kvStore({ client: { get: async () => null, set: async () => undefined } });
 void redisStore({ client: { get: async () => null, set: async () => undefined } });
@@ -323,6 +355,10 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.equal(packageJson.exports['./json'].types, './dist/json.d.ts');
   assert.equal(packageJson.exports['./sqlite/compat'].default, './dist/sqlite-compat.js');
   assert.equal(packageJson.exports['./sqlite/compat'].types, './dist/sqlite-compat.d.ts');
+  assert.equal(packageJson.exports['./postgres'].default, './dist/postgres.js');
+  assert.equal(packageJson.exports['./postgres'].types, './dist/postgres.d.ts');
+  assert.equal(packageJson.exports['./postgres/compat'].default, './dist/postgres-compat.js');
+  assert.equal(packageJson.exports['./postgres/compat'].types, './dist/postgres-compat.d.ts');
   assert.deepEqual(packageJson.repository, {
     type: 'git',
     url: 'https://github.com/async-framework/async-db',

@@ -350,6 +350,122 @@ test('CLI integrate inspect target-state writes import plans and generated impor
   assert.match(importer, /--apply/);
 });
 
+test('CLI integrate inspect prints source-only Postgres guidance', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/db.ts'), `
+import { Pool } from 'pg';
+import postgres from 'postgres';
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export async function listUsers() {
+  return pool.query('SELECT * FROM users WHERE active = $1', [true]);
+}
+`, 'utf8');
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'inspect',
+    './src',
+    '--postgres',
+    '--json',
+    '--cwd',
+    cwd,
+  ]);
+  const report = JSON.parse(stdout);
+
+  assert.equal(stderr, '');
+  assert.equal(report.kind, 'db.integrationReport');
+  assert.equal(report.postgres.mode, 'source-only');
+  assert.deepEqual(report.postgres.drivers.detected, ['pg', 'postgres']);
+  assert.equal(report.suggestions.some((suggestion) => suggestion.code === 'INTEGRATE_KEEP_EXISTING_POSTGRES_SOURCE'), true);
+  assert.equal(report.suggestions.some((suggestion) => suggestion.code === 'INTEGRATE_USE_POSTGRES_COMPAT_DRIVER'), true);
+});
+
+test('CLI integrate inspect prints wrapper-first Postgres guidance', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/db.ts'), `
+import { Pool } from 'pg';
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+`, 'utf8');
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'inspect',
+    './src',
+    '--postgres',
+    '--cwd',
+    cwd,
+  ]);
+
+  assert.equal(stderr, '');
+  assert.match(stdout, /Existing Postgres remains the write source of truth/);
+  assert.match(stdout, /source-only/);
+  assert.match(stdout, /INTEGRATE_KEEP_EXISTING_POSTGRES_SOURCE/);
+});
+
+test('CLI integrate generate importer supports Postgres import plans', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await mkdir(path.join(cwd, 'scripts'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/generated/db.integration.json'), JSON.stringify({
+    version: 1,
+    kind: 'db.integrationReport',
+    generatedAt: '2026-06-07T00:00:00.000Z',
+    target: { path: 'src', kind: 'directory' },
+    postgres: {
+      mode: 'catalog',
+      connectionStringEnv: 'DATABASE_URL',
+      schemas: ['public'],
+      drivers: { detected: ['pg'], recommended: 'pg', ormDetected: [] },
+      catalog: { schemas: ['public'], tables: [], exactRowCounts: false },
+      errors: [],
+    },
+    source: { filesScanned: 0, filesWithMatches: 0, matches: [] },
+    recommendations: [],
+    suggestions: [],
+    importPlan: {
+      version: 1,
+      kind: 'postgres.importPlan',
+      source: { connectionStringEnv: 'DATABASE_URL', driver: 'pg', schemas: ['public'] },
+      target: {
+        kind: 'postgres-envelope',
+        connectionStringEnv: 'DATABASE_URL',
+        driver: 'pg',
+        schema: 'public',
+        table: '_async_db_resources',
+      },
+      resources: [],
+      batchSize: 500,
+      warnings: [],
+    },
+    suggestedFiles: [],
+    agentInstructions: [],
+  }, null, 2), 'utf8');
+
+  const generated = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'generate',
+    'importer',
+    '--plan',
+    './src/generated/db.integration.json',
+    '--out',
+    './scripts/import-legacy-postgres.js',
+    '--cwd',
+    cwd,
+  ]);
+  const importer = await readFile(path.join(cwd, 'scripts/import-legacy-postgres.js'), 'utf8');
+
+  assert.match(generated.stdout, /Generated scripts\/import-legacy-postgres\.js/);
+  assert.match(importer, /from '@async\/db\/postgres\/compat'/);
+  assert.doesNotMatch(importer, /from ['"]pg['"]|from ['"]postgres['"]|from ['"]@neondatabase\/serverless['"]|from ['"]@vercel\/postgres['"]|from ['"]pg-promise['"]/);
+  assert.doesNotMatch(importer, /\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b/i);
+  assert.match(importer, /--apply/);
+});
+
 test('CLI contracts infer from tags and write contract refs', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.schema.jsonc', `{

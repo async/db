@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added wrapper-first Postgres integration inspection with source-only and optional read-only catalog modes, redacted env-based connection handling, Postgres adoption paths, and explicit import planning.
+- Added `@async/db/postgres/compat` for optional low-level Postgres driver adapters and dry-run import helpers.
+- Added `openPostgresDb({ tables })` for mapping Async DB resources to existing Postgres tables, including read-only mappings, column mappings, compound object keys, and append-only event tables.
+
 ## [0.5.1](https://github.com/async-framework/async-db/releases/tag/v0.5.1) - 2026-06-07
 
 ### Fixed

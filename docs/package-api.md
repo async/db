@@ -27,6 +27,9 @@ npm run db -- usage scan ./src --production --out ./src/generated/db.usage.json
 npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite
 npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
 npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --target-state ./data/app.asyncdb --out ./src/generated/db.integration.json
+npm run db -- integrate inspect ./src --postgres
+npm run db -- integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public --out ./src/generated/db.integration.json
+npm run db -- integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --target-postgres-table public._async_db_resources --out ./src/generated/db.integration.json
 npm run db -- integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-sqlite.js
 npm run db -- doctor
 npm run db -- doctor --production
@@ -50,6 +53,9 @@ async-db operations build
 async-db usage scan ./src --production
 async-db integrate inspect ./src --sqlite ./data/app.sqlite --json
 async-db integrate inspect ./src --sqlite ./data/app.sqlite --target-state ./data/app.asyncdb --out ./src/generated/db.integration.json
+async-db integrate inspect ./src --postgres
+async-db integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public --json
+async-db integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --target-postgres-table public._async_db_resources --out ./src/generated/db.integration.json
 async-db integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-sqlite.js
 async-db doctor
 async-db doctor --production
@@ -114,7 +120,8 @@ resources share one app-facing shape.
 Minimal queries are intended for local app reads, admin screens, dashboards, and
 small read models before you need a custom operation or store-specific query
 planner. The first implementation runs over `collection.all()`, which means it
-works for the default JSON-backed store without extra setup.
+works for the default JSON-backed store without extra setup. Existing
+table-backed SQLite and Postgres resources expose the same helper shape.
 
 ```ts
 const packages = db.collection('packages');
@@ -171,7 +178,7 @@ Supported aggregate operations are `count`, `sum`, `min`, `max`, and `avg`.
 Use registered operations or a store-specific adapter when a query needs indexes,
 joins, full SQL semantics, or must stay efficient over large collections.
 
-Call `db.close()` when a long-running process is done with the database so stores with open handles, such as SQLite, can release them.
+Call `db.close()` when a long-running process is done with the database so stores with open handles, such as SQLite or Postgres clients, can release them.
 
 Use `createDbRuntime()` when custom Node middleware should own the same
 development lifecycle as `async-db serve`: open the db, sync or hydrate, watch
@@ -312,6 +319,123 @@ async-db integrate generate importer \
 node ./scripts/import-legacy-sqlite.js
 node ./scripts/import-legacy-sqlite.js --apply
 ```
+
+Use `inspectPostgresIntegration()` when an existing app already owns Postgres
+tables and you want an adoption plan before changing storage. Existing Postgres
+stays the source of truth by default. Without `postgresUrlEnv`, the inspector
+does source-only guidance. With `postgresUrlEnv`, it performs read-only catalog
+inspection and redacts the URL value from reports and errors.
+
+```ts
+import { inspectPostgresIntegration } from '@async/db';
+
+const report = await inspectPostgresIntegration({
+  cwd: process.cwd(),
+  target: './src',
+  postgresUrlEnv: 'DATABASE_URL',
+  schemas: ['public'],
+  // Optional: only when planning an explicit import into Async DB-owned state.
+  targetPostgresTable: 'public._async_db_resources',
+});
+
+console.log(report.postgres.mode);
+console.log(report.recommendations);
+```
+
+The Postgres report has `kind: "db.integrationReport"` and includes:
+
+- Postgres mode: `source-only`, `catalog`, or `partial`.
+- Catalog inventory: schemas, tables, views, materialized views, columns, primary keys, unique indexes, foreign keys, triggers, RLS policies, and estimated row counts.
+- Source inventory: low-level driver imports, raw SQL, migration/schema ownership files, DB facade files, and ORM/query-builder signals.
+- Recommendations and adoption paths parallel to SQLite: wrapper, read-model, table-backed, app-owned SQL, and manual review.
+- Import plan: only when `targetPostgresTable`, `targetState`, or CLI import flags are provided.
+
+For existing Postgres apps, prefer this order:
+
+1. Wrap current DB facade methods with Async DB operations.
+2. Expose views, materialized views, event logs, and dashboards as read-only resources.
+3. Use `openPostgresDb({ tables })` for simple single non-generated primary-key tables.
+4. Move storage only after app parity tests pass.
+
+`postgresStore()` is Async DB-owned JSONB envelope storage for resources. Use
+`openPostgresDb({ tables })` when the app already owns relational Postgres
+tables and the schema must stay in place:
+
+```ts
+import { openPostgresDb } from '@async/db/postgres';
+import { pool } from './src/postgres.js';
+
+const db = await openPostgresDb({
+  cwd: process.cwd(),
+  client: pool,
+  migrate: false,
+  tables: {
+    users: {
+      schema: 'public',
+      table: 'app_users',
+      columns: {
+        id: 'user_id',
+        name: 'full_name',
+      },
+      primaryKey: 'id',
+    },
+    packageVersions: {
+      schema: 'public',
+      table: 'package_versions',
+      primaryKey: ['name', 'version'],
+      readOnly: true,
+    },
+  },
+});
+
+await db.table('users').get('u_1');
+await db.table('packageVersions').get({ name: '@async/db', version: '0.5.1' });
+```
+
+Use `@async/db/postgres/compat` when transitional code already has a low-level
+Postgres client. Compat supports `pg`, `postgres`, Neon serverless, Vercel
+Postgres, and `pg-promise` without adding mandatory dependencies:
+
+```ts
+import { adaptPostgresClient, openLegacyPostgres, compoundKeyId } from '@async/db/postgres/compat';
+
+const client = adaptPostgresClient(existingPool, { driver: 'pg' });
+const legacy = await openLegacyPostgres({
+  client,
+  readOnly: true,
+  tables: {
+    packageVersions: {
+      schema: 'public',
+      table: 'package_versions',
+      primaryKey: ['name', 'version'],
+    },
+  },
+});
+
+const packageVersion = await legacy.table('packageVersions').get({
+  name: '@async/db',
+  version: '0.5.1',
+});
+const id = compoundKeyId(['name', 'version'], packageVersion);
+```
+
+For explicit Postgres import mode, generate a dry-run importer from an
+integration report:
+
+```bash
+async-db integrate inspect ./src --postgres --postgres-url-env DATABASE_URL \
+  --target-postgres-table public._async_db_resources \
+  --out ./src/generated/db.integration.json
+async-db integrate generate importer \
+  --plan ./src/generated/db.integration.json \
+  --out ./scripts/import-legacy-postgres.js
+node ./scripts/import-legacy-postgres.js
+node ./scripts/import-legacy-postgres.js --apply
+```
+
+Use `--target-state ./data/app.asyncdb` instead of
+`--target-postgres-table ...` when the import target should be an Async
+DB-owned local SQLite state file.
 
 Event-log resources can use `writePolicy: "append-only"` and
 `collection.append(record)`. Append-only collections reject patch, update,

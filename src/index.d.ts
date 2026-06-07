@@ -202,6 +202,216 @@ export type DbInspectSqliteIntegrationOptions = {
 
 export function inspectSqliteIntegration(options: DbInspectSqliteIntegrationOptions): Promise<DbSqliteIntegrationReport>;
 
+export type DbPostgresIntegrationAdoptionPathKind =
+  | 'operation-wrapper'
+  | 'read-model'
+  | 'table-backed-adapter'
+  | 'app-owned-sql';
+
+export type DbPostgresIntegrationSuggestionCode =
+  | 'INTEGRATE_KEEP_EXISTING_POSTGRES_SOURCE'
+  | 'INTEGRATE_WRAP_EXISTING_POSTGRES_FACADE'
+  | 'INTEGRATE_USE_POSTGRES_COMPAT_DRIVER'
+  | 'INTEGRATE_IMPORT_TO_ASYNC_DB_STATE'
+  | 'INTEGRATE_IMPORT_TO_POSTGRES_STORE'
+  | 'INTEGRATE_POSTGRES_OBJECT_KEY_OPERATIONS'
+  | 'INTEGRATE_POSTGRES_APPEND_ONLY_EVENT_LOG'
+  | 'INTEGRATE_POSTGRES_QUERY_AGGREGATION_API'
+  | 'INTEGRATE_POSTGRES_READ_MODEL_FIRST'
+  | 'INTEGRATE_POSTGRES_TABLE_ADAPTER_CANDIDATE'
+  | 'INTEGRATE_POSTGRES_ORM_MANUAL_REVIEW'
+  | 'INTEGRATE_POSTGRES_CATALOG_PARTIAL';
+
+export type DbPostgresIntegrationDriver =
+  | 'pg'
+  | 'postgres'
+  | '@neondatabase/serverless'
+  | '@vercel/postgres'
+  | 'pg-promise';
+
+export type DbPostgresIntegrationAdoptionPath = {
+  kind: DbPostgresIntegrationAdoptionPathKind;
+  sourceOfTruth: 'existing-postgres';
+  asyncDbSurface: 'operations' | 'read-model' | 'table-adapter' | 'app-owned-sql';
+  storageMigration: 'not-recommended' | 'optional-later';
+  reason: string;
+};
+
+export type DbPostgresIntegrationSuggestion = {
+  code: DbPostgresIntegrationSuggestionCode;
+  severity: 'info' | 'warning';
+  table: string | null;
+  message: string;
+  hint: string;
+  details: Record<string, unknown>;
+};
+
+export type DbPostgresIntegrationImportKeyStrategy =
+  | { kind: 'single-primary-key'; field: string }
+  | { kind: 'compound-generated-id'; fields: string[]; idField: string }
+  | { kind: 'key-value-document'; keyField: string; valueField: string }
+  | { kind: 'append-only'; idField?: string };
+
+export type DbPostgresIntegrationImportResource = {
+  resource: string;
+  schema: string;
+  table: string;
+  kind: 'collection' | 'document';
+  importKind: 'collection' | 'document' | 'append-only';
+  primaryKey: string[];
+  idField?: string;
+  writePolicy?: 'append-only';
+  fields: Record<string, {
+    type: string;
+    required?: boolean;
+  }>;
+  columns: Record<string, string>;
+  keyStrategy: DbPostgresIntegrationImportKeyStrategy;
+  estimatedRows: number | null;
+  batchSize: number;
+  warnings: string[];
+};
+
+export type DbPostgresIntegrationImportPlan = {
+  version: 1;
+  kind: 'postgres.importPlan';
+  source: {
+    connectionStringEnv: string;
+    driver: DbPostgresIntegrationDriver | null;
+    schemas: string[];
+  };
+  target:
+    | {
+      kind: 'postgres-envelope';
+      connectionStringEnv: string;
+      driver: DbPostgresIntegrationDriver | null;
+      schema: string;
+      table: string;
+      namespace?: string;
+    }
+    | {
+      kind: 'sqlite-state';
+      stateFile: string;
+    };
+  resources: DbPostgresIntegrationImportResource[];
+  batchSize: number;
+  warnings: string[];
+};
+
+export type DbPostgresIntegrationTable = {
+  schema: string;
+  name: string;
+  kind: 'table' | 'view' | 'materialized-view' | 'partitioned-table';
+  columns: Array<{
+    name: string;
+    type: string;
+    nullable: boolean;
+    defaultValue: string | null;
+    generated: boolean;
+    identity: boolean;
+  }>;
+  primaryKey: string[];
+  uniqueIndexes: Array<{
+    name: string;
+    columns: string[];
+  }>;
+  foreignKeys: Array<{
+    name: string;
+    columns: string[];
+    foreignSchema: string;
+    foreignTable: string;
+    foreignColumns: string[];
+  }>;
+  triggers: Array<{
+    name: string;
+    timing: string;
+    events: string[];
+  }>;
+  rlsPolicies: Array<{
+    name: string;
+    command: string;
+  }>;
+  estimatedRows: number | null;
+  exactRows?: number | null;
+  classification: string;
+};
+
+export type DbPostgresIntegrationReport = {
+  version: 1;
+  kind: 'db.integrationReport';
+  generatedAt: string;
+  target: {
+    path: string;
+    kind: 'file' | 'directory';
+  };
+  postgres: {
+    mode: 'source-only' | 'catalog' | 'partial';
+    connectionStringEnv: string | null;
+    schemas: string[];
+    drivers: {
+      detected: DbPostgresIntegrationDriver[];
+      recommended: DbPostgresIntegrationDriver | null;
+      ormDetected: string[];
+    };
+    catalog: {
+      schemas: string[];
+      tables: DbPostgresIntegrationTable[];
+      exactRowCounts: boolean;
+    };
+    errors: Array<{
+      code: string;
+      message: string;
+    }>;
+  };
+  source: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: Array<{
+      kind: string;
+      file: string;
+      line: number;
+      snippet: string;
+      confidence: DbIntegrationConfidence;
+    }>;
+  };
+  recommendations: Array<{
+    kind: DbIntegrationRecommendationKind;
+    table: string | null;
+    confidence: DbIntegrationConfidence;
+    message: string;
+    nextStep: string;
+    adoptionPath?: DbPostgresIntegrationAdoptionPath;
+    details: Record<string, unknown>;
+  }>;
+  suggestions: DbPostgresIntegrationSuggestion[];
+  importPlan?: DbPostgresIntegrationImportPlan;
+  suggestedFiles: Array<{
+    path: string;
+    purpose: string;
+  }>;
+  agentInstructions: string[];
+};
+
+export type DbInspectPostgresIntegrationOptions = {
+  cwd?: string;
+  target?: string;
+  postgresUrlEnv?: string;
+  schemas?: string[];
+  targetState?: string;
+  targetPostgresTable?: string;
+  exactRowCounts?: boolean;
+  allowPartial?: boolean;
+  generatedAt?: string;
+  ignorePaths?: string[];
+  client?: {
+    query(sql: string, params?: unknown[]): Promise<{ rows?: Array<Record<string, unknown>>; rowCount?: number }> | { rows?: Array<Record<string, unknown>>; rowCount?: number };
+    close?: () => void | Promise<void>;
+    end?: () => void | Promise<void>;
+  };
+};
+
+export function inspectPostgresIntegration(options: DbInspectPostgresIntegrationOptions): Promise<DbPostgresIntegrationReport>;
+
 export type DbSchemaLoadMode = 'schema' | 'data' | 'runtime';
 
 export type DbSchemaLocator = {
