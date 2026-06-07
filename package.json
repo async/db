@@ -1,6 +1,6 @@
 {
   "name": "@async/db",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "The Async data workflow package for fixtures, generated types, local APIs, runtime stores, and database-backed graduation.",
   "packageManager": "pnpm@10.20.0",
   "scripts": {

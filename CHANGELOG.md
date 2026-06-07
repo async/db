@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.2](https://github.com/async-framework/async-db/releases/tag/v0.4.2) - 2026-06-07
+
+### Added
+
+- Added the SQLite integration inspector for inventorying SQLite-backed projects and recommending Async DB migration paths.
+
 ## [0.4.1](https://github.com/async-framework/async-db/releases/tag/v0.4.1) - 2026-06-07
 
 ### Changed
