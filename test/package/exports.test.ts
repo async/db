@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
@@ -329,8 +330,12 @@ test('package file allowlist publishes built JavaScript and declarations without
 });
 
 test('npm dry-run tarball excludes source TypeScript files', async () => {
-  const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json'], {
+  const { stdout } = await execFileAsync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
     cwd: path.resolve('.'),
+    env: {
+      ...process.env,
+      npm_config_cache: path.join(tmpdir(), 'async-db-npm-cache'),
+    },
   });
   const jsonStart = stdout.indexOf('[\n');
   const packages = JSON.parse(stdout.slice(jsonStart));
