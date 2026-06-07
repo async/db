@@ -29,6 +29,31 @@ type UsageManifest = {
   }>;
 };
 
+type IntegrationReport = {
+  sqlite: {
+    tables: Array<{
+      name: string;
+      classification: string;
+    }>;
+  };
+  source: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: unknown[];
+  };
+  recommendations: Array<{
+    kind: string;
+    table: string | null;
+    message: string;
+    nextStep: string;
+  }>;
+  suggestedFiles: Array<{
+    path: string;
+    purpose: string;
+  }>;
+  agentInstructions: string[];
+};
+
 export function printDiagnostic(diagnostic: CliDiagnostic): void {
   const prefix = diagnostic.severity === 'error' ? 'error' : 'warn';
   console.error(`${prefix}: ${diagnostic.message}`);
@@ -70,6 +95,7 @@ Usage:
   async-db contracts check [--json]
   async-db contracts refs [--out <file>]
   async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]
+  async-db integrate inspect [target] --sqlite <file> [--json] [--out <file>] [--check <file>]
   async-db viewer manifest [--out <file>]
   async-db doctor [--strict] [--json] [--production] [--usage [target]]
   async-db check [--strict] [--json] [--production] [--usage [target]]
@@ -196,6 +222,43 @@ export function printUsageResult(manifest: UsageManifest): void {
   for (const recommendation of manifest.recommendations) {
     console.log(`info: ${recommendation.code}: ${recommendation.message}`);
     console.log(`  hint: ${recommendation.hint}`);
+  }
+}
+
+export function printIntegrateHelp(): void {
+  console.log(`async-db integrate
+
+Usage:
+  async-db integrate inspect [target] --sqlite <file> [--json] [--out <file>] [--check <file>]
+
+Options:
+  --sqlite <file> Existing SQLite database file to inspect
+  --json          Print machine-readable integration report
+  --out <file>   Write the integration report to this path
+  --check <file> Fail if the generated report differs from this path, ignoring generatedAt
+  --cwd <dir>     Project directory
+  --config <file> Config file path
+`);
+}
+
+export function printIntegrationReport(report: IntegrationReport): void {
+  console.log(`async-db integrate inspect found ${report.sqlite.tables.length} SQLite table${report.sqlite.tables.length === 1 ? '' : 's'} and ${report.source.matches.length} source match${report.source.matches.length === 1 ? '' : 'es'} in ${report.source.filesWithMatches}/${report.source.filesScanned} scanned file${report.source.filesScanned === 1 ? '' : 's'}`);
+  for (const recommendation of report.recommendations) {
+    const target = recommendation.table ? ` ${recommendation.table}` : '';
+    console.log(`info: ${recommendation.kind}${target}: ${recommendation.message}`);
+    console.log(`  next: ${recommendation.nextStep}`);
+  }
+  if (report.suggestedFiles.length > 0) {
+    console.log('suggested files:');
+    for (const file of report.suggestedFiles) {
+      console.log(`  ${file.path}: ${file.purpose}`);
+    }
+  }
+  if (report.agentInstructions.length > 0) {
+    console.log('agent instructions:');
+    for (const instruction of report.agentInstructions) {
+      console.log(`  - ${instruction}`);
+    }
   }
 }
 

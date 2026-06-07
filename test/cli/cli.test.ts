@@ -214,6 +214,69 @@ test('CLI usage scan defaults to the full project target', async () => {
   assert.equal(manifest.files.some((file) => file.path === 'db.config.mjs'), true);
 });
 
+test('CLI integrate inspect prints JSON for a SQLite-backed project', async (t) => {
+  const sqliteFile = await createSqliteIntegrationFixture(t);
+  if (!sqliteFile) return;
+  const cwd = path.dirname(path.dirname(sqliteFile));
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'inspect',
+    './src',
+    '--sqlite',
+    './data/app.sqlite',
+    '--json',
+    '--cwd',
+    cwd,
+  ]);
+  const report = JSON.parse(stdout);
+
+  assert.equal(stderr, '');
+  assert.equal(report.kind, 'db.integrationReport');
+  assert.equal(report.sqlite.path, 'data/app.sqlite');
+  assert.equal(report.target.path, 'src');
+  assert.equal(report.sqlite.tables.some((table) => table.name === 'users'), true);
+  assert.equal(report.source.matches.some((match) => match.kind === 'node-sqlite-import'), true);
+});
+
+test('CLI integrate inspect writes and checks reports relative to cwd', async (t) => {
+  const sqliteFile = await createSqliteIntegrationFixture(t);
+  if (!sqliteFile) return;
+  const cwd = path.dirname(path.dirname(sqliteFile));
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+
+  const written = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'inspect',
+    './src',
+    '--sqlite',
+    './data/app.sqlite',
+    '--cwd',
+    cwd,
+    '--out',
+    './src/generated/db.integration.json',
+  ]);
+  const report = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.integration.json'), 'utf8'));
+  const checked = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'integrate',
+    'inspect',
+    './src',
+    '--sqlite',
+    './data/app.sqlite',
+    '--cwd',
+    cwd,
+    '--check',
+    './src/generated/db.integration.json',
+  ]);
+
+  assert.match(written.stdout, /Generated src\/generated\/db\.integration\.json/);
+  assert.equal(report.kind, 'db.integrationReport');
+  assert.match(checked.stdout, /Integration report matches src\/generated\/db\.integration\.json/);
+});
+
 test('CLI contracts infer from tags and write contract refs', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.schema.jsonc', `{
@@ -1782,6 +1845,7 @@ test('CLI subcommands print focused help without running the command', async () 
   await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/);
   await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/);
   await assertCliHelp(['usage', '--help'], /Usage:\n  async-db usage scan \[target\]/);
+  await assertCliHelp(['integrate', '--help'], /Usage:\n  async-db integrate inspect \[target\] --sqlite <file>/);
   await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/);
   await assertCliHelp(['operations', '--help'], /async-db operations contract \[--out <file>\] \[--check\]/);
   await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/);
@@ -1797,6 +1861,7 @@ test('CLI subcommand help does not load project config', async () => {
   await assertCliHelp(['doctor', '--help'], /Usage:\n  async-db doctor \[--strict\] \[--json\]/, cwd);
   await assertCliHelp(['viewer', '--help'], /Usage:\n  async-db viewer manifest \[--out <file>\]/, cwd);
   await assertCliHelp(['usage', '--help'], /Usage:\n  async-db usage scan \[target\]/, cwd);
+  await assertCliHelp(['integrate', '--help'], /Usage:\n  async-db integrate inspect \[target\] --sqlite <file>/, cwd);
   await assertCliHelp(['serve', '--help'], /Usage:\n  async-db serve \[--host <host>\] \[--port <port>\]/, cwd);
   await assertCliHelp(['operations', '--help'], /async-db operations contract \[--out <file>\] \[--check\]/, cwd);
   await assertCliHelp(['generate', 'hono', '--help'], /Usage:\n  async-db generate hono/, cwd);
@@ -1815,6 +1880,39 @@ async function assertCliHelp(args: string[], pattern: RegExp, cwd?: string) {
 
   assert.match(stdout, pattern);
   assert.equal(stderr, '');
+}
+
+async function createSqliteIntegrationFixture(t): Promise<string | null> {
+  let DatabaseSync;
+  try {
+    DatabaseSync = ((await import('node:sqlite')) as any).DatabaseSync;
+  } catch {
+    t.skip('node:sqlite is not available in this Node.js runtime');
+    return null;
+  }
+
+  const cwd = await makeProject();
+  const sqliteFile = path.join(cwd, 'data/app.sqlite');
+  await mkdir(path.dirname(sqliteFile), { recursive: true });
+  await mkdir(path.join(cwd, 'src'), { recursive: true });
+  const database = new DatabaseSync(sqliteFile);
+  try {
+    database.exec(`
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL
+      ) STRICT;
+      INSERT INTO users (id, name) VALUES ('u_1', 'Ada');
+    `);
+  } finally {
+    database.close();
+  }
+  await writeFile(path.join(cwd, 'src/db.ts'), `
+import { DatabaseSync } from 'node:sqlite';
+const db = new DatabaseSync('./data/app.sqlite');
+db.prepare('SELECT * FROM users WHERE id = ?');
+`, 'utf8');
+  return sqliteFile;
 }
 
 async function waitForServeUrl(child) {

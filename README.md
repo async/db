@@ -427,6 +427,7 @@ npm run db -- schema
 npm run db -- schema users
 npm run db -- schema infer users
 npm run db -- schema validate
+npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite
 npm run db -- doctor
 npm run db -- check --strict
 npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'

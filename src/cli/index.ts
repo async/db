@@ -5,6 +5,7 @@ import { runCreate } from './commands/create.js';
 import { runContracts } from './commands/contracts.js';
 import { runDoctor } from './commands/doctor.js';
 import { runGenerate } from './commands/generate.js';
+import { runIntegrate } from './commands/integrate.js';
 import { runSchema } from './commands/schema.js';
 import { runServe } from './commands/serve.js';
 import { runSync } from './commands/sync.js';
@@ -12,7 +13,7 @@ import { runTypes } from './commands/types.js';
 import { runViewer } from './commands/viewer.js';
 import { runUsage } from './commands/usage.js';
 import { runOperations } from './commands/operations.js';
-import { printContractsHelp, printDiagnostic, printDoctorHelp, printGenerateHelp, printHelp, printOperationsHelp, printSchemaHelp, printServeHelp, printTypesHelp, printUsageHelp, printViewerHelp } from './output.js';
+import { printContractsHelp, printDiagnostic, printDoctorHelp, printGenerateHelp, printHelp, printIntegrateHelp, printOperationsHelp, printSchemaHelp, printServeHelp, printTypesHelp, printUsageHelp, printViewerHelp } from './output.js';
 
 type CliError = Error & {
   diagnostics?: Array<{
@@ -67,6 +68,9 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
     case 'usage':
       await runUsage(config, args.slice(1));
       break;
+    case 'integrate':
+      await runIntegrate(config, args.slice(1));
+      break;
     case 'contracts':
       await runContracts(config, args.slice(1));
       break;
@@ -105,6 +109,9 @@ function printSubcommandHelp(command: string, args: string[]): boolean {
       return true;
     case 'usage':
       printUsageHelp();
+      return true;
+    case 'integrate':
+      printIntegrateHelp();
       return true;
     case 'contracts':
       printContractsHelp();

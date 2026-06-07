@@ -24,6 +24,8 @@ npm run db -- contracts check
 npm run db -- contracts refs --out ./src/generated/db.contract-refs.json
 npm run db -- usage scan ./src --production
 npm run db -- usage scan ./src --production --out ./src/generated/db.usage.json
+npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite
+npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
 npm run db -- doctor
 npm run db -- doctor --production
 npm run db -- doctor --production --usage ./src --json
@@ -44,6 +46,7 @@ async-db schema validate
 async-db viewer manifest --out ./src/generated/db.viewer.json
 async-db operations build
 async-db usage scan ./src --production
+async-db integrate inspect ./src --sqlite ./data/app.sqlite --json
 async-db doctor
 async-db doctor --production
 async-db doctor --production --usage ./src --json
@@ -120,6 +123,32 @@ server.once('close', () => {
 
 Use `createDbRequestHandler(db, options)` only when app code already owns the
 database lifecycle and file watching.
+
+Use `inspectSqliteIntegration()` when an existing app already owns SQLite
+tables and you want an adoption plan before changing storage. The inspector is
+read-only: it opens the SQLite file for schema metadata, scans source text for
+common SQLite usage, and returns a versioned report for people or coding
+agents.
+
+```ts
+import { inspectSqliteIntegration } from '@async/db';
+
+const report = await inspectSqliteIntegration({
+  cwd: process.cwd(),
+  target: './src',
+  sqliteFile: './data/app.sqlite',
+});
+
+console.log(report.recommendations);
+```
+
+The report has `kind: "db.integrationReport"` and includes:
+
+- SQLite inventory: tables, columns, primary keys, indexes, foreign keys, row counts, and table classifications.
+- Source inventory: high-confidence SQLite imports, prepared statements, raw SQL, migration files, and ORM/query-builder signals.
+- Recommendations: `direct-resource`, `read-model`, `custom-store`, `app-owned-sql`, or `manual-review`.
+- Suggested files: `db.config.mjs`, resource schemas, committed schema/viewer manifests, and optional adapter/read-model modules.
+- Agent instructions: a short next-step checklist that favors read-only integration before replacing app-owned writes.
 
 Singleton document usage:
 

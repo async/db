@@ -36,6 +36,89 @@ export type DbMemoryFileSystemOptions = {
 
 export function createMemoryFs(options?: DbMemoryFileSystemOptions | Record<string, string | Buffer | Uint8Array>): DbFileSystem;
 
+export type DbIntegrationRecommendationKind =
+  | 'direct-resource'
+  | 'read-model'
+  | 'custom-store'
+  | 'app-owned-sql'
+  | 'manual-review';
+
+export type DbIntegrationConfidence = 'high' | 'medium' | 'low';
+
+export type DbSqliteIntegrationReport = {
+  version: 1;
+  kind: 'db.integrationReport';
+  generatedAt: string;
+  target: {
+    path: string;
+    kind: 'file' | 'directory';
+  };
+  sqlite: {
+    path: string;
+    tables: Array<{
+      name: string;
+      type: string;
+      columns: Array<{
+        name: string;
+        type: string;
+        notNull: boolean;
+        defaultValue: string | null;
+        primaryKeyPosition: number;
+      }>;
+      primaryKey: string[];
+      indexes: Array<{
+        name: string;
+        unique: boolean;
+        origin: string;
+        columns: string[];
+      }>;
+      foreignKeys: Array<{
+        table: string;
+        from: string;
+        to: string;
+        onUpdate: string;
+        onDelete: string;
+      }>;
+      rowCount: number | null;
+      classification: string;
+    }>;
+  };
+  source: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: Array<{
+      kind: string;
+      file: string;
+      line: number;
+      snippet: string;
+      confidence: DbIntegrationConfidence;
+    }>;
+  };
+  recommendations: Array<{
+    kind: DbIntegrationRecommendationKind;
+    table: string | null;
+    confidence: DbIntegrationConfidence;
+    message: string;
+    nextStep: string;
+    details: Record<string, unknown>;
+  }>;
+  suggestedFiles: Array<{
+    path: string;
+    purpose: string;
+  }>;
+  agentInstructions: string[];
+};
+
+export type DbInspectSqliteIntegrationOptions = {
+  cwd?: string;
+  target?: string;
+  sqliteFile: string;
+  generatedAt?: string;
+  ignorePaths?: string[];
+};
+
+export function inspectSqliteIntegration(options: DbInspectSqliteIntegrationOptions): Promise<DbSqliteIntegrationReport>;
+
 export type DbSchemaLoadMode = 'schema' | 'data' | 'runtime';
 
 export type DbSchemaLocator = {

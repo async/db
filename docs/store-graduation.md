@@ -86,6 +86,33 @@ export default defineConfig({
 
 SQLite keeps the deployment simple, but it still changes the operational boundary: backup the SQLite file, avoid multi-writer network filesystems, and move to Postgres when many app instances need concurrent writes.
 
+## Inspecting Existing SQLite Apps
+
+When an app already has SQLite tables, inspect before migrating:
+
+```bash
+async-db integrate inspect ./src --sqlite ./data/app.sqlite
+async-db integrate inspect ./src --sqlite ./data/app.sqlite --json
+async-db integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
+```
+
+The inspector is advisory and read-only. It inventories tables, primary keys,
+indexes, foreign keys, row counts, source files with SQLite usage, and suggested
+files for an incremental `@async/db` adoption.
+
+Use the recommendation as the migration path:
+
+- `direct-resource`: add an explicit `db/<resource>.schema.jsonc` and consider a normal `@async/db` resource boundary.
+- `read-model`: keep writes app-owned and expose dashboard or reporting data through an `@async/db` read model.
+- `custom-store`: keep the table app-owned until a custom store or adapter preserves compound keys, joins, or specialized SQL.
+- `app-owned-sql`: leave direct SQL in place until the app defines a stable resource id or operation boundary.
+- `manual-review`: inspect ORM/query-builder code before deciding whether `@async/db` should wrap it.
+
+For example, a local package registry with firewall tables may keep package
+blocking writes in app-owned SQLite, while using `@async/db` for dashboard
+read-model resources such as package inventory, auth/private package views,
+download metrics, and event timelines.
+
 ## What The App Keeps
 
 When a resource graduates, preserve these contracts:
