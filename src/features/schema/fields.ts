@@ -11,6 +11,7 @@ export type SchemaField = {
   nullable?: boolean;
   computed?: boolean;
   readOnly?: boolean;
+  derived?: DerivedField;
   tags?: string[];
   visibility?: string;
   description?: string;
@@ -24,6 +25,13 @@ export type SchemaField = {
   discriminator?: string;
   additionalProperties?: boolean;
   [key: string]: unknown;
+};
+
+export type DerivedField = {
+  source: string;
+  kind: string;
+  owner?: string;
+  details?: Record<string, unknown>;
 };
 
 type SchemaVariant = {
@@ -60,6 +68,12 @@ export function normalizeField(field: unknown, fieldName = ''): SchemaField {
 
   if ('readOnly' in field) {
     normalized.readOnly = Boolean(field.readOnly);
+  }
+
+  if (isPlainRecord(field.derived)) {
+    normalized.derived = normalizeDerivedField(field.derived);
+    normalized.readOnly = true;
+    normalized.required = false;
   }
 
   if (Array.isArray(field.tags)) {
@@ -123,6 +137,25 @@ export function normalizeField(field: unknown, fieldName = ''): SchemaField {
     normalized.variants = Object.fromEntries(
       Object.entries(field.variants).map(([variantName, variant]) => [variantName, normalizeVariant(variantName, variant, normalized.discriminator)]),
     );
+  }
+
+  return normalized;
+}
+
+function normalizeDerivedField(value: Record<string, unknown>): DerivedField {
+  const normalized: DerivedField = {
+    source: value.source === 'database' || value.source === 'external'
+      ? value.source
+      : String(value.source ?? 'external'),
+    kind: String(value.kind ?? 'unknown'),
+  };
+
+  if (value.owner !== undefined && value.owner !== null) {
+    normalized.owner = String(value.owner);
+  }
+
+  if (isPlainRecord(value.details)) {
+    normalized.details = { ...value.details };
   }
 
   return normalized;

@@ -17,6 +17,8 @@ npm run db -- schema infer users
 npm run db -- schema infer users --out db/users.schema.jsonc
 npm run db -- schema manifest --out ./src/generated/db.schema.json
 npm run db -- schema validate
+npm run db -- schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
+npm run db -- schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db --format mixed
 npm run db -- viewer manifest --out ./src/generated/db.viewer.json
 npm run db -- operations build
 npm run db -- operations build --out ./src/generated/db.operations.json --refs-out ./src/generated/db.operation-refs.json
@@ -48,6 +50,9 @@ Inside npm scripts, `db` resolves to the local dependency binary. Equivalent dir
 async-db sync
 async-db types
 async-db schema validate
+async-db schema migrate inspect ./src --json
+async-db schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
+async-db schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db --format mixed
 async-db viewer manifest --out ./src/generated/db.viewer.json
 async-db operations build
 async-db usage scan ./src --production
@@ -522,6 +527,25 @@ Validators reject computed and read-only fields. They default unknown fields to
 contract. `mode: 'patch'` allows partial records and `mode: 'replace'` keeps
 required-field checks strict.
 
+Database-derived fields use serializable `derived` metadata and are also
+read-only. Use them for generated columns, identity columns,
+trigger-maintained timestamps, view columns, or externally-owned values:
+
+```json
+{
+  "type": "datetime",
+  "readOnly": true,
+  "derived": {
+    "source": "database",
+    "kind": "trigger"
+  }
+}
+```
+
+Executable schema files can use `field.derived(field.datetime(), { source:
+'database', kind: 'trigger' })`. `computed` remains reserved for Async DB
+resolver-backed fields.
+
 Call computed field resolvers directly when server code wants the same field
 logic that REST and GraphQL use:
 
@@ -543,6 +567,44 @@ User context values win over internal values; `this._internal` exposes the
 unoverridden internal view when a resolver needs it. A resolver call can also
 pass ad hoc arguments, such as `{ record: input }`, when the schema function is
 written to receive them.
+
+## Schema Declaration Migration API
+
+Use `schema migrate` when a project already declares contracts through Prisma,
+Drizzle, SQL migrations, JSON Schema/OpenAPI, TypeBox, Zod, Valibot, ArkType,
+or ORM model files and wants reviewable Async DB schema drafts.
+
+```bash
+async-db schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
+async-db schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db --format mixed
+```
+
+`inspect` does not execute app schema files. It emits
+`kind: "db.schemaMigrationReport"` with detected source matches, resource
+drafts, suggestions, and an output plan. `generate` writes
+`db/<resource>.schema.jsonc` drafts where possible and refuses to overwrite
+existing schema files unless `--force` is passed.
+
+`--format mixed` is the default. It writes JSONC for static contracts and
+`.schema.mjs` drafts when executable validator behavior needs manual
+preservation. `--format jsonc` forces JSONC output and reports warnings for
+unsupported executable behavior.
+
+Programmatic inspection is available from the root package:
+
+```ts
+import { inspectSchemaMigration } from '@async/db';
+
+const report = await inspectSchemaMigration({
+  cwd: process.cwd(),
+  target: './src',
+  schemaDir: './db',
+  format: 'mixed',
+});
+
+console.log(report.kind);
+console.log(report.resources.map((resource) => resource.output.file));
+```
 
 Pass a loaded schema to `openDb({ schema })` when one process wants to inspect
 or validate the contract first, then open the runtime database from the same
@@ -711,8 +773,8 @@ with `operations.acceptRefs`.
 
 | Export | Use |
 | --- | --- |
-| `@async/db` | Runtime API such as `openDb`. |
-| `@async/db/schema` | `.schema.mjs` and `.schema.js` authoring helpers. |
+| `@async/db` | Runtime API such as `openDb`, schema loading, and `inspectSchemaMigration`. |
+| `@async/db/schema` | `.schema.mjs` and `.schema.js` authoring helpers, including `field.derived`. |
 | `@async/db/config` | `defineConfig` and manifest helpers. |
 | `@async/db/client` | HTTP client with REST, GraphQL, and batching helpers. |
 | `@async/db/json` | First-party JSON file database capabilities and safe JSON state helpers. |

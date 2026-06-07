@@ -29,6 +29,31 @@ type UsageManifest = {
   }>;
 };
 
+type SchemaMigrationOutputReport = {
+  source: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: unknown[];
+  };
+  resources: Array<{
+    name: string;
+    output: {
+      file: string;
+      format: string;
+      requiresExecutable: boolean;
+    };
+    warnings: string[];
+  }>;
+  suggestions: Array<{
+    code: string;
+    severity: string;
+    message: string;
+    hint?: string;
+    resource?: string;
+    file?: string;
+  }>;
+};
+
 type SqliteOutputIntegrationReport = {
   sqlite: {
     drivers?: {
@@ -197,6 +222,8 @@ Usage:
   async-db schema bundle --all [--out <file>] [--force]
   async-db schema manifest [--out <file>]
   async-db schema validate
+  async-db schema migrate inspect [target] [--format mixed|jsonc] [--schema-dir <dir>] [--json] [--out <file>] [--check <file>]
+  async-db schema migrate generate --plan <report.json> [--schema-dir <dir>] [--format mixed|jsonc] [--force]
   async-db operations build [--out <file>] [--refs-out <file>]
   async-db operations contract [--out <file>] [--check]
   async-db contracts infer --from-tags [--out <file>]
@@ -281,12 +308,18 @@ Usage:
   async-db schema bundle --all [--out <file>] [--force]
   async-db schema manifest [--out <file>]
   async-db schema validate
+  async-db schema migrate inspect [target] [--format mixed|jsonc] [--schema-dir <dir>] [--json] [--out <file>] [--check <file>]
+  async-db schema migrate generate --plan <report.json> [--schema-dir <dir>] [--format mixed|jsonc] [--force]
 
 Options:
   --out <file>        Write schema manifest, inferred schema, or bundled schema output to this path
   --schema-out <file> Write unbundled schema output to this path
   --seed-out <file>   Write unbundled seed output to this path
   --schema-dir <dir>  Write aggregate unbundled schema files under this directory
+  --plan <file>       Schema migration report for schema migrate generate
+  --format <format>   Schema migration output format: mixed or jsonc
+  --json              Print machine-readable schema migration report
+  --check <file>      Fail if the generated schema migration report differs from this path, ignoring generatedAt
   --empty-seed        Write an empty seed fixture when unbundling schema-only resources
   --force             Allow overwriting outputs or writing bundle output inside db/
   --all               Skip the interactive target prompt and use all schemas
@@ -333,6 +366,24 @@ export function printUsageResult(manifest: UsageManifest): void {
   for (const recommendation of manifest.recommendations) {
     console.log(`info: ${recommendation.code}: ${recommendation.message}`);
     console.log(`  hint: ${recommendation.hint}`);
+  }
+}
+
+export function printSchemaMigrationReport(report: SchemaMigrationOutputReport): void {
+  console.log(`async-db schema migrate inspect found ${report.resources.length} resource draft${report.resources.length === 1 ? '' : 's'} and ${report.source.matches.length} source match${report.source.matches.length === 1 ? '' : 'es'} in ${report.source.filesWithMatches}/${report.source.filesScanned} scanned file${report.source.filesScanned === 1 ? '' : 's'}`);
+  console.log('Existing schema declarations remain the source of truth. Review generated Async DB schema drafts before switching app code.');
+  for (const resource of report.resources) {
+    console.log(`resource: ${resource.name} -> ${resource.output.file} (${resource.output.format}${resource.output.requiresExecutable ? ', executable review' : ''})`);
+    for (const warning of resource.warnings) {
+      console.log(`  warn: ${warning}`);
+    }
+  }
+  for (const suggestion of report.suggestions) {
+    const target = suggestion.resource ? ` ${suggestion.resource}` : suggestion.file ? ` ${suggestion.file}` : '';
+    console.log(`${suggestion.severity}: ${suggestion.code}${target}: ${suggestion.message}`);
+    if (suggestion.hint) {
+      console.log(`  hint: ${suggestion.hint}`);
+    }
   }
 }
 

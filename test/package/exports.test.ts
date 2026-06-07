@@ -46,7 +46,7 @@ async function declarationFiles(directory: string): Promise<string[]> {
 
 test('consumer projects can import package APIs through the @async/db package', async () => {
   const cwd = await makeProject();
-  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
+  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, inspectSchemaMigration, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
 import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
@@ -61,6 +61,7 @@ const jsonModule = await import('@async/db/json');
 
 if (typeof openDb !== 'function') throw new Error('missing package API');
 if (typeof loadDbSchema !== 'function') throw new Error('missing schema API');
+if (typeof inspectSchemaMigration !== 'function') throw new Error('missing schema migration API');
 if (typeof createDbOperationHandler !== 'function') throw new Error('missing operation handler API');
 if (typeof createDbRequestHandler !== 'function') throw new Error('missing request handler API');
 if (typeof createMemoryFs !== 'function') throw new Error('missing memory fs helper');
@@ -139,11 +140,13 @@ export type DbTypes = {
   createDbRuntime,
   createIndexedDbCacheStorage,
   createMemoryFs,
+  inspectSchemaMigration,
   loadDbSchema,
   openDb,
   type Db,
   type DbDocumentPath,
   type DbFileSystem,
+  type DbSchemaMigrationReport,
   type DbOptions,
   type DbRuntime,
   type DbRuntimeLifecycleEvent,
@@ -169,7 +172,7 @@ import { kvStore } from '@async/db/kv';
 import { openPostgresDb, postgresStore, type PostgresTableMapping } from '@async/db/postgres';
 import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, type PostgresCompatDriver, type PostgresImportPlan } from '@async/db/postgres/compat';
 import { redisStore } from '@async/db/redis';
-import { collection, field, files, type ResourceDefinition } from '@async/db/schema';
+import { collection, field, files, type DerivedFieldDefinition, type ResourceDefinition } from '@async/db/schema';
 import { sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, type SqliteCompatDriver, type SqliteImportPlan } from '@async/db/sqlite/compat';
 import type { DbTypes, User } from './generated/db.types.d.ts';
@@ -216,6 +219,13 @@ const contentSchema = collection({
     body: field.string(),
   },
 });
+const derivedOptions: DerivedFieldDefinition = { source: 'database', kind: 'trigger' };
+const derivedSchema = collection({
+  fields: {
+    id: field.string({ required: true }),
+    updatedAt: field.derived(field.datetime(), derivedOptions),
+  },
+});
 
 const dbPromise: Promise<Db<DbTypes>> = openDb<DbTypes>(options);
 const runtimeOptions: DbRuntimeOptions = {
@@ -226,6 +236,7 @@ const runtimeOptions: DbRuntimeOptions = {
   },
 };
 const runtimePromise: Promise<DbRuntime> = createDbRuntime(runtimeOptions);
+const migrationReportPromise: Promise<DbSchemaMigrationReport> = inspectSchemaMigration({ cwd: '.', target: './src' });
 const watchOptions: DbWatchOptions = { debounceMs: 20 };
 let watcher: DbSourceWatcher | null = null;
 let runtimeEvent: DbRuntimeLifecycleEvent | null = null;
@@ -584,6 +595,9 @@ test('public declarations expose schema loader and validator API', async () => {
   assert.match(declarations, /export type DbOpenOptions = Omit<DbOptions, 'schema'> & \{/);
   assert.match(declarations, /export function openDb<Types extends DbTypeMap = DbTypeMap>\(options\?: DbOpenOptions \| string\): Promise<Db<Types>>;/);
   assert.match(declarations, /export function loadDbSchema\(options\?: DbOptions \| string\): Promise<DbLoadedSchema>;/);
+  assert.match(declarations, /export type DbSchemaMigrationReport = \{/);
+  assert.match(declarations, /kind: 'db\.schemaMigrationReport';/);
+  assert.match(declarations, /export function inspectSchemaMigration\(options: DbInspectSchemaMigrationOptions\): Promise<DbSchemaMigrationReport>;/);
 });
 
 test('public declarations expose standard schema authoring helpers', async () => {
@@ -604,6 +618,8 @@ test('public declarations expose standard schema authoring helpers', async () =>
   assert.match(schemaDeclarations, /export type FieldBuilderDefinition = FieldDefinition & \{\s+tag\(tag: SchemaFieldTag\): FieldBuilderDefinition;\s+\};/);
   assert.match(schemaDeclarations, /string\(options\?: FieldOptions<string>\): FieldBuilderDefinition;/);
   assert.match(schemaDeclarations, /meta\(options\?: FieldMetaOptions\): FieldBuilderDefinition;/);
+  assert.match(schemaDeclarations, /export type DerivedFieldDefinition = \{/);
+  assert.match(schemaDeclarations, /derived\(definition: FieldDefinition, options: DerivedFieldDefinition\): FieldBuilderDefinition;/);
 });
 
 test('public Hono declarations keep resource and operation hook contexts distinct', async () => {

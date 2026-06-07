@@ -241,6 +241,53 @@ metadata needs to be richer.
 See [examples/standard-schema](../examples/standard-schema) for a runnable
 dependency-free example.
 
+## Database-Derived Fields
+
+Use `derived` metadata when a field is owned by a database, trigger, view,
+materialized view, generated column, identity column, or another external
+system. Async DB records the field in generated schemas, manifests, viewer
+metadata, and TypeScript output, and rejects writes to it. It does not compute
+the value.
+
+```json
+{
+  "kind": "collection",
+  "idField": "id",
+  "fields": {
+    "id": { "type": "string", "required": true },
+    "updatedAt": {
+      "type": "datetime",
+      "readOnly": true,
+      "derived": {
+        "source": "database",
+        "kind": "trigger"
+      }
+    }
+  }
+}
+```
+
+Executable schema files can use `field.derived(...)`:
+
+```js
+import { collection, field } from '@async/db/schema';
+
+export default collection({
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    updatedAt: field.derived(field.datetime(), {
+      source: 'database',
+      kind: 'trigger',
+      owner: 'postgres',
+    }),
+  },
+});
+```
+
+Keep `computed` for Async DB resolver-backed fields. Use `derived` when the
+old database or external schema should keep owning the value during migration.
+
 ## Root Schema Registry
 
 Use `db.schema.js` at the project root when you want one canonical schema registry:
@@ -444,6 +491,29 @@ npm run db -- schema infer users --out db/users.schema.jsonc
 ```
 
 Use inference to move from fuzzy seed data toward explicit schema. If an explicit schema already exists, inference can still show what the current data implies.
+
+## Migrating Existing Schema Declarations
+
+Use `schema migrate` when an app already declares schemas through Prisma,
+Drizzle, SQL migrations, JSON Schema/OpenAPI, TypeBox, Zod, Valibot, ArkType,
+or ORM model files and wants Async DB schema drafts:
+
+```bash
+async-db schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
+async-db schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db --format mixed
+async-db schema validate
+```
+
+`inspect` is non-mutating and emits `kind: "db.schemaMigrationReport"`.
+`generate` writes per-resource `db/<resource>.schema.jsonc` drafts when the
+contract can be represented as JSONC. In `--format mixed` mode, schemas that
+need executable validator behavior get `.schema.mjs` drafts for manual review.
+Use `--format jsonc` to force JSONC-only output and receive warnings for
+unsupported behavior.
+
+Generated files do not overwrite existing schema files unless `--force` is
+passed. The inspector does not execute app schema files or install validator
+dependencies; it is a review aid, not a lossless converter.
 
 ## Source Readers
 

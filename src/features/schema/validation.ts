@@ -181,7 +181,7 @@ function readOnlyFieldDiagnostic(resource: SchemaResource, fieldName: string, so
     resource: resource.name,
     field: fieldName,
     message: `${source} cannot include read-only field "${fieldName}"`,
-    hint: 'Remove computed or read-only fields from write bodies; db resolves them during reads.',
+    hint: 'Remove computed, derived, or read-only fields from write bodies; keep database-derived values owned by their source.',
     details: {
       resource: resource.name,
       field: fieldName,

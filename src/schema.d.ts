@@ -8,6 +8,13 @@ export type FieldDefinition =
   | ({ type: 'array'; items?: FieldDefinition } & FieldOptions<unknown[]>)
   | ({ type: 'unknown' } & FieldOptions<unknown>);
 
+export type DerivedFieldDefinition = {
+  source: 'database' | 'external' | string;
+  kind: string;
+  owner?: string;
+  details?: Record<string, unknown>;
+};
+
 export type SchemaFieldTag = 'public' | 'internal' | 'private' | string;
 
 export type FieldBuilderDefinition = FieldDefinition & {
@@ -23,6 +30,7 @@ export type FieldOptions<DefaultValue> = {
   visibility?: SchemaFieldTag;
   computed?: boolean;
   readOnly?: boolean;
+  derived?: DerivedFieldDefinition;
   relation?: RelationDefinition;
   unique?: boolean;
   min?: number;
@@ -199,4 +207,5 @@ export const field: {
   meta(options?: FieldMetaOptions): FieldBuilderDefinition;
   nullable(definition: FieldDefinition, options?: Omit<FieldOptions<unknown>, 'nullable'>): FieldBuilderDefinition;
   computed(definition: FieldDefinition, resolver?: ComputedFieldResolver['resolve'] | ComputedFieldResolver): FieldBuilderDefinition;
+  derived(definition: FieldDefinition, options: DerivedFieldDefinition): FieldBuilderDefinition;
 };

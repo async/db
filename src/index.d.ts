@@ -412,6 +412,125 @@ export type DbInspectPostgresIntegrationOptions = {
 
 export function inspectPostgresIntegration(options: DbInspectPostgresIntegrationOptions): Promise<DbPostgresIntegrationReport>;
 
+export type DbSchemaMigrationSourceKind =
+  | 'prisma'
+  | 'drizzle'
+  | 'sql'
+  | 'json-schema'
+  | 'openapi'
+  | 'validator'
+  | 'orm'
+  | 'migration-file';
+
+export type DbSchemaMigrationDerivedField = {
+  source: 'database' | 'external' | string;
+  kind: string;
+  owner?: string;
+  details?: Record<string, unknown>;
+};
+
+export type DbSchemaMigrationField = {
+  type: string;
+  required?: boolean;
+  nullable?: boolean;
+  description?: string;
+  default?: unknown;
+  unique?: boolean;
+  values?: unknown[];
+  items?: DbSchemaMigrationField;
+  fields?: Record<string, DbSchemaMigrationField>;
+  additionalProperties?: boolean;
+  readOnly?: boolean;
+  derived?: DbSchemaMigrationDerivedField;
+  relation?: {
+    name?: string;
+    to: string;
+    toField?: string;
+    cardinality?: 'one' | 'many';
+  };
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  [key: string]: unknown;
+};
+
+export type DbSchemaMigrationResource = {
+  name: string;
+  kind: 'collection' | 'document';
+  idField?: string;
+  fields: Record<string, DbSchemaMigrationField>;
+  source: {
+    kind: DbSchemaMigrationSourceKind;
+    file: string;
+    exportName?: string;
+    modelName?: string;
+  };
+  output: {
+    format: 'jsonc' | 'schema-module';
+    file: string;
+    requiresExecutable: boolean;
+  };
+  warnings: string[];
+};
+
+export type DbSchemaMigrationSuggestion = {
+  code: string;
+  severity: 'info' | 'warn' | 'error';
+  message: string;
+  hint?: string;
+  file?: string;
+  resource?: string;
+  details?: Record<string, unknown>;
+};
+
+export type DbSchemaMigrationOutputPlan = {
+  schemaDir: string;
+  format: 'mixed' | 'jsonc';
+  resources: Array<{
+    name: string;
+    file: string;
+    format: 'jsonc' | 'schema-module';
+    requiresExecutable: boolean;
+  }>;
+};
+
+export type DbSchemaMigrationReport = {
+  kind: 'db.schemaMigrationReport';
+  version: 1;
+  generatedAt: string;
+  target: {
+    path: string;
+  };
+  source: {
+    filesScanned: number;
+    filesWithMatches: number;
+    matches: Array<{
+      kind: DbSchemaMigrationSourceKind | 'package' | 'raw-sql';
+      file: string;
+      line?: number;
+      package?: string;
+      symbol?: string;
+      message: string;
+    }>;
+  };
+  resources: DbSchemaMigrationResource[];
+  suggestions: DbSchemaMigrationSuggestion[];
+  outputPlan: DbSchemaMigrationOutputPlan;
+};
+
+export type DbInspectSchemaMigrationOptions = {
+  cwd?: string;
+  target?: string;
+  schemaDir?: string;
+  format?: 'mixed' | 'jsonc';
+  generatedAt?: string;
+  ignorePaths?: string[];
+};
+
+export function inspectSchemaMigration(options: DbInspectSchemaMigrationOptions): Promise<DbSchemaMigrationReport>;
+
 export type DbSchemaLoadMode = 'schema' | 'data' | 'runtime';
 
 export type DbSchemaLocator = {

@@ -4,8 +4,15 @@ import { readText, writeText } from '../../fs-utils.js';
 import { resolveResource } from '../../names.js';
 import { loadProjectSchema } from '../../schema.js';
 import { generateSchemaManifest } from '../../schema-manifest.js';
+import {
+  generateSchemaMigrationOutputs,
+  inspectSchemaMigration,
+  normalizeSchemaMigrationReportForCheck,
+  writeSchemaMigrationReport,
+  type SchemaMigrationReport,
+} from '../../features/schema/migration.js';
 import { isHelpRequested, valueAfter } from '../args.js';
-import { printDiagnostic, printSchemaHelp } from '../output.js';
+import { printDiagnostic, printSchemaHelp, printSchemaMigrationReport } from '../output.js';
 import { promptForSchemaTarget } from '../schema-prompt.js';
 
 type CliConfig = {
@@ -163,6 +170,11 @@ export async function runSchema(config: CliConfig, args: string[]): Promise<void
     return;
   }
 
+  if (args[0] === 'migrate') {
+    await runSchemaMigrate(config, args.slice(1));
+    return;
+  }
+
   const project = await loadProjectSchema(config) as SchemaProject;
 
   if (args[0] === 'manifest') {
@@ -242,6 +254,105 @@ export async function runSchema(config: CliConfig, args: string[]): Promise<void
   }
 
   console.log(JSON.stringify(project.schema, null, 2));
+}
+
+async function runSchemaMigrate(config: CliConfig, args: string[]): Promise<void> {
+  if (args[0] === 'inspect') {
+    await runSchemaMigrateInspect(config, args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'generate') {
+    await runSchemaMigrateGenerate(config, args.slice(1));
+    return;
+  }
+
+  throw dbError(
+    'SCHEMA_MIGRATE_UNKNOWN_COMMAND',
+    'SCHEMA_MIGRATE_UNKNOWN_COMMAND: unknown schema migrate command.',
+    {
+      hint: 'Use async-db schema migrate inspect <target> or async-db schema migrate generate --plan <report.json>.',
+    },
+  );
+}
+
+async function runSchemaMigrateInspect(config: CliConfig, args: string[]): Promise<void> {
+  const cwd = path.resolve(config.cwd ?? process.cwd());
+  const outFile = valueAfter(args, '--out');
+  const checkFile = valueAfter(args, '--check');
+  const format = schemaMigrationFormat(args);
+  const report = await inspectSchemaMigration({
+    cwd,
+    target: positionalArgs(args)[0],
+    schemaDir: valueAfter(args, '--schema-dir'),
+    format,
+    ignorePaths: [outFile, checkFile].filter((filePath): filePath is string => Boolean(filePath)),
+  });
+
+  if (checkFile) {
+    await checkSchemaMigrationReport(cwd, checkFile, report);
+    console.log(`Schema migration report matches ${relativeOutputPath(cwd, resolveOutputPath(cwd, checkFile))}`);
+  }
+
+  if (outFile) {
+    const resolved = resolveOutputPath(cwd, outFile);
+    await writeSchemaMigrationReport(resolved, report);
+    console.log(`Generated ${relativeOutputPath(cwd, resolved)}`);
+  }
+
+  if (hasFlag(args, '--json')) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  if (!outFile && !checkFile) {
+    printSchemaMigrationReport(report);
+  }
+}
+
+async function runSchemaMigrateGenerate(config: CliConfig, args: string[]): Promise<void> {
+  const cwd = path.resolve(config.cwd ?? process.cwd());
+  const planFile = valueAfter(args, '--plan');
+  if (!planFile) {
+    throw dbError(
+      'SCHEMA_MIGRATE_GENERATE_REQUIRES_PLAN',
+      'SCHEMA_MIGRATE_GENERATE_REQUIRES_PLAN: schema migrate generate requires --plan <report.json>.',
+      {
+        hint: 'Run async-db schema migrate inspect first and pass its --out file as --plan.',
+      },
+    );
+  }
+  const report = JSON.parse(await readText(resolveOutputPath(cwd, planFile))) as SchemaMigrationReport;
+  const result = await generateSchemaMigrationOutputs({
+    cwd,
+    plan: report,
+    schemaDir: valueAfter(args, '--schema-dir'),
+    format: schemaMigrationFormat(args),
+    force: hasFlag(args, '--force'),
+  });
+
+  for (const diagnostic of result.diagnostics) {
+    printDiagnostic(diagnostic);
+  }
+  for (const filePath of result.files) {
+    console.log(`Generated ${filePath}`);
+  }
+}
+
+async function checkSchemaMigrationReport(cwd: string, filePath: string, report: SchemaMigrationReport): Promise<void> {
+  const resolved = resolveOutputPath(cwd, filePath);
+  const current = JSON.parse(await readText(resolved)) as SchemaMigrationReport;
+  if (JSON.stringify(normalizeSchemaMigrationReportForCheck(current)) === JSON.stringify(normalizeSchemaMigrationReportForCheck(report))) {
+    return;
+  }
+
+  throw dbError(
+    'SCHEMA_MIGRATION_REPORT_CHECK_FAILED',
+    `SCHEMA_MIGRATION_REPORT_CHECK_FAILED: schema migration report check failed for ${relativeOutputPath(cwd, resolved)}.`,
+    {
+      hint: `Run async-db schema migrate inspect with the same flags and --out ${filePath} to update it.`,
+    },
+  );
 }
 
 async function runSchemaUnbundle(config: CliConfig, project: SchemaProject, args: string[], options: ResourceTargetOptions = {}): Promise<void> {
@@ -672,6 +783,9 @@ function renderFieldExpression(
 ): string {
   const computed = field.computed === true;
   const base = renderBaseFieldExpression(field, resource, fieldPath, imports);
+  if (!computed && field.derived) {
+    return `field.derived(${base}, ${literal(field.derived)})`;
+  }
   if (!computed) {
     return base;
   }
@@ -784,6 +898,9 @@ function fieldOptions(field: SchemaField): Record<string, unknown> {
   }
   if (field.relation !== undefined) {
     options.relation = field.relation;
+  }
+  if (field.readOnly === true && field.derived === undefined) {
+    options.readOnly = true;
   }
   return options;
 }
@@ -1225,6 +1342,29 @@ function schemaSourceForResource(resource: SchemaResource, options: { includeSee
   }
 
   return source;
+}
+
+function schemaMigrationFormat(args: string[]): 'mixed' | 'jsonc' {
+  const format = valueAfter(args, '--format') ?? 'mixed';
+  if (format === 'mixed' || format === 'jsonc') {
+    return format;
+  }
+
+  throw dbError(
+    'SCHEMA_MIGRATE_INVALID_FORMAT',
+    `SCHEMA_MIGRATE_INVALID_FORMAT: unsupported schema migration format "${format}".`,
+    {
+      hint: 'Use --format mixed or --format jsonc.',
+    },
+  );
+}
+
+function resolveOutputPath(cwd: string, filePath: string): string {
+  return path.isAbsolute(filePath) ? filePath : path.join(cwd, filePath);
+}
+
+function relativeOutputPath(cwd: string, filePath: string): string {
+  return path.relative(cwd, filePath).split(path.sep).join('/');
 }
 
 function outputPath(config: CliConfig, maybePath: string | undefined): string | undefined {

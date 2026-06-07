@@ -104,6 +104,108 @@ test('CLI schema manifest --out writes relative to --cwd', async () => {
   assert.equal(manifest.collections.users.fields.email.ui.component, 'email');
 });
 
+test('CLI schema migrate inspect writes and checks source-only schema migration reports', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/models.ts'), `
+import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey(),
+  email: text('email').notNull().unique(),
+});
+`, 'utf8');
+
+  const written = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'schema',
+    'migrate',
+    'inspect',
+    './src',
+    '--cwd',
+    cwd,
+    '--out',
+    './src/generated/db.schema-migration.json',
+  ]);
+  const report = JSON.parse(await readFile(path.join(cwd, 'src/generated/db.schema-migration.json'), 'utf8'));
+  const checked = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'schema',
+    'migrate',
+    'inspect',
+    './src',
+    '--cwd',
+    cwd,
+    '--check',
+    './src/generated/db.schema-migration.json',
+  ]);
+
+  assert.match(written.stdout, /Generated src\/generated\/db\.schema-migration\.json/);
+  assert.equal(report.kind, 'db.schemaMigrationReport');
+  assert.equal(report.resources[0].name, 'users');
+  assert.match(checked.stdout, /Schema migration report matches src\/generated\/db\.schema-migration\.json/);
+});
+
+test('CLI schema migrate generate writes JSONC drafts and refuses overwrites without force', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'src/generated'), { recursive: true });
+  await writeFile(path.join(cwd, 'src/schema.ts'), `
+import { z } from 'zod';
+
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().optional(),
+});
+`, 'utf8');
+  await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'schema',
+    'migrate',
+    'inspect',
+    './src',
+    '--cwd',
+    cwd,
+    '--format',
+    'jsonc',
+    '--out',
+    './src/generated/db.schema-migration.json',
+  ]);
+
+  const generated = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'schema',
+    'migrate',
+    'generate',
+    '--cwd',
+    cwd,
+    '--plan',
+    './src/generated/db.schema-migration.json',
+    '--schema-dir',
+    './db',
+  ]);
+  const schema = JSON.parse(await readFile(path.join(cwd, 'db/users.schema.jsonc'), 'utf8'));
+
+  assert.match(generated.stdout, /Generated db\/users\.schema\.jsonc/);
+  assert.equal(schema.fields.id.type, 'string');
+  assert.equal(schema.fields.email.required, false);
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('dist/cli.js'),
+      'schema',
+      'migrate',
+      'generate',
+      '--cwd',
+      cwd,
+      '--plan',
+      './src/generated/db.schema-migration.json',
+      '--schema-dir',
+      './db',
+    ]),
+    /SCHEMA_MIGRATION_OUTPUT_EXISTS/,
+  );
+});
+
 test('CLI viewer manifest --out writes relative to --cwd', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', email: 'ada@example.com' }]));

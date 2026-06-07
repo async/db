@@ -115,6 +115,7 @@ const FIELD_MANIFEST_PROPERTIES = [
   'default',
   'computed',
   'readOnly',
+  'derived',
   'tags',
   'visibility',
   'values',
@@ -132,6 +133,7 @@ const FIELD_MANIFEST_PROPERTIES = [
 const ITEM_MANIFEST_PROPERTIES = [
   'description',
   'default',
+  'derived',
   'tags',
   'visibility',
   'values',

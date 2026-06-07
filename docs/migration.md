@@ -85,6 +85,8 @@ rewrite a consumer app.
 | Inventory existing SQLite and source usage | `async-db integrate inspect ./src --sqlite ./data/app.sqlite` |
 | Inventory Postgres source usage | `async-db integrate inspect ./src --postgres` |
 | Inventory Postgres source plus read-only catalog | `async-db integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public` |
+| Inventory existing schema declarations | `async-db schema migrate inspect ./src --out ./src/generated/db.schema-migration.json` |
+| Generate Async DB schema drafts | `async-db schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db` |
 | Write a stable integration report | `async-db integrate inspect ... --out ./src/generated/db.integration.json` |
 | Plan an explicit import into Async DB-owned state | `async-db integrate inspect ... --target-state ./data/app.asyncdb --out ...` |
 | Plan an explicit import into Async DB-owned Postgres envelopes | `async-db integrate inspect ... --postgres --postgres-url-env DATABASE_URL --target-postgres-table public._async_db_resources --out ...` |
@@ -98,6 +100,7 @@ Prefer the project's local script when one exists:
 ```bash
 npm run db -- doctor --json
 npm run db -- usage scan ./src --production --out ./src/generated/db.usage.json
+npm run db -- schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
 npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
 ```
 
@@ -105,8 +108,53 @@ With pnpm scripts, pass arguments directly:
 
 ```bash
 pnpm db doctor --json
+pnpm db schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
 pnpm db integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
 ```
+
+## Existing Schema Declaration Migration
+
+Use schema declaration migration when an app already owns contracts in Prisma,
+Drizzle, SQL migrations, JSON Schema/OpenAPI, TypeBox, Zod, Valibot, ArkType,
+or ORM model files and wants Async DB `.schema.jsonc` drafts.
+
+```bash
+async-db schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
+async-db schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db --format mixed
+async-db schema validate
+async-db schema manifest --out ./src/generated/db.schema.json
+```
+
+The inspector is source-text based and review-first. It does not execute app
+schema files, install validator libraries, or claim a lossless conversion.
+Existing schema declarations remain the source of truth until a human reviews
+and adopts the generated Async DB schema files.
+
+Use `--format mixed` by default. It writes `.schema.jsonc` for static contracts
+and `.schema.mjs` only when executable validator behavior needs a manual import
+review. Use `--format jsonc` when the team wants JSONC-only drafts and accepts
+warnings for behavior that JSONC cannot preserve.
+
+Database-owned derived fields should not be rewritten as Async DB computed
+resolvers. Generated columns, identity columns, trigger-maintained timestamps,
+view columns, and SQL-expression-owned values should become read-only field
+metadata:
+
+```json
+{
+  "type": "datetime",
+  "readOnly": true,
+  "derived": {
+    "source": "database",
+    "kind": "trigger"
+  }
+}
+```
+
+`computed` remains reserved for Async DB resolver-backed fields. `derived`
+means Async DB documents the field, emits schema/type/viewer metadata, and
+rejects writes to it while leaving the database or external system responsible
+for the value.
 
 ## If Async DB Is Not Installed
 

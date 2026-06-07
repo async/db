@@ -26,7 +26,7 @@ without an `API_SURFACE.md` diff.
 | Import | Runtime file | Types file | Stability | Notes |
 | --- | --- | --- | --- | --- |
 | `@async/db` | `./dist/index.js` | `./dist/index.d.ts` | stable | Root package API for runtime, schema, server, sync, generated output, operations, and helper functions. |
-| `@async/db/schema` | `./dist/schema-builders.js` | `./dist/schema.d.ts` | stable | Schema authoring helpers: `collection`, `document`, `field`, and `files`. |
+| `@async/db/schema` | `./dist/schema-builders.js` | `./dist/schema.d.ts` | stable | Schema authoring helpers: `collection`, `document`, `field`, `field.derived`, and `files`. |
 | `@async/db/config` | `./dist/config-public.js` | `./dist/config.d.ts` | stable | Public config helper surface, including `defineConfig`. |
 | `@async/db/client` | `./dist/client.js` | `./dist/index.d.ts` | stable | Tiny HTTP client, REST/GraphQL calls, batching, and browser cache helpers. |
 | `@async/db/json` | `./dist/json.js` | `./dist/json.d.ts` | stable | First-party JSON store helpers and JSON state utilities. |
@@ -53,6 +53,8 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | `async-db schema validate` | stable | Validate schema and source data diagnostics. |
 | `async-db schema manifest [--out <file>]` | generated | Render the schema manifest contract. |
 | `async-db schema unbundle ...` / `async-db schema bundle ...` | preview | Move between aggregate schema and per-resource schema files. |
+| `async-db schema migrate inspect [target] [--format mixed\|jsonc] [--schema-dir <dir>] [--json] [--out <file>] [--check <file>]` | preview | Inspect existing Prisma, Drizzle, SQL, JSON Schema/OpenAPI, and validator declarations and emit a review-first `db.schemaMigrationReport`. |
+| `async-db schema migrate generate --plan <report.json> [--schema-dir <dir>] [--format mixed\|jsonc] [--force]` | preview | Generate Async DB `.schema.jsonc` drafts, or `.schema.mjs` drafts in mixed mode when executable validator behavior needs manual preservation. |
 | `async-db operations build [--out <file>] [--refs-out <file>]` | stable | Build operation registry and client-safe operation refs. |
 | `async-db operations contract [--out <file>] [--check]` | stable | Write or check the client operation contract. |
 | `async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]` | preview | Scan app source text for @async/db usage and emit a `db.usageManifest`. |
@@ -73,7 +75,8 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | Runtime database | stable | `openDb`, `Db`, collection APIs including `find`, `count`, `aggregate`, and `append`, document APIs, forks, branches, snapshots, migrations, and `close`. |
 | Runtime lifecycle | stable | `createDbRuntime`, `reloadDb`, `watchDbSources`, and `createDbRequestHandler` for custom local servers. |
 | Schema loading | stable | `loadDbSchema`, validators, computed field resolvers, metadata-only loading, and schema locator support. |
-| Schema authoring | stable | `@async/db/schema` helpers for collection/document/field/files authoring in trusted local schema files. |
+| Schema authoring | stable | `@async/db/schema` helpers for collection/document/field/files authoring in trusted local schema files, including `field.derived(...)` for database- or externally-owned read-only values that Async DB documents but does not compute. |
+| Schema declaration migration | preview | `inspectSchemaMigration`, `DbSchemaMigrationReport`, `DbSchemaMigrationResource`, `DbSchemaMigrationField`, `DbSchemaMigrationSuggestion`, and `DbSchemaMigrationOutputPlan` support review-first conversion from existing schema declarations into Async DB schema drafts. |
 | HTTP client | stable | `createDbClient`, direct REST/GraphQL calls, automatic batching, dedupe, and cache options. |
 | JSON store | stable | `jsonStore`, `fileStorage`, `s3Storage`, JSON state helpers, capabilities, and atomic/write-lock helpers exported from `@async/db/json`. |
 | Memory filesystem | stable | `createMemoryFs` for tests and programmatic schema/runtime loading. |
@@ -118,6 +121,7 @@ registered operations or app routes.
 | `operations.build` outputs | generated | Server operation registry and client-safe refs/contracts. |
 | `usage scan` output | generated | Optional `db.usageManifest` source-scan artifact for endpoint exposure review. |
 | `integrate inspect` output | generated | Optional `db.integrationReport` artifact for SQLite/Postgres wrapper-first adoption guidance and explicit import plans. |
+| `schema migrate inspect` output | generated | Optional `db.schemaMigrationReport` artifact for review-first schema declaration conversion into Async DB schema drafts. |
 | `.db/state/**` | internal | Runtime mirror state; generated and normally uncommitted. |
 
 Generated files are public only through their documented output contracts. The

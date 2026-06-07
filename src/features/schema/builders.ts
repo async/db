@@ -9,11 +9,19 @@ export type SchemaFieldDefinition = {
   metadataOnly?: boolean;
   computed?: boolean;
   readOnly?: boolean;
+  derived?: DerivedFieldDefinition;
   required?: boolean;
   nullable?: boolean;
   resolve?: ComputedResolveFunction;
   resolveMany?: ComputedResolveManyFunction;
   [key: string]: unknown;
+};
+
+export type DerivedFieldDefinition = {
+  source: 'database' | 'external' | string;
+  kind: string;
+  owner?: string;
+  details?: Record<string, unknown>;
 };
 
 export type SchemaResourceDefinition = {
@@ -146,6 +154,20 @@ export const field = {
       required: false,
       resolve: normalizedResolver?.resolve,
       resolveMany: normalizedResolver?.resolveMany,
+    });
+  },
+
+  derived(definition: SchemaFieldDefinition, options: DerivedFieldDefinition) {
+    return attachFieldHelpers({
+      ...definition,
+      derived: {
+        source: options.source,
+        kind: options.kind,
+        ...(options.owner !== undefined ? { owner: options.owner } : {}),
+        ...(options.details !== undefined ? { details: options.details } : {}),
+      },
+      readOnly: true,
+      required: false,
     });
   },
 };
