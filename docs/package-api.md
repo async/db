@@ -8,6 +8,9 @@ With a package script like `"db": "async-db"`:
 
 ```bash
 npm run db -- sync
+npm run db -- init --template data-first
+npm run db -- init --template schema-first
+npm run db -- init --template source-file
 npm run db -- types
 npm run db -- types --watch
 npm run db -- types --out ./src/generated/db.types.d.ts
@@ -47,6 +50,7 @@ npm run db -- generate hono --api rest,graphql --out ./server
 Inside npm scripts, `db` resolves to the local dependency binary. Equivalent direct commands:
 
 ```bash
+async-db init --template data-first
 async-db sync
 async-db types
 async-db schema validate
@@ -77,6 +81,27 @@ pnpm db sync
 pnpm db schema validate
 pnpm db serve
 ```
+
+### `async-db init`
+
+Scaffold the smallest valid local project shape:
+
+```bash
+async-db init
+async-db init --template schema-first
+async-db init --template source-file
+async-db init --dry-run --json
+```
+
+Templates:
+
+| Template | Writes |
+| --- | --- |
+| `data-first` | `db/users.json`, `.gitignore`, package scripts |
+| `schema-first` | `db/users.schema.jsonc` with empty seed |
+| `source-file` | `db.config.js` with `stores.default: 'sourceFile'` and `db/appState.json` |
+
+`init` refuses to overwrite existing files, runs `sync` after writing files, and prints follow-up commands. When no `package.json` exists, init creates a minimal private ESM one with the `db` scripts. When an existing package is not `"type": "module"`, the `source-file` template writes the config with Node's explicit ESM module extension instead of `.js`, so init never changes a project's module type.
 
 ## Runtime API
 
@@ -113,6 +138,46 @@ const userCount = await users.count({ where: { active: true } });
 
 await db.close();
 ```
+
+### In-Memory Filesystem
+
+`openDb()` can take a filesystem adapter when a tool, test, or embedded runtime
+needs to boot from virtual files and keep generated output out of the real
+project folder:
+
+```js
+import { createMemoryFs, openDb } from '@async/db';
+
+const fs = createMemoryFs({
+  cwd: '/virtual-app',
+  files: {
+    'db/users.json': JSON.stringify([
+      { id: 'u_1', name: 'Ada Lovelace' },
+    ]),
+  },
+});
+
+const db = await openDb({
+  cwd: '/virtual-app',
+  fs,
+  stores: {
+    default: 'json',
+  },
+});
+
+await db.collection('users').create({
+  id: 'u_2',
+  name: 'Grace Hopper',
+});
+
+const state = await fs.readFile('/virtual-app/.db/state/users.json', 'utf8');
+```
+
+The adapter is used for fixture reads, generated outputs, JSON runtime state,
+`sourceFile` writebacks, operations manifests, forks, branches, and snapshots.
+Executable local code such as `db.config.js` and `.schema.js` still runs through
+Node's module loader, so virtual projects should use inline options or
+JSON/JSONC/CSV schema sources.
 
 Collections also expose small store-neutral query helpers for local app reads:
 `find({ where, orderBy, limit, offset })`, `count({ where })`, and
@@ -243,7 +308,7 @@ The report has `kind: "db.integrationReport"` and includes:
 - Suggestions: wrapper-first adoption guidance such as keeping existing SQLite as source of truth, using operations for compound keys, and exposing read models first.
 - Adoption paths: `operation-wrapper`, `read-model`, `table-backed-adapter`, or `app-owned-sql` with storage migration marked as optional or not recommended.
 - Import plan: only when `targetState` or CLI `--target-state` is provided, with explicit legacy-table to Async DB-owned resource mapping.
-- Suggested files: `db.config.mjs`, resource schemas, committed schema/viewer manifests, and optional adapter/read-model modules.
+- Suggested files: `db.config.js`, resource schemas, committed schema/viewer manifests, and optional adapter/read-model modules.
 - Agent instructions: a short next-step checklist that favors wrapping existing DB calls before replacing app-owned writes.
 
 For existing SQLite apps, prefer this order:
@@ -507,12 +572,12 @@ Import generated `DbTypes` from `.db/types/index.d.ts` or from a committed outpu
 
 Use `loadDbSchema({ from })` when app code needs the schema contract without
 opening runtime stores or reading source records. `from` can point at a project
-root, a `db/` folder, the root `db.schema.mjs` / `db.schema.js`, or one resource schema file.
+root, a `db/` folder, the root `db.schema.js` / `db.schema.js`, or one resource schema file.
 
 ```ts
 import { loadDbSchema, openDb } from '@async/db';
 
-const schema = await loadDbSchema({ from: './db.schema.mjs' });
+const schema = await loadDbSchema({ from: './db.schema.js' });
 
 const validateUserInput = schema.validator('users', {
   mode: 'create',
@@ -586,7 +651,7 @@ drafts, suggestions, and an output plan. `generate` writes
 existing schema files unless `--force` is passed.
 
 `--format mixed` is the default. It writes JSONC for static contracts and
-`.schema.mjs` drafts when executable validator behavior needs manual
+`.schema.js` drafts when executable validator behavior needs manual
 preservation. `--format jsonc` forces JSONC output and reports warnings for
 unsupported executable behavior.
 
@@ -611,7 +676,7 @@ or validate the contract first, then open the runtime database from the same
 schema locator:
 
 ```ts
-const schema = await loadDbSchema({ from: './db.schema.mjs' });
+const schema = await loadDbSchema({ from: './db.schema.js' });
 const db = await openDb({ schema });
 ```
 
@@ -635,7 +700,7 @@ export default collection({
 });
 ```
 
-Keep runtime store selection in `db.config.mjs`, for example
+Keep runtime store selection in `db.config.js`, for example
 `resources.docs.store = 'static'`.
 
 ## HTTP Client
@@ -774,7 +839,7 @@ with `operations.acceptRefs`.
 | Export | Use |
 | --- | --- |
 | `@async/db` | Runtime API such as `openDb`, schema loading, and `inspectSchemaMigration`. |
-| `@async/db/schema` | `.schema.mjs` and `.schema.js` authoring helpers, including `field.derived`. |
+| `@async/db/schema` | `.schema.js` and `.schema.js` authoring helpers, including `field.derived`. |
 | `@async/db/config` | `defineConfig` and manifest helpers. |
 | `@async/db/client` | HTTP client with REST, GraphQL, and batching helpers. |
 | `@async/db/json` | First-party JSON file database capabilities and safe JSON state helpers. |

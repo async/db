@@ -212,6 +212,7 @@ export function printHelp(): void {
   console.log(`async-db
 
 Usage:
+  async-db init [--template data-first|schema-first|source-file] [--dry-run] [--json]
   async-db sync
   async-db types [--watch] [--out <file>]
   async-db schema [resource]
@@ -244,6 +245,25 @@ Usage:
 Options:
   --cwd <dir>       Project directory
   --config <file>   Config file path
+`);
+}
+
+export function printInitHelp(): void {
+  console.log(`async-db init
+
+Usage:
+  async-db init [--template data-first|schema-first|source-file] [--dry-run] [--json]
+
+Templates:
+  data-first     One JSON fixture in db/ with no config file (default)
+  schema-first   Empty schema-backed collection in db/users.schema.jsonc
+  source-file    Local app state saved directly to db/*.json
+
+Options:
+  --cwd <dir>       Project directory
+  --template <name> Starter template
+  --dry-run         Print the scaffold plan without writing files
+  --json            Emit a machine-readable init receipt
 `);
 }
 

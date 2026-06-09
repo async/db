@@ -38,6 +38,77 @@ test('CLI sync smoke writes runtime and committed type outputs', async () => {
   assert.match(committedTypes, /export type User =/);
 });
 
+test('CLI --version prints the package version', async () => {
+  const pkg = JSON.parse(await readFile(path.resolve('package.json'), 'utf8'));
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    '--version',
+  ]);
+
+  assert.equal(stdout.trim(), pkg.version);
+  assert.equal(stderr, '');
+});
+
+test('CLI init scaffolds a data-first project and syncs', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'package.json'), `${JSON.stringify({
+    name: 'init-test',
+    private: true,
+    type: 'module',
+  }, null, 2)}\n`, 'utf8');
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'init',
+    '--cwd',
+    cwd,
+  ]);
+
+  assert.match(stdout, /Initialized data-first project/);
+  assert.match(stdout, /npm run db:serve/);
+  assert.equal(stderr, '');
+  assert.match(await readFile(path.join(cwd, 'db/users.json'), 'utf8'), /Ada Lovelace/);
+  assert.match(await readFile(path.join(cwd, '.gitignore'), 'utf8'), /\.db\//);
+  assert.match(await readFile(path.join(cwd, 'package.json'), 'utf8'), /"db:serve"/);
+  await access(path.join(cwd, '.db/types/index.d.ts'));
+});
+
+test('CLI init refuses to overwrite existing db files', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [
+      path.resolve('dist/cli.js'),
+      'init',
+      '--cwd',
+      cwd,
+    ]),
+    (error: any) => {
+      assert.match(error.stderr, /Refusing to overwrite existing file/);
+      return true;
+    },
+  );
+});
+
+test('CLI init dry-run emits a json receipt', async () => {
+  const cwd = await makeProject();
+  const { stdout } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'init',
+    '--dry-run',
+    '--cwd',
+    cwd,
+    '--json',
+  ]);
+  const receipt = JSON.parse(stdout);
+
+  assert.equal(receipt.kind, 'db.initReceipt');
+  assert.equal(receipt.dryRun, true);
+  assert.equal(receipt.template, 'data-first');
+  assert.equal(receipt.files.some((file) => file.relativePath === 'db/users.json'), true);
+});
+
 test('CLI schema validate smoke reports valid fixtures', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
@@ -2126,7 +2197,7 @@ test('CLI operations contract --check requires an approved contract target', asy
       cwd,
       '--check',
     ]),
-    (error: any) => error.stderr.includes('Operation contract check needs --out <file> or outputs.operationRefs in db.config.mjs.'),
+    (error: any) => error.stderr.includes('Operation contract check needs --out <file> or outputs.operationRefs in db.config.js.'),
   );
 });
 

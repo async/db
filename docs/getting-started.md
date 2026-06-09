@@ -2,6 +2,26 @@
 
 This guide takes a project from one fixture file to a local API, viewer, generated schema metadata, and generated TypeScript types.
 
+## Scaffold A Project
+
+The fastest path is `async-db init`:
+
+```bash
+npm install @async/db
+npx async-db init
+npx async-db serve
+```
+
+`init` writes a starter fixture, a `.gitignore` entry for `.db/`, optional package scripts when `package.json` exists, and runs the first sync. Templates:
+
+```bash
+npx async-db init --template data-first
+npx async-db init --template schema-first
+npx async-db init --template source-file
+```
+
+Use `--dry-run --json` to inspect the scaffold plan without writing files.
+
 ## Install
 
 Install @async/db from npm:

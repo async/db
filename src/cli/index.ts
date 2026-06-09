@@ -12,8 +12,10 @@ import { runSync } from './commands/sync.js';
 import { runTypes } from './commands/types.js';
 import { runViewer } from './commands/viewer.js';
 import { runUsage } from './commands/usage.js';
+import { runInit } from './commands/init.js';
 import { runOperations } from './commands/operations.js';
-import { printContractsHelp, printDiagnostic, printDoctorHelp, printGenerateHelp, printHelp, printIntegrateHelp, printOperationsHelp, printSchemaHelp, printServeHelp, printTypesHelp, printUsageHelp, printViewerHelp } from './output.js';
+import { printContractsHelp, printDiagnostic, printDoctorHelp, printGenerateHelp, printHelp, printInitHelp, printIntegrateHelp, printOperationsHelp, printSchemaHelp, printServeHelp, printTypesHelp, printUsageHelp, printViewerHelp } from './output.js';
+import { readPackageVersion } from './version.js';
 
 type CliError = Error & {
   diagnostics?: Array<{
@@ -32,7 +34,7 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
   }
 
   if (command === '--version' || command === '-v') {
-    console.log('0.1.0');
+    console.log(await readPackageVersion());
     return;
   }
 
@@ -43,6 +45,9 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
   const config = await loadConfig(parseGlobalOptions(args));
 
   switch (command) {
+    case 'init':
+      await runInit(config, args.slice(1));
+      break;
     case 'sync':
       await runSync(config);
       break;
@@ -121,6 +126,9 @@ function printSubcommandHelp(command: string, args: string[]): boolean {
       return true;
     case 'generate':
       printGenerateHelp(generateHelpUsage(args));
+      return true;
+    case 'init':
+      printInitHelp();
       return true;
     default:
       return false;

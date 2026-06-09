@@ -19,7 +19,7 @@ without an `API_SURFACE.md` diff.
 | Runtime package behavior | `src/features/runtime/**`, `src/db.ts`, `src/runtime.ts`, package API tests |
 | REST, GraphQL, operations, Falcor, viewer, or manifest routes | `src/rest/**`, `src/graphql/**`, `src/operations.ts`, `src/falcor/**`, `src/web/**`, `src/server.ts`, route tests |
 | Generated types, schemas, manifests, or operation refs | `src/types.ts`, `src/schema-manifest.ts`, `src/viewer-manifest.ts`, `src/features/sync/**`, sync and package tests |
-| Config keys or defaults | `src/features/config/**`, `src/config*.ts`, `db.config.example.mjs`, `docs/configuration.md`, config tests |
+| Config keys or defaults | `src/features/config/**`, `src/config*.ts`, `db.config.example.js`, `docs/configuration.md`, config tests |
 
 ## Package Exports
 
@@ -46,6 +46,7 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 
 | Command | Stability | Contract |
 | --- | --- | --- |
+| `async-db init [--template data-first\|schema-first\|source-file] [--dry-run] [--json]` | stable | Scaffold the smallest valid local project shape, optionally patch package scripts, and run the first sync. |
 | `async-db sync` | stable | Load sources, validate/infer schema, write generated metadata/types, and refresh runtime state. |
 | `async-db types [--watch] [--out <file>]` | stable | Generate TypeScript declarations, optionally in watch mode or to an explicit path. |
 | `async-db schema [resource]` | stable | Print schema metadata for all resources or one resource. |
@@ -54,7 +55,7 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | `async-db schema manifest [--out <file>]` | generated | Render the schema manifest contract. |
 | `async-db schema unbundle ...` / `async-db schema bundle ...` | preview | Move between aggregate schema and per-resource schema files. |
 | `async-db schema migrate inspect [target] [--format mixed\|jsonc] [--schema-dir <dir>] [--json] [--out <file>] [--check <file>]` | preview | Inspect existing Prisma, Drizzle, SQL, JSON Schema/OpenAPI, and validator declarations and emit a review-first `db.schemaMigrationReport`. |
-| `async-db schema migrate generate --plan <report.json> [--schema-dir <dir>] [--format mixed\|jsonc] [--force]` | preview | Generate Async DB `.schema.jsonc` drafts, or `.schema.mjs` drafts in mixed mode when executable validator behavior needs manual preservation. |
+| `async-db schema migrate generate --plan <report.json> [--schema-dir <dir>] [--format mixed\|jsonc] [--force]` | preview | Generate Async DB `.schema.jsonc` drafts, or `.schema.js` drafts in mixed mode when executable validator behavior needs manual preservation. |
 | `async-db operations build [--out <file>] [--refs-out <file>]` | stable | Build operation registry and client-safe operation refs. |
 | `async-db operations contract [--out <file>] [--check]` | stable | Write or check the client operation contract. |
 | `async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]` | preview | Scan app source text for @async/db usage and emit a `db.usageManifest`. |
@@ -136,7 +137,7 @@ metadata are not public API.
 | `types` | stable | Generated TypeScript options such as output paths, committed copy, comments, readonly properties, and runtime helper exports. |
 | `schema` | stable | Schema validation/inference options, unknown-field policy, and schema behavior toggles. |
 | `server` | stable | Host/port/base path, route exposure, trace, watcher, viewer, and local server behavior. |
-| `rest`, `graphql`, `falcor` | stable | Protocol exposure and request/response behavior toggles. |
+| `rest`, `graphql`, `falcor` | stable | Protocol exposure and request/response behavior toggles. REST is enabled by default; GraphQL and Falcor are opt-in (`enabled: false` by default). |
 | `operations` | stable | Registered operation registry, refs, contract output, source directory, accept-ref policy, and opt-in strict readiness. |
 | `mock` | stable | Local mock delay/error behavior. |
 | `stores` | preview | Store factory configuration and optional adapter selection. |
@@ -153,4 +154,4 @@ metadata are not public API.
 | `.db/**` except documented generated files | internal | Generated runtime workspace; only documented generated contracts are public. |
 | Source hashes and state metadata | internal | Used for refresh and runtime bookkeeping, not app contracts. |
 | Test helpers, scripts, and examples internals | internal | Runnable examples and documented hooks are public; private helper paths are not. |
-| Trusted local code execution | internal | `.schema.js`, `.schema.mjs`, `db.config.mjs`, source readers, and manifest hooks execute locally and are not sandboxed public API. |
+| Trusted local code execution | internal | `.schema.js`, `db.config.js`, source readers, and manifest hooks execute locally and are not sandboxed public API. |
