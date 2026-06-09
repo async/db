@@ -42,11 +42,11 @@ await db.query(operationRefs.operations.GetUser.ref, { id: 'u_1' });
   );
   assert.equal(
     manifest.recommendations.some((recommendation) => recommendation.code === 'USAGE_RECOMMEND_GRAPHQL_DISABLED'),
-    true,
+    false,
   );
   assert.equal(
     manifest.recommendations.some((recommendation) => recommendation.code === 'USAGE_RECOMMEND_FALCOR_DISABLED'),
-    true,
+    false,
   );
   assert.equal(
     manifest.recommendations.some((recommendation) => recommendation.code === 'USAGE_RECOMMEND_DEV_SURFACES_PRIVATE'),

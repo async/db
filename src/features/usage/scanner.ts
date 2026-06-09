@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { loadConfig } from '../config/load.js';
 
 export type UsageSurface =
   | 'client'
@@ -174,8 +175,11 @@ export async function scanDbUsage(options: UsageScanOptions = {}): Promise<Usage
 
   const matches = fileScans.flatMap((file) => file.matches);
   const surfaces = surfaceSummary(matches);
+  const config = options.production === true
+    ? await loadConfig({ cwd })
+    : null;
   const recommendations = options.production === true
-    ? usageRecommendations(matches)
+    ? usageRecommendations(matches, config)
     : [];
 
   return {
@@ -339,7 +343,7 @@ function addConfigBlockMatches(
   }
 }
 
-function usageRecommendations(matches: UsageMatch[]): UsageRecommendation[] {
+function usageRecommendations(matches: UsageMatch[], config: Record<string, unknown> | null): UsageRecommendation[] {
   const recommendations: UsageRecommendation[] = [];
   const hasDirectRest = hasAny(matches, 'rest', ['rest-route', 'batch-route', 'client-rest-call']);
   const hasOperations = hasAny(matches, 'operations', ['client-query-call', 'operation-route', 'registered-graphql-operation', 'operations.enabled:true']);
@@ -362,7 +366,7 @@ function usageRecommendations(matches: UsageMatch[]): UsageRecommendation[] {
     ));
   }
 
-  if (!hasDirectGraphql && !hasRegisteredGraphqlOperations) {
+  if (!hasDirectGraphql && !hasRegisteredGraphqlOperations && (config?.graphql as { enabled?: boolean } | undefined)?.enabled !== false) {
     recommendations.push(recommendation(
       'USAGE_RECOMMEND_GRAPHQL_DISABLED',
       'graphql',
@@ -380,7 +384,7 @@ function usageRecommendations(matches: UsageMatch[]): UsageRecommendation[] {
     ));
   }
 
-  if (!hasFalcor) {
+  if (!hasFalcor && (config?.falcor as { enabled?: boolean } | undefined)?.enabled !== false) {
     recommendations.push(recommendation(
       'USAGE_RECOMMEND_FALCOR_DISABLED',
       'falcor',

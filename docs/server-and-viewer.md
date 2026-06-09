@@ -13,7 +13,7 @@ Important write surfaces:
 - Viewer CSV import writes CSV files into the configured `dbDir`.
 - Resources bound to the `sourceFile` store may write supported changes back to source fixtures.
 
-Config and schema JavaScript are trusted project code. Do not treat `.schema.mjs`, `.schema.js`, or config hooks as untrusted data.
+Config and schema JavaScript are trusted project code. Do not treat `.schema.js`, `.schema.js`, or config hooks as untrusted data.
 
 ## Request Tracing
 
@@ -507,13 +507,15 @@ requests, and still require `graphql.enabled !== false`.
 
 ## GraphQL Boundary
 
-GraphQL is available at `/graphql` for apps that prefer it. A scoped alias is
-also available at `/__db/graphql` for embedded dev servers. It supports aliases,
-variables, `operationName`, `__typename`, named and inline fragments,
-`@include`/`@skip`, HTTP batching, and minimal `__schema`/`__type` introspection
-for local tooling.
+GraphQL is available at `/graphql` when you opt in with `graphql.enabled: true`.
+A scoped alias is also available at `/__db/graphql` for embedded dev servers.
+It supports aliases, variables, `operationName`, `__typename`, named and inline
+fragments, `@include`/`@skip`, HTTP batching, and minimal
+`__schema`/`__type` introspection for local tooling.
 
-Set `graphql.enabled: false` when an app wants REST, schema, manifest, viewer, import, and events without a GraphQL endpoint. Root discovery reports the GraphQL link as unavailable, and direct GraphQL requests return a structured `GRAPHQL_DISABLED` error.
+Set `graphql.enabled: false` when an app wants REST, schema, manifest, viewer,
+import, and events without a GraphQL endpoint. GraphQL is disabled by default
+so the starter surface stays REST-first.
 
 GraphQL HTTP batches execute sequentially and are intentionally non-transactional. If an earlier mutation succeeds and a later batch item fails, the earlier mutation stays committed.
 
@@ -536,9 +538,10 @@ Unsupported in v1:
 
 ## Falcor Boundary
 
-Falcor is available at `/model.json` for browser clients using
-`falcor.HttpDataSource('/model.json')`. A scoped alias is also available at
-`/__db/model.json` for embedded dev servers.
+Falcor is available at `/model.json` when you opt in with `falcor.enabled: true`
+for browser clients using `falcor.HttpDataSource('/model.json')`. A scoped alias
+is also available at `/__db/model.json` for embedded dev servers. Falcor is
+disabled by default.
 
 Supported v1 behavior:
 

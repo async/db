@@ -17,3 +17,9 @@ export async function writeFixture(cwd: string, filename: string, content: strin
 export async function writeConfig(cwd: string, content: string): Promise<void> {
   await writeFile(path.join(cwd, 'db.config.mjs'), `${content}\n`, 'utf8');
 }
+
+/** Enable GraphQL and Falcor HTTP endpoints in tests that assert on those routes. */
+export const devProtocolOptions = {
+  graphql: { enabled: true },
+  falcor: { enabled: true },
+} as const;

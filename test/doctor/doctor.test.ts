@@ -418,7 +418,7 @@ await db.query('users.get', { id: 'u_1' });
   assert.equal(result.usage.kind, 'db.usageManifest');
   assert.equal(result.usage.target.path, 'src');
   assert.equal(result.findings.some((finding) => finding.code === 'USAGE_RECOMMEND_REST_REGISTERED_ONLY'), true);
-  assert.equal(result.findings.some((finding) => finding.code === 'USAGE_RECOMMEND_GRAPHQL_DISABLED'), true);
+  assert.equal(result.findings.some((finding) => finding.code === 'USAGE_RECOMMEND_GRAPHQL_DISABLED'), false);
 });
 
 test('doctor CLI supports json output and strict check alias', async () => {

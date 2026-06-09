@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb as typedOpenDb } from './db.js';
-import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
+import { makeProject, devProtocolOptions, writeConfig, writeFixture } from '../test/helpers.js';
 import { createDbRequestHandler as createTypedDbRequestHandler, reloadDb as typedReloadDb, startDbServer, watchSourceDir as typedWatchSourceDir } from './server.js';
 
 const openDb = async (options: unknown): Promise<any> => typedOpenDb(options as never) as Promise<any>;
@@ -217,6 +217,7 @@ test('request handler supports scoped Vite routes without root REST routes', asy
   const db = await openDb({
     cwd,
     allowSourceErrors: true,
+    ...devProtocolOptions,
     rest: {
       formats: {
         yaml: {
@@ -297,7 +298,7 @@ test('request handler preserves standalone root REST and GraphQL routes', async 
     },
   ]));
 
-  const db = await openDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true, ...devProtocolOptions });
   const handler = createDbRequestHandler(db);
   const users = makeResponse();
   const dataUsers = makeResponse();
@@ -368,7 +369,7 @@ test('request handler exposes scoped GraphQL and Falcor aliases', async () => {
     { id: 'u_1', name: 'Ada' },
   ]));
 
-  const db = await openDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true, ...devProtocolOptions });
   const handler = createDbRequestHandler(db);
   const graphql = makeResponse();
   const falcor = makeResponse();
@@ -642,7 +643,7 @@ test('request handler disables generated REST routes when rest.enabled is false'
     },
   };`);
 
-  const db = await openDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true, ...devProtocolOptions });
   const handler = createDbRequestHandler(db);
   const root = makeResponse();
   const users = makeResponse();
@@ -748,7 +749,7 @@ test('request handler derives standalone dev-tool routes from configured server 
     },
   };`);
 
-  const db = await openDb({ cwd, allowSourceErrors: true });
+  const db = await openDb({ cwd, allowSourceErrors: true, ...devProtocolOptions });
   const handler = createDbRequestHandler(db);
   const viewer = makeResponse();
   const schema = makeResponse();
@@ -1243,6 +1244,7 @@ test('request handler executes registered GraphQL operations', async () => {
 
   const db = await openDb({
     cwd,
+    ...devProtocolOptions,
     operations: {
       enabled: true,
       registry: {

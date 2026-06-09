@@ -133,8 +133,8 @@ test('REST root returns JSON discovery links by default', async () => {
     manifestHtml: '/__db/manifest.html',
     manifestMarkdown: '/__db/manifest.md',
     schema: '/__db/schema',
-    graphql: '/graphql',
-    falcor: '/model.json',
+    graphql: null,
+    falcor: null,
     batchAliases: ['/__db/batch'],
     resourceBasePath: '/resources',
     links: {
@@ -150,8 +150,8 @@ test('REST root returns JSON discovery links by default', async () => {
       manifestHtml: '/__db/manifest.html',
       manifestMarkdown: '/__db/manifest.md',
       schema: '/__db/schema',
-      graphql: '/graphql',
-      falcor: '/model.json',
+      graphql: null,
+      falcor: null,
       batchAliases: ['/__db/batch'],
       resourceBasePath: '/resources',
       resources: {
@@ -203,8 +203,8 @@ test('REST root discovery links use configured server apiBase', async () => {
     manifestHtml: '/_db/manifest.html',
     manifestMarkdown: '/_db/manifest.md',
     schema: '/_db/schema',
-    graphql: '/graphql',
-    falcor: '/model.json',
+    graphql: null,
+    falcor: null,
     batchAliases: ['/_db/batch'],
     resourceBasePath: '/resources',
     links: {
@@ -220,8 +220,8 @@ test('REST root discovery links use configured server apiBase', async () => {
       manifestHtml: '/_db/manifest.html',
       manifestMarkdown: '/_db/manifest.md',
       schema: '/_db/schema',
-      graphql: '/graphql',
-      falcor: '/model.json',
+      graphql: null,
+      falcor: null,
       batchAliases: ['/_db/batch'],
       resourceBasePath: '/resources',
       resources: {
@@ -264,8 +264,7 @@ test('REST root returns HTML discovery links for browser requests', async () => 
   assert.match(response.body, /href="\/__db\/manifest"/);
   assert.match(response.body, /Schema/);
   assert.match(response.body, /href="\/__db\/schema"/);
-  assert.match(response.body, /GraphQL/);
-  assert.match(response.body, /href="\/graphql"/);
+  assert.doesNotMatch(response.body, /href="\/graphql"/);
   assert.match(response.body, /chartMappings/);
   assert.match(response.body, /href="\/chart-mappings"/);
 });

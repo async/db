@@ -21,7 +21,11 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
       ],
     },
     graphql: {
+      enabled: true,
       path: '/_db/graphql',
+    },
+    falcor: {
+      enabled: true,
     },
     rest: {
       formats: {
@@ -206,7 +210,7 @@ test('viewer manifest marks REST resources and batching unavailable when REST is
   assert.equal(manifest.capabilities.rest, false);
   assert.equal(manifest.capabilities.writes, false);
   assert.equal(manifest.capabilities.restBatch, false);
-  assert.equal(manifest.capabilities.graphql, true);
+  assert.equal(manifest.capabilities.graphql, false);
   assert.equal(manifest.capabilities.csvImport, true);
   assert.equal(manifest.api.batch, '/__db/batch');
   assert.equal(manifest.api.resources.users.list, '/users');

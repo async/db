@@ -173,11 +173,11 @@ export const DEFAULT_CONFIG: DefaultConfig = {
     enabled: true,
   },
   graphql: {
-    enabled: true,
+    enabled: false,
     path: '/graphql',
   },
   falcor: {
-    enabled: true,
+    enabled: false,
     path: '/model.json',
   },
   operations: {
