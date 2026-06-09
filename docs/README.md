@@ -13,12 +13,15 @@ This folder is the durable markdown manual for @async/db. The root [README](../R
 - [Fixtures And Schemas](./fixtures-and-schemas.md): JSON, JSONC, CSV, schema files, `.schema.js`, Standard Schema validators, computed fields, source readers, nested folders, inference, and validation.
 - [TypeScript Schema Sources](./typescript-schema-sources.md): JavaScript ESM schemas and TypeScript-authored schemas compiled to supported runtime files.
 - [Generated Files](./generated-files.md): `.db/`, state, generated TypeScript, committed generated outputs, schema manifests, and cleanup rules.
-- [Configuration](./configuration.md): `db.config.mjs`, fixture folders, resource naming, strictness, registered operations, mock delay/errors, server options, and runtime fork boundaries.
+- [Configuration](./configuration.md): `db.config.js`, fixture folders, resource naming, strictness, registered operations, mock delay/errors, server options, and runtime fork boundaries.
+
+## Go To Production
+
 - [Production JSON Database](./json-production.md): scoped production use for `@async/db/json`, hard limits, operation boundaries, and mixed-store graduation.
+- [Prototype To Production REST Guide](./prototype-to-production.md): move `/db/*` prototypes to `/api/db/*` or `/api/*`, registered operation refs, and route lockdown.
 - [Resource Graduation And Mixed Stores](./store-graduation.md): move one resource from JSON to SQLite/Postgres/custom stores while preserving app-facing operations.
 - [Fork And Branch Workflows](./fork-branch-workflows.md): tenants, debug copies, snapshots, branches, and resource migrations as app-owned workflows.
 - [CMS Storage Patterns](./cms-storage-patterns.md): app-owned CMS draft/publish helpers over JSON files, SQLite indexes, Postgres, and static JSON outputs.
-- [Schema UI example](../examples/schema-ui/README.md): manifest-driven CMS HTML with **`serve.mjs`** SSR from live mirror rows (`node ./examples/schema-ui/serve.mjs`).
 
 ## Serve And Integrate
 

@@ -1,6 +1,6 @@
 # Configuration
 
-Most projects can skip `db.config.mjs` at first. Add config when defaults stop matching the project.
+Most projects can skip `db.config.js` at first. Add config when defaults stop matching the project.
 
 Use `defineConfig` for editor autocomplete and inline type checks:
 
@@ -18,7 +18,7 @@ export default defineConfig({
 });
 ```
 
-See [db.config.example.mjs](../db.config.example.mjs) for a commented config with common values.
+See [db.config.example.js](../db.config.example.js) for a commented config with common values.
 
 ## Config Map
 
@@ -44,126 +44,9 @@ See [db.config.example.mjs](../db.config.example.mjs) for a commented config wit
 | Schema-only mock records | Off | `seed.generateFromSchema` |
 | Local latency | `30-100ms` | `mock.delay` |
 | Random local failures | Off | `mock.errors` |
-| GraphQL endpoint | `/graphql`, enabled | `graphql` |
+| GraphQL endpoint | `/graphql`, disabled until enabled | `graphql.enabled: true` |
+| Falcor endpoint | `/model.json`, disabled until enabled | `falcor.enabled: true` |
 | Host, port, dev-tool route base, body limit | `127.0.0.1:7331`, `/__db`, 1 MB bodies | `server` |
-
-## Full Example
-
-```js
-// @ts-check
-import { defineConfig } from '@async/db/config';
-
-export default defineConfig({
-  outputs: {
-    stateDir: './.db',
-    types: './.db/types/index.d.ts',
-    committedTypes: './src/generated/db.types.d.ts',
-    schemaManifest: './src/generated/db.schema.json',
-    viewerManifest: './src/generated/db.viewer.json',
-    operationRegistry: './src/generated/db.operations.json',
-    operationRefs: './src/generated/db.operation-refs.json',
-    contractRefs: './src/generated/db.contract-refs.json',
-  },
-
-  sources: {
-    writePolicy: 'preserve',
-    readers: [],
-  },
-
-  stores: {
-    default: 'json',
-  },
-
-  types: {
-    enabled: true,
-    useReadonly: false,
-    emitComments: true,
-  },
-
-  schema: {
-    standardSchema: false,
-    unknownFields: 'warn',
-  },
-
-  defaults: {
-    applyOnCreate: true,
-    applyOnSafeMigration: true,
-  },
-
-  seed: {
-    generateFromSchema: false,
-    generatedCount: 5,
-  },
-
-  server: {
-    apiBase: '/__db',
-    dataPath: '/db',
-    host: '127.0.0.1',
-    port: 7331,
-    maxBodyBytes: 1048576,
-    expose: {
-      rest: 'open',
-      graphql: 'open',
-      viewer: 'dev',
-      schema: 'dev',
-      manifest: 'dev',
-    },
-    viewerLinks: [
-      { label: 'App Data Viewer', href: 'http://127.0.0.1:5173/db' },
-    ],
-  },
-
-  operations: {
-    enabled: false,
-    sourceDir: './db/operations',
-    acceptRefs: 'both',
-  },
-
-  contracts: {
-    public: {
-      resources: {
-        users: {
-          fields: ['id', 'name', 'avatarUrl'],
-          read: true,
-          write: false,
-        },
-      },
-      operations: ['GetPublicUser', 'SearchPublicUsers'],
-    },
-  },
-
-  rest: {
-    enabled: true,
-    formats: {
-      default: 'json',
-      md({ resourceName, data }) {
-        return {
-          body: `# ${resourceName}\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\`\n`,
-          contentType: 'text/markdown; charset=utf-8',
-        };
-      },
-      // yaml: {
-      //   mediaTypes: ['application/yaml', 'text/yaml'],
-      //   contentType: 'application/yaml; charset=utf-8',
-      //   render({ data }) {
-      //     return stringifyYaml(data);
-      //   },
-      // },
-    },
-  },
-
-  graphql: {
-    enabled: true,
-    path: '/graphql',
-  },
-
-  mock: {
-    delay: [30, 100],
-    errors: null,
-  },
-
-});
-```
 
 ## Fixture Folder
 
@@ -267,7 +150,7 @@ Keep the default `warn` while fixture shape is still changing.
 
 ## Schema JavaScript Modules
 
-`.schema.js` files are loaded as ESM. If the project root is not already `"type": "module"`, @async/db creates `db/package.json` with `"type": "module"` before loading schema files inside the fixture folder. Aggregate unbundle uses the same rule: it prefers generated `.schema.js` files under `db/`, then falls back to `.schema.mjs` when the marker is disabled or a custom output folder cannot be loaded as ESM.
+`.schema.js` files are loaded as ESM. If the project root is not already `"type": "module"`, @async/db creates `db/package.json` with `"type": "module"` before loading schema files inside the fixture folder. Aggregate unbundle uses the same rule: it writes generated `.schema.js` files under `db/` when that folder can be loaded as ESM. For custom output folders, add an ESM package boundary or generate JSONC drafts instead.
 
 Disable that marker when you manage fixture-folder package metadata yourself:
 
@@ -427,7 +310,7 @@ compact:
 Explicit integration options such as `createDbRuntime({ handler: { trace } })`,
 `createDbRequestHandler(db, { trace })`, `dbPlugin({ trace })`,
 `createDbHonoApp({ trace })`, and
-`registerDbRoutes(app, db, { trace })` win over `db.config.mjs`
+`registerDbRoutes(app, db, { trace })` win over `db.config.js`
 `server.trace`.
 
 Use `server.expose` when a project wants production-like route hardening.
@@ -587,7 +470,7 @@ change.
 
 ## Runtime Forks
 
-Runtime forks are package API state, not `db.config.mjs` fixture folders. Use `db.forks.create()`, `db.forks.open()`, `db.forks.ensure()`, branches, snapshots, migrations, and routing when an app needs tenants, previews, debug copies, or upgrade flows.
+Runtime forks are package API state, not `db.config.js` fixture folders. Use `db.forks.create()`, `db.forks.open()`, `db.forks.ensure()`, branches, snapshots, migrations, and routing when an app needs tenants, previews, debug copies, or upgrade flows.
 
 ```js
 const tenant = await db.forks.ensure('tenant_acme', {
