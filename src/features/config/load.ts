@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { dbError } from '../../errors.js';
 import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
@@ -67,6 +68,11 @@ type ConfigLoadError = Error & {
   diagnostics?: UnsupportedRuntimeConfigDiagnostic[];
 };
 
+type PackageInfo = {
+  file: string;
+  type: string | null;
+};
+
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<ConfigRecord> {
   const rawOptions = normalizeLoadConfigOptions(options);
   const locator = await resolveSchemaLocator(rawOptions);
@@ -112,10 +118,105 @@ async function loadUserConfig(configPath: string | null): Promise<ConfigRecord> 
     return {};
   }
 
-  const url = pathToFileURL(configPath);
-  url.searchParams.set('dbConfigLoad', String(Date.now()));
-  const module = await import(url.href);
-  return module.default ?? module.config ?? {};
+  try {
+    await assertConfigJsModuleContext(configPath);
+    const url = pathToFileURL(configPath);
+    url.searchParams.set('dbConfigLoad', String(Date.now()));
+    const module = await import(url.href);
+    return module.default ?? module.config ?? {};
+  } catch (error) {
+    throw configLoadError(configPath, error);
+  }
+}
+
+function configLoadError(configPath: string, error: unknown): Error {
+  const loadError = error as Error & { code?: string };
+  if (!configPath.endsWith('.js') || !isModuleContextError(loadError)) {
+    return loadError;
+  }
+
+  return configJsModuleError(configPath, {
+    parserMessage: loadError.message,
+    code: loadError.code,
+  });
+}
+
+async function assertConfigJsModuleContext(configPath: string): Promise<void> {
+  if (!configPath.endsWith('.js')) {
+    return;
+  }
+
+  const nearestPackage = await nearestPackageInfo(path.dirname(configPath));
+  if (nearestPackage?.type === 'module') {
+    return;
+  }
+
+  throw configJsModuleError(configPath, {
+    packageFile: nearestPackage?.file ?? null,
+    packageType: nearestPackage?.type ?? null,
+  });
+}
+
+function configJsModuleError(
+  configPath: string,
+  details: Record<string, unknown>,
+): Error {
+  return dbError(
+    'DB_CONFIG_JS_REQUIRES_MODULE',
+    `JavaScript config files require ESM module context: ${path.basename(configPath)}.`,
+    {
+      hint: 'Add "type": "module" to the nearest package.json, or move db.config.js and imported .js files under an ESM package boundary.',
+      details: {
+        path: configPath,
+        ...details,
+      },
+    },
+  );
+}
+
+function isModuleContextError(error: Error & { code?: string }): boolean {
+  const message = String(error.message ?? '');
+  return error.code === 'ERR_REQUIRE_ESM'
+    || message.includes('Cannot use import statement outside a module')
+    || message.includes('Unexpected token \'export\'')
+    || message.includes('Unexpected token "export"')
+    || message.includes('Named export')
+    || message.includes('CommonJS module');
+}
+
+async function nearestPackageInfo(directory: string): Promise<PackageInfo | null> {
+  let current = path.resolve(directory);
+  while (true) {
+    const packageFile = path.join(current, 'package.json');
+    const info = await packageInfo(packageFile);
+    if (info) {
+      return info;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
+async function packageInfo(packageFile: string): Promise<PackageInfo | null> {
+  try {
+    const json = JSON.parse(await readFile(packageFile, 'utf8'));
+    return {
+      file: packageFile,
+      type: typeof json?.type === 'string' ? json.type : null,
+    };
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null;
+    }
+    return {
+      file: packageFile,
+      type: null,
+    };
+  }
 }
 
 function inlineConfigOptions(rawOptions: NormalizedLoadConfigOptions): ConfigRecord {
@@ -306,7 +407,7 @@ function configuredOutputValue({
 }
 
 async function findConfigPath(cwd: string, fs: DbFileSystem): Promise<string | null> {
-  for (const filename of ['db.config.mjs', 'db.config.js']) {
+  for (const filename of ['db.config.js', 'db.config.mjs']) {
     const candidate = path.join(cwd, filename);
     try {
       await fs.access(candidate);

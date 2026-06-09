@@ -9,7 +9,7 @@ npm run db -- sync --cwd ./examples/standard-schema
 npm run db -- serve --cwd ./examples/standard-schema
 ```
 
-`db/users.schema.mjs` uses a small local Standard Schema-compatible validator. It lowercases email addresses during writes, exposes a Standard JSON Schema converter for field inference, and then layers Async DB metadata on top.
+`db/users.schema.js` uses a small local Standard Schema-compatible validator. It lowercases email addresses during writes, exposes a Standard JSON Schema converter for field inference, and then layers Async DB metadata on top.
 
 You can keep Async DB's object-first schema shape and mix the validator in:
 
@@ -52,4 +52,4 @@ npm run db -- create users '{"id":"u_2","email":" GRACE@EXAMPLE.COM ","firstName
 
 The stored email becomes `grace@example.com`.
 
-`db/settings.schema.mjs` intentionally uses an opaque Standard Schema validator with no JSON Schema converter and no field overlay. In that case generated TypeScript falls back to a conservative index signature, and diagnostics ask you to add `field.meta(...)` overlays or provide a JSON Schema converter when you want richer generated metadata.
+`db/settings.schema.js` intentionally uses an opaque Standard Schema validator with no JSON Schema converter and no field overlay. In that case generated TypeScript falls back to a conservative index signature, and diagnostics ask you to add `field.meta(...)` overlays or provide a JSON Schema converter when you want richer generated metadata.

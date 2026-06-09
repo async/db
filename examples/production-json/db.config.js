@@ -20,6 +20,11 @@ export default defineConfig({
     acceptRefs: 'ref',
     sourceDir: './db/operations',
   },
+  // Registered GraphQL operations need the executor on; expose.graphql: false
+  // still hides the direct /graphql endpoint from clients.
+  graphql: {
+    enabled: true,
+  },
   server: {
     expose: {
       rest: 'registered-only',

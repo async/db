@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { createDbRuntime } from '../../../dist/index.js';
 import { serializeError } from '../../../dist/errors.js';
 import { sendJson } from '../../../dist/rest/handler.js';
-import { handleSchemaUiSsrRequest } from './schema-ui-ssr-handler.mjs';
+import { handleSchemaUiSsrRequest } from './schema-ui-ssr-handler.js';
 
 /**
  * Schema UI demo runtime: SSR CMS routes composed ahead of the stock db REST / viewer stack.

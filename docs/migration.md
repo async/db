@@ -131,7 +131,7 @@ Existing schema declarations remain the source of truth until a human reviews
 and adopts the generated Async DB schema files.
 
 Use `--format mixed` by default. It writes `.schema.jsonc` for static contracts
-and `.schema.mjs` only when executable validator behavior needs a manual import
+and `.schema.js` only when executable validator behavior needs a manual import
 review. Use `--format jsonc` when the team wants JSONC-only drafts and accepts
 warnings for behavior that JSONC cannot preserve.
 

@@ -2,14 +2,14 @@
 
 ## What This Teaches
 
-Use this when you want to see several ways to model computed fields with `.schema.mjs`. Computed fields are read-only projections: stored fixture records stay small, and REST or GraphQL resolves the computed value only when a client selects it.
+Use this when you want to see several ways to model computed fields with `.schema.js`. Computed fields are read-only projections: stored fixture records stay small, and REST or GraphQL resolves the computed value only when a client selects it.
 
 ## Files To Inspect
 
-- [db/users.schema.mjs](./db/users.schema.mjs): `field.computed(type, function)` shorthand using `this.value`.
-- [db/posts.schema.mjs](./db/posts.schema.mjs): object form with `resolveMany` for reading time.
-- [db/products.schema.mjs](./db/products.schema.mjs): arrow resolver for simple price formatting.
-- [db/orders.schema.mjs](./db/orders.schema.mjs): normal function resolver that uses `this.get('db')` to read product prices.
+- [db/users.schema.js](./db/users.schema.js): `field.computed(type, function)` shorthand using `this.value`.
+- [db/posts.schema.js](./db/posts.schema.js): object form with `resolveMany` for reading time.
+- [db/products.schema.js](./db/products.schema.js): arrow resolver for simple price formatting.
+- [db/orders.schema.js](./db/orders.schema.js): normal function resolver that uses `this.get('db')` to read product prices.
 - [src/generated/db.types.d.ts](./src/generated/db.types.d.ts): committed generated types where computed fields are optional read-only projections.
 
 ## Run It

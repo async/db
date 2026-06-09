@@ -7,7 +7,7 @@ Use this page when deciding where behavior belongs in the implementation. Use [S
 ## Main Flow
 
 ```txt
-db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.mjs, *.schema.js
+db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.js
   -> source readers
   -> resource schemas and diagnostics
   -> sync output
@@ -24,7 +24,7 @@ db/*.json, *.jsonc, *.csv, *.schema.json(c), *.schema.mjs, *.schema.js
 | CLI | `src/cli.ts`, `src/cli/index.ts`, `src/cli/commands/` | `sync`, `types`, `schema`, `doctor`, `check`, `create`, `serve`, `generate hono`. |
 | Runtime API | `src/index.ts`, `src/features/runtime/` | Collections, singleton documents, validation, and storage adapters. |
 | Config API | `src/config-public.ts`, `src/config.d.ts` | `defineConfig`, manifest helpers, and user config shape. |
-| Schema helpers | `src/schema-builders.ts`, `src/schema.d.ts` | `.schema.mjs` and `.schema.js` authoring helpers. |
+| Schema helpers | `src/schema-builders.ts`, `src/schema.d.ts` | `.schema.js` authoring helpers. |
 | HTTP client | `src/client.ts` | REST, GraphQL, registered query operations, direct batching, automatic batching, fork support. |
 | HTTP runtime | `src/runtime.ts`, `src/request-handler.ts`, `src/server.ts`, `src/rest/` | Shared db lifecycle, dependency-free middleware routes, local server binding, and response shaping. |
 | GraphQL | `src/graphql/` | Dependency-free subset parser, executor, and HTTP handler. |
@@ -92,8 +92,8 @@ See [Generated Files](./generated-files.md).
 ## Local Trust Model
 
 - `async-db serve` binds to `127.0.0.1` by default and is intended for local development.
-- `.schema.mjs` and `.schema.js` files execute as local project JavaScript. Treat them like source code, not untrusted data.
-- `db.config.mjs`, source readers, format renderers, and manifest hooks also execute as local project code.
+- `.schema.js` and `.schema.js` files execute as local project JavaScript. Treat them like source code, not untrusted data.
+- `db.config.js`, source readers, format renderers, and manifest hooks also execute as local project code.
 - The viewer CSV import endpoint writes CSV files into the configured `dbDir`.
 - The default `json` store keeps source fixtures clean and writes app changes to `.db/state`.
 - The `sourceFile` store may write generated ids back to plain `.json` source fixtures when configured intentionally.

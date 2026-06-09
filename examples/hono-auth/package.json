@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node ./src/server.mjs",
+    "dev": "node ./src/server.js",
     "sync": "async-db sync --cwd ."
   },
   "dependencies": {

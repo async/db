@@ -23,7 +23,7 @@ export type DbVitePluginOptions = Pick<DbOptions, 'cwd' | 'fs' | 'configPath' | 
   graphqlPath?: string;
   /** Scoped Falcor endpoint. Defaults to "<apiBase>/model.json". */
   falcorPath?: string;
-  /** Explicit request trace option. Wins over db.config.mjs server.trace. */
+  /** Explicit request trace option. Wins over db.config.js server.trace. */
   trace?: DbTraceOptions;
   /** Virtual module id for the browser-safe client. Defaults to "virtual:db/client"; false disables it. */
   clientVirtualModule?: string | false;

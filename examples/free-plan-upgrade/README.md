@@ -6,7 +6,7 @@ Run it from the repository root:
 
 ```bash
 npm run db -- sync --cwd ./examples/free-plan-upgrade
-node ./examples/free-plan-upgrade/src/upgrade-tenant-to-paid.mjs
+node ./examples/free-plan-upgrade/src/upgrade-tenant-to-paid.js
 ```
 
 The script:

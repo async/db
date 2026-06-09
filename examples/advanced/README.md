@@ -2,11 +2,11 @@
 
 ## What This Teaches
 
-Use this after the basics when you want to see several features working together: mixed-mode fixtures, `.schema.mjs`, defaults, nested objects, and committed generated types.
+Use this after the basics when you want to see several features working together: mixed-mode fixtures, `.schema.js`, defaults, nested objects, and committed generated types.
 
 ## Files To Inspect
 
-- [db/users.schema.mjs](./db/users.schema.mjs): schema helper API from `@async/db/schema`.
+- [db/users.schema.js](./db/users.schema.js): schema helper API from `@async/db/schema`.
 - [db/users.json](./db/users.json): data seed for the schema-backed `users` collection.
 - [db/projects.schema.jsonc](./db/projects.schema.jsonc): nested object defaults.
 - [src/generated/db.types.d.ts](./src/generated/db.types.d.ts): committed generated types.

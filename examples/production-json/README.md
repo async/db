@@ -9,8 +9,8 @@ Use this when an app has small production control-plane data that should stay in
 - [db/featureFlags.schema.jsonc](./db/featureFlags.schema.jsonc): low-write feature flag records with explicit schema.
 - [db/appSettings.schema.jsonc](./db/appSettings.schema.jsonc): singleton production settings document.
 - [db/operations](./db/operations): registered operation templates for browser-facing reads.
-- [db.config.mjs](./db.config.mjs): enables operation-only REST exposure and ref-only operation calls.
-- [src/client-demo.mjs](./src/client-demo.mjs): tiny client script that calls generated operation refs.
+- [db.config.js](./db.config.js): enables operation-only REST exposure and ref-only operation calls.
+- [src/client-demo.js](./src/client-demo.js): tiny client script that calls generated operation refs.
 - [src/generated/db.types.d.ts](./src/generated/db.types.d.ts): committed generated types.
 
 ## Run It
@@ -26,7 +26,7 @@ npm run db -- serve --cwd ./examples/production-json
 In another terminal:
 
 ```bash
-ASYNC_DB_URL=http://127.0.0.1:7331 node ./examples/production-json/src/client-demo.mjs
+ASYNC_DB_URL=http://127.0.0.1:7331 node ./examples/production-json/src/client-demo.js
 ```
 
 ## Expected Result

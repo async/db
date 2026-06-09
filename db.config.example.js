@@ -22,7 +22,7 @@ export default defineConfig({
   },
 
   // Optional custom source readers. Built-in readers handle JSON, JSONC, CSV,
-  // .schema.json, .schema.jsonc, and .schema.mjs. Custom readers run first.
+  // .schema.json, .schema.jsonc, and .schema.js. Custom readers run first.
   sources: {
     writePolicy: 'preserve',
     readers: [],
@@ -113,6 +113,16 @@ export default defineConfig({
       // },
     },
   },
+
+  // GraphQL and Falcor endpoints are opt-in. REST stays the default workflow.
+  // graphql: {
+  //   enabled: true,
+  //   path: '/graphql',
+  // },
+  // falcor: {
+  //   enabled: true,
+  //   path: '/model.json',
+  // },
 
   // Local latency is on by default so loading states are visible. Use 0 to
   // disable delay, 50 for a fixed 50ms delay, or [50, 300] for a range.

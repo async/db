@@ -303,7 +303,7 @@ await db.query(operationRefs.operations.ListOrders.ref, { accountId });
 1. Add or tighten the explicit schema for the resource while it is still JSON-backed.
 2. Add a registered operation for the browser-facing read or write path.
 3. Generate and commit the client-safe operation contract if the app ships refs.
-4. Add the target store to `db.config.mjs`.
+4. Add the target store to `db.config.js`.
 5. Set only the graduating resource to that store with `resources.<name>.store`.
 6. Run `async-db sync` so the target store hydrates from the existing seed or fixture.
 7. Move existing production state with an app-owned migration or export/import script.

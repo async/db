@@ -215,6 +215,56 @@ export default defineConfig({
   assert.deepEqual(config.mock.delay, [75, 250]);
 });
 
+test('db.config.js without type module reports an ESM package boundary hint', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'db.config.js'), `export default {
+  stores: {
+    default: 'json',
+  },
+};
+`, 'utf8');
+
+  await assert.rejects(
+    () => loadConfig({ cwd }),
+    (error: any) => {
+      assert.equal(error.code, 'DB_CONFIG_JS_REQUIRES_MODULE');
+      assert.match(error.message, /JavaScript config files require ESM module context/);
+      assert.match(error.hint, /"type": "module"/);
+      assert.match(error.hint, /ESM package boundary/);
+      assert.equal(error.details.packageFile, null);
+      assert.equal(error.details.packageType, null);
+      return true;
+    },
+  );
+});
+
+test('db.config.js imported js files without type module report the config ESM hint', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'package.json'), `${JSON.stringify({ type: 'module' }, null, 2)}\n`, 'utf8');
+  await mkdir(path.join(cwd, 'config-tools'), { recursive: true });
+  await writeFile(path.join(cwd, 'config-tools/package.json'), `${JSON.stringify({ private: true, type: 'commonjs' }, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(cwd, 'config-tools/options.js'), `export const stores = {
+  default: 'json',
+};
+`, 'utf8');
+  await writeFile(path.join(cwd, 'db.config.js'), `import { stores } from './config-tools/options.js';
+
+export default {
+  stores,
+};
+`, 'utf8');
+
+  await assert.rejects(
+    () => loadConfig({ cwd }),
+    (error: any) => {
+      assert.equal(error.code, 'DB_CONFIG_JS_REQUIRES_MODULE');
+      assert.match(error.hint, /db\.config\.js and imported \.js files/);
+      assert.equal(error.details.path, path.join(cwd, 'db.config.js'));
+      return true;
+    },
+  );
+});
+
 test('loadConfig accepts public store config without enabling runtime strategy config', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {

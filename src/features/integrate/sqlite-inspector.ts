@@ -982,7 +982,7 @@ function buildSuggestedFiles(
   importPlan?: SqliteIntegrationImportPlan,
 ): SqliteIntegrationReport['suggestedFiles'] {
   const files = new Map<string, string>();
-  files.set('db.config.mjs', 'Configure @async/db resources, outputs, and optional stores.');
+  files.set('db.config.js', 'Configure @async/db resources, outputs, and optional stores.');
   files.set('src/generated/db.viewer.json', 'Optional committed viewer manifest for dashboard builders and AI agents.');
   files.set('src/generated/db.schema.json', 'Optional committed schema manifest for form/admin UI generation.');
   for (const recommendation of recommendations) {
@@ -1018,7 +1018,7 @@ function buildAgentInstructions(
   const instructions = [
     'Keep the existing SQLite file as the write source of truth during initial adoption.',
     'Start with operation wrappers and read-only integration; do not replace existing SQLite writes until tests prove parity.',
-    'Add db.config.mjs and committed schema/viewer manifest outputs before building custom dashboard UI.',
+    'Add db.config.js and committed schema/viewer manifest outputs before building custom dashboard UI.',
   ];
   if (direct.length > 0) {
     instructions.push(`Create @async/db schemas for direct-resource tables: ${direct.join(', ')}.`);

@@ -7,7 +7,7 @@ Use this when product, customer, or spreadsheet-like data starts as CSV. db scan
 ## Files To Inspect
 
 - [db/customers.csv](./db/customers.csv): source CSV fixture.
-- [db.config.mjs](./db.config.mjs): default mirror setup using `defineConfig`.
+- [db.config.js](./db.config.js): default mirror setup using `defineConfig`.
 
 ## Run It
 

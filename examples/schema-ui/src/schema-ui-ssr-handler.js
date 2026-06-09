@@ -2,8 +2,8 @@ import {
   renderCollectionListPage,
   renderHomePage,
   renderRecordDetailPage,
-} from './cms-ssr.mjs';
-import { readManifest, renderSchemaUiHtml } from './render-admin.mjs';
+} from './cms-ssr.js';
+import { readManifest, renderSchemaUiHtml } from './render-admin.js';
 
 /**
  * Handles Schema UI SSR routes (`/`, `/templates`, `/cms/...`).

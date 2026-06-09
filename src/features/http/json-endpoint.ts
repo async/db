@@ -42,7 +42,7 @@ export async function readRawBody(request: unknown, options: RawBodyOptions = {}
         `Request body is too large. Received more than ${maxBytes} bytes.`,
         {
           status: 413,
-          hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in db.config.mjs for local development.',
+          hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in db.config.js for local development.',
           details: {
             maxBodyBytes: maxBytes,
           },

@@ -11,11 +11,8 @@ Supported built-in source formats:
 .schema.json
 .schema.jsonc
 .schema.js
-.schema.mjs
 db.schema.js
-db.schema.mjs
 index.schema.js
-index.schema.mjs
 ```
 
 `.schema.js` and `db.schema.js` use normal Node.js ESM rules. If the project root `package.json` is already `"type": "module"`, no extra marker is needed. If the root is not ESM, @async/db creates `db/package.json` with `"type": "module"` before loading `.schema.js` files inside the configured fixture folder. Set `schema.autoModulePackageJson: false` to manage that file yourself.
@@ -209,7 +206,7 @@ export default collection(UserSchema, {
 });
 ```
 
-Set `schema.standardSchema: true` in `db.config.mjs` when generated
+Set `schema.standardSchema: true` in `db.config.js` when generated
 executable schema files should prefer that validator-first form for resources that
 have a Standard Schema validator. Detection still works without the config flag;
 the flag only changes generated authoring output.
@@ -353,7 +350,7 @@ export default {
 };
 ```
 
-When `db.schema.js` or `db.schema.mjs` exists it is authoritative for explicit schemas. `db.schema.js` follows the root package `type` setting, so use root `"type": "module"` for that file. If both root files exist, `db.schema.mjs` wins and @async/db emits a duplicate-root warning. Per-resource `db/**/*.schema.*` files are not auto-discovered as live schemas, though the root schema may import them like normal JavaScript.
+When `db.schema.js` exists it is authoritative for explicit schemas. It follows the root package `type` setting, so use root `"type": "module"` for that file. Per-resource `db/**/*.schema.*` files are not auto-discovered as live schemas, though the root schema may import them like normal JavaScript.
 
 ## Computed Fields
 
@@ -455,7 +452,7 @@ export default collection({
 });
 ```
 
-Runtime store behavior stays in `db.config.mjs`, not in the schema file:
+Runtime store behavior stays in `db.config.js`, not in the schema file:
 
 ```js
 export default {
@@ -502,8 +499,8 @@ npm run db -- schema unbundle --all --schema-dir db
 If aggregate bundling finds non-empty `seed` embedded in a schema source and no
 separate data fixture is loaded, it first writes that seed to
 `db/<resource>.json`, then writes the root schema without seed. The default root
-schema output is `db.schema.js` when the project root package is ESM, and
-`db.schema.mjs` otherwise.
+schema output is `db.schema.js` when the project root or nearest package
+boundary is ESM.
 
 Folder collection source globs are rebased for the generated root file. For
 example, `source: files('./**/*.mdx', { read: 'frontmatter' })` inside
@@ -518,10 +515,11 @@ wrappers to preserve behavior. Aggregate unbundle writes `.schema.js` files for
 resources with executable validators or resolvers when the output folder can be
 ESM. For the default `db/` folder, @async/db creates `db/package.json` with
 `"type": "module"` when the root package is not already ESM and
-`schema.autoModulePackageJson` is enabled. If `.js` would not load safely,
-unbundle falls back to `.schema.mjs`. Schema, manifest, type,
-doctor, bundle, unbundle, and generated starter commands import trusted schema
-modules for metadata but do not call computed resolvers.
+`schema.autoModulePackageJson` is enabled. When a custom output folder cannot be
+loaded as ESM, choose an ESM package boundary or write JSONC schema drafts
+instead. Schema, manifest, type, doctor, bundle, unbundle, and generated starter
+commands import trusted schema modules for metadata but do not call computed
+resolvers.
 
 ## Inference
 
@@ -550,7 +548,7 @@ async-db schema validate
 `inspect` is non-mutating and emits `kind: "db.schemaMigrationReport"`.
 `generate` writes per-resource `db/<resource>.schema.jsonc` drafts when the
 contract can be represented as JSONC. In `--format mixed` mode, schemas that
-need executable validator behavior get `.schema.mjs` drafts for manual review.
+need executable validator behavior get `.schema.js` drafts for manual review.
 Use `--format jsonc` to force JSONC-only output and receive warnings for
 unsupported behavior.
 
@@ -563,7 +561,7 @@ dependencies; it is a review aid, not a lossless converter.
 @async/db reads all source files through a reader pipeline. Built-in readers handle JSON, JSONC, CSV, and schema files. Add `sources.readers` when another file format should remain the source of truth.
 
 ```js
-// db.config.mjs
+// db.config.js
 // @ts-check
 import { defineConfig } from '@async/db/config';
 

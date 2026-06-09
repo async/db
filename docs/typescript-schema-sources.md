@@ -31,6 +31,12 @@ export default collection({
 
 This works for `db.schema.js`, `db/*.schema.js`, and `db/**/index.schema.js`.
 
+### Compatibility Extensions
+
+Prefer `.js` ESM schema files under a package with `"type": "module"`. This repo and most developer repos already have that package boundary, so docs and examples use `.js` as the normal path.
+
+Async DB still supports `.schema.mjs`, `db.schema.mjs`, and `index.schema.mjs` for compatibility with older projects or package-less folders. It does not execute `.mts` schema sources directly; if TypeScript authoring uses `.mts` or `.ts`, compile those files to `.schema.js` before running `async-db sync`.
+
 ### TypeScript Authoring
 
 Author TypeScript in a separate source folder and compile it into supported runtime schema files:

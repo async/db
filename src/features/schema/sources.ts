@@ -328,7 +328,7 @@ async function ensureSchemaJsModuleContext(
 
   const error = new Error('JavaScript schema files require ESM module context.') as DiagnosticError;
   error.code = 'DB_SCHEMA_JS_REQUIRES_MODULE';
-  error.hint = 'Use "type": "module" in the nearest package.json for .schema.js files, or allow @async/db to create db/package.json by keeping schema.autoModulePackageJson enabled.';
+  error.hint = 'Add "type": "module" to the nearest package.json, move .schema.js and imported .js files under an ESM package boundary, or keep schema.autoModulePackageJson enabled for fixture-folder schemas.';
   throw error;
 }
 
@@ -676,7 +676,12 @@ function builtInSourceReaders(): SourceReader[] {
     },
     {
       name: 'db:data-json',
-      match: ({ file, config }) => config.schema?.source !== 'schema' && !isSchemaSourceFile(file) && file.endsWith('.json'),
+      match: ({ file, config }) => (
+        config.schema?.source !== 'schema'
+        && !isPackageJsonFile(file)
+        && !isSchemaSourceFile(file)
+        && file.endsWith('.json')
+      ),
       async read({ readText }) {
         return {
           kind: 'data',
@@ -690,6 +695,10 @@ function builtInSourceReaders(): SourceReader[] {
 
 function isSchemaSourceFile(file: string): boolean {
   return file.endsWith('.schema.json') || file.endsWith('.schema.jsonc') || file.endsWith('.schema.mjs') || file.endsWith('.schema.js');
+}
+
+function isPackageJsonFile(file: string): boolean {
+  return path.basename(file) === 'package.json';
 }
 
 function normalizeSourceReaderResult(result: unknown, context: SourceReaderContext, reader: SourceReader): SourceReadResult {
@@ -891,7 +900,7 @@ function schemaModuleLoadHint(relativePath: string, error: unknown): string | nu
   }
   const message = String((error as DiagnosticError | null | undefined)?.message ?? '');
   if (message.includes('Cannot use import statement outside a module') || message.includes('Unexpected token \'export\'')) {
-    return 'Use "type": "module" in the nearest package.json for .schema.js files, or allow @async/db to create db/package.json by keeping schema.autoModulePackageJson enabled.';
+    return 'Add "type": "module" to the nearest package.json, move .schema.js and imported .js files under an ESM package boundary, or keep schema.autoModulePackageJson enabled for fixture-folder schemas.';
   }
   return null;
 }

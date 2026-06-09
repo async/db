@@ -8,7 +8,7 @@ Use this when an app wants committed schema metadata for admin, CMS, or form-bui
 
 - [db/projects.schema.jsonc](./db/projects.schema.jsonc): relation, enum, defaults, and descriptions.
 - [db/users.schema.jsonc](./db/users.schema.jsonc): field descriptions and a `bio` field customized for markdown.
-- [db.config.mjs](./db.config.mjs): writes `src/generated/db.schema.json` and customizes UI hints.
+- [db.config.js](./db.config.js): writes `src/generated/db.schema.json` and customizes UI hints.
 - [src/generated/db.schema.json](./src/generated/db.schema.json): committed manifest output after sync.
 
 ## Run It

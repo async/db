@@ -8,7 +8,7 @@ Use this when you want to call db from app or test code instead of typing `curl`
 
 - [db/users.schema.jsonc](./db/users.schema.jsonc): schema-backed collection with defaults and unique email validation.
 - [db/settings.json](./db/settings.json): singleton document inferred from data.
-- [src/client-demo.mjs](./src/client-demo.mjs): tiny consumer script using `@async/db/client`.
+- [src/client-demo.js](./src/client-demo.js): tiny consumer script using `@async/db/client`.
 
 ## Run It
 
@@ -22,7 +22,7 @@ npm run db -- serve --cwd ./examples/rest-client
 In another terminal:
 
 ```bash
-ASYNC_DB_URL=http://127.0.0.1:7331 node ./examples/rest-client/src/client-demo.mjs
+ASYNC_DB_URL=http://127.0.0.1:7331 node ./examples/rest-client/src/client-demo.js
 ```
 
 ## Expected Result

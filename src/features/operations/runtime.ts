@@ -132,7 +132,7 @@ export function createDbOperationHandler(db: DbLike, options: CreateHandlerOptio
               error: {
                 code: 'GRAPHQL_DISABLED',
                 message: 'GraphQL endpoint is disabled.',
-                hint: 'Set graphql.enabled to true in db.config.mjs to enable registered GraphQL operations.',
+                hint: 'Set graphql.enabled to true in db.config.js to enable registered GraphQL operations.',
                 details: {
                   graphqlEnabled: false,
                   ref: decodeOperationRef(ref),

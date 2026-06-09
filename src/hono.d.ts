@@ -3,7 +3,7 @@ import type { DbOperationsOptions, DbOptions, DbTraceOptions } from './index.d.t
 export type DbHonoOptions = DbOptions & {
   api?: Array<'rest' | 'graphql'> | 'rest' | 'graphql' | 'rest,graphql';
   graphqlPath?: string;
-  /** Explicit request trace option for generated Hono REST routes. Wins over db.config.mjs server.trace. */
+  /** Explicit request trace option for generated Hono REST routes. Wins over db.config.js server.trace. */
   trace?: DbTraceOptions;
   restRoutes?: DbHonoRestRoutesOptions;
   storage?: {
@@ -64,7 +64,7 @@ export type DbHonoRestRoutesOptions = {
   resources?: string[];
   exclude?: string[];
   methods?: DbHonoRestMethod[];
-  /** Explicit request trace option for registered Hono REST routes. Wins over db.config.mjs server.trace. */
+  /** Explicit request trace option for registered Hono REST routes. Wins over db.config.js server.trace. */
   trace?: DbTraceOptions;
   hooks?: DbHonoRestHooks;
   lifecycleHooks?: DbHonoRestLifecycleHooks;

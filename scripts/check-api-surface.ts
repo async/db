@@ -37,7 +37,7 @@ const PACKAGE_JSON_PUBLIC_KEYS = ['name', 'type', 'bin', 'exports', 'files', 'en
 
 const PUBLIC_SURFACE_PATTERNS: PathPattern[] = [
   'package.json',
-  'db.config.example.mjs',
+  'db.config.example.js',
   /^src\/[^/]+\.d\.ts$/,
   /^src\/(?:index|client|client-cache|config|config-public|db|runtime|server|request-handler|schema|schema-builders|schema-manifest|viewer-manifest|types|operations|json|hono|sqlite|sqlite-compat|postgres|kv|redis|vite)\.ts$/,
   /^src\/cli(?:\.ts|\/)/,

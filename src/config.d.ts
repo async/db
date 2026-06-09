@@ -17,7 +17,7 @@ export type {
 /**
  * db project configuration.
  *
- * Use with `// @ts-check` in `db.config.mjs` for editor autocomplete:
+ * Use with `// @ts-check` in `db.config.js` for editor autocomplete:
  *
  * ```js
  * import { defineConfig } from '@async/db/config';
@@ -30,7 +30,7 @@ export type {
 export type DbConfig = DbOptions;
 
 /**
- * Type-only helper for authoring `db.config.mjs`.
+ * Type-only helper for authoring `db.config.js`.
  *
  * It returns the config unchanged at runtime and exists so JavaScript config
  * files get autocomplete, literal value checking, and inline JSDoc.

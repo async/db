@@ -8,12 +8,12 @@ writes directly to `db/appState.json` instead of the default `.db/state` mirror.
 
 ## Files To Inspect
 
-- [db.config.mjs](./db.config.mjs): sets `stores.default` to `sourceFile`.
+- [db.config.js](./db.config.js): sets `stores.default` to `sourceFile`.
 - [db/appState.json](./db/appState.json): the saved app document.
 - [src/app.js](./src/app.js): browser code that saves on blur/change.
 - [framework/state.js](./framework/state.js): transient reload-state helpers.
 - [server/runtime.js](./server/runtime.js): app routes, version polling endpoint, and `/__db` mounting.
-- [serve-example.mjs](./serve-example.mjs): examples launcher hook.
+- [serve-example.js](./serve-example.js): examples launcher hook.
 
 ## Simple Website Structure
 

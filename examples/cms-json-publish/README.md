@@ -6,7 +6,7 @@ Run it from the repository root:
 
 ```bash
 npm run db -- sync --cwd ./examples/cms-json-publish
-node ./examples/cms-json-publish/src/cms.mjs
+node ./examples/cms-json-publish/src/cms.js
 ```
 
 The script:

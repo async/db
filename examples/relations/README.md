@@ -8,7 +8,7 @@ Use this when local fixtures need related records but you still want plain ids i
 
 - [db/users.schema.jsonc](./db/users.schema.jsonc): target collection.
 - [db/posts.schema.jsonc](./db/posts.schema.jsonc): `authorId` declares a relation to `users.id`.
-- [db.config.mjs](./db.config.mjs): default mirror setup using `defineConfig`.
+- [db.config.js](./db.config.js): default mirror setup using `defineConfig`.
 
 ## Run It
 

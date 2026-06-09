@@ -1461,7 +1461,7 @@ function sendRestDisabled(response: RestResponse, message: string, details: Reco
     error: {
       code: 'REST_DISABLED',
       message,
-      hint: 'Set rest.enabled to true in db.config.mjs to enable generated REST resource routes and REST batching.',
+      hint: 'Set rest.enabled to true in db.config.js to enable generated REST resource routes and REST batching.',
       details: {
         restEnabled: false,
         ...details,

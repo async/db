@@ -542,7 +542,7 @@ function outputPath(config: ContractsConfig, value: string | null | undefined): 
 function contractError(code: string, message: string, details: Record<string, unknown>): Error {
   return dbError(code, message, {
     status: 403,
-    hint: 'Check db.config.mjs contracts and the generated contract operation refs.',
+    hint: 'Check db.config.js contracts and the generated contract operation refs.',
     details,
   });
 }

@@ -124,7 +124,7 @@ function graphqlDisabledHttpFeature(): HttpFeature {
         error: {
           code: 'GRAPHQL_DISABLED',
           message: 'GraphQL endpoint is disabled.',
-          hint: 'Set graphql.enabled to true in db.config.mjs to enable the GraphQL endpoint.',
+          hint: 'Set graphql.enabled to true in db.config.js to enable the GraphQL endpoint.',
           details: {
             graphqlEnabled: false,
             path: routes.graphqlPath,
@@ -160,7 +160,7 @@ function falcorDisabledHttpFeature(): HttpFeature {
         error: {
           code: 'FALCOR_DISABLED',
           message: 'Falcor endpoint is disabled.',
-          hint: 'Set falcor.enabled to true in db.config.mjs to enable the Falcor endpoint.',
+          hint: 'Set falcor.enabled to true in db.config.js to enable the Falcor endpoint.',
           details: {
             falcorEnabled: false,
             path: routes.falcorPath,

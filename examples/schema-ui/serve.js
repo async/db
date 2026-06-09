@@ -2,7 +2,7 @@
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { startSchemaUiServer } from './src/start-schema-ui-server.mjs';
+import { startSchemaUiServer } from './src/start-schema-ui-server.js';
 
 const exampleRoot = path.dirname(fileURLToPath(import.meta.url));
 const options = parseArgs(process.argv.slice(2));

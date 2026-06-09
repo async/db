@@ -1412,7 +1412,7 @@ async function executableSchemaOutputPlan(
 }
 
 async function rootPackageIsModule(config: CliConfig): Promise<boolean> {
-  return (await packageInfo(path.join(config.cwd, 'package.json')))?.type === 'module';
+  return (await nearestPackageInfo(config.cwd))?.type === 'module';
 }
 
 async function shouldCreateFixtureModulePackageJson(

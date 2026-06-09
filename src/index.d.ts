@@ -1167,7 +1167,7 @@ export type DbOptions = {
   from?: string;
   /** Schema loading mode. Defaults to "data" for current low-level loaders and "runtime" for openDb. */
   load?: DbSchemaLoadMode;
-  /** Explicit config file path. Defaults to db.config.mjs/js lookup from cwd. */
+  /** Explicit config file path. Defaults to db.config.js/mjs lookup from cwd. */
   configPath?: string;
   /** Fixture source folder. Defaults to "./db". */
   dbDir?: string;
@@ -1717,7 +1717,7 @@ export type DbRequestHandlerOptions = {
   falcorPath?: string;
   /** Canonical REST resource alias base. Defaults to "/resources". */
   resourceBasePath?: string;
-  /** Explicit request trace option. Wins over db.config.mjs server.trace. */
+  /** Explicit request trace option. Wins over db.config.js server.trace. */
   trace?: DbTraceOptions;
 };
 

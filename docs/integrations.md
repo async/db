@@ -62,7 +62,7 @@ dbPlugin({
 Use `createDbClient()` directly when you need an explicit browser storage
 adapter such as `createIndexedDbCacheStorage(...)`.
 
-Add `trace` to the plugin options to override `db.config.mjs` for Vite dev
+Add `trace` to the plugin options to override `db.config.js` for Vite dev
 requests:
 
 ```ts

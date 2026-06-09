@@ -6,11 +6,11 @@ import { createDbRuntime } from '../src/index.js';
 import { sendJson } from '../src/rest/handler.js';
 
 /**
- * Create one example runtime. Uses `serve-example.mjs` when the example ships it;
+ * Create one example runtime. Uses `serve-example.js` when the example ships it;
  * otherwise wires the stock db request handler without binding another HTTP server.
  *
  * The examples host owns the single HTTP server. Examples own request handling by
- * exporting `createExampleRuntime(context)` from `serve-example.mjs`.
+ * exporting `createExampleRuntime(context)` from `serve-example.js`.
  *
  * @param {{ cwd: string; basePath?: string; url: string; repoRoot: string }} context
  * @returns {Promise<{
@@ -25,12 +25,10 @@ import { sendJson } from '../src/rest/handler.js';
  */
 export async function createExampleRuntime(context) {
   const { cwd, repoRoot, url } = context;
-  const hookFsPath = path.join(cwd, 'serve-example.mjs');
+  const hookFsPath = await findExampleRuntimeHook(cwd);
   await ensureLocalPackageSelfReference(cwd, repoRoot);
 
-  try {
-    await access(hookFsPath);
-  } catch {
+  if (!hookFsPath) {
     return createStockExampleRuntime(context);
   }
 
@@ -55,6 +53,19 @@ export async function createExampleRuntime(context) {
     demoUrl: runtime.demoUrl,
     demoLinks: Array.isArray(runtime.demoLinks) ? runtime.demoLinks : [],
   };
+}
+
+async function findExampleRuntimeHook(cwd) {
+  for (const filename of ['serve-example.js', 'serve-example.mjs']) {
+    const filePath = path.join(cwd, filename);
+    try {
+      await access(filePath);
+      return filePath;
+    } catch {
+      // keep looking
+    }
+  }
+  return null;
 }
 
 async function createStockExampleRuntime(context) {

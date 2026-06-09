@@ -2,7 +2,7 @@
  * Examples launcher hook — mounted by `scripts/serve-examples.js` when present.
  * Keeps db REST / `/__db` wiring local to this example.
  */
-import { createSchemaUiRuntime } from './src/start-schema-ui-server.mjs';
+import { createSchemaUiRuntime } from './src/start-schema-ui-server.js';
 
 /** @param {{ cwd: string; url: string; repoRoot: string }} context */
 export async function createExampleRuntime(context) {

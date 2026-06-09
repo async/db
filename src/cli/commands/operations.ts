@@ -56,7 +56,7 @@ async function runOperationContract(config: CliConfig, args: string[]): Promise<
 
   if (check) {
     if (!target) {
-      throw new Error('Operation contract check needs --out <file> or outputs.operationRefs in db.config.mjs.');
+      throw new Error('Operation contract check needs --out <file> or outputs.operationRefs in db.config.js.');
     }
     const expected = operationClientContract(JSON.parse(await readFile(target, 'utf8')));
     const expectedContent = contractContent(expected);

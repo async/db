@@ -506,8 +506,8 @@ function schemaStoreIgnoredDiagnostic(resource: string, schemaSource: SourceReco
     severity: 'warn',
     resource,
     file: schemaSource.file,
-    message: `${schemaSource.file} declares schema-level store, but runtime stores are configured in db.config.mjs.`,
-    hint: `Move this setting to resources.${resource}.store in db.config.mjs.`,
+    message: `${schemaSource.file} declares schema-level store, but runtime stores are configured in db.config.js.`,
+    hint: `Move this setting to resources.${resource}.store in db.config.js.`,
     details: {
       resource,
       file: schemaSource.file,

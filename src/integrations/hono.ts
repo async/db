@@ -505,7 +505,7 @@ async function readHonoJsonBody(c: HonoContextLike, db: HonoDb): Promise<unknown
       `Request body is too large. Received more than ${maxBytes} bytes.`,
       {
         status: 413,
-        hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in db.config.mjs for local development.',
+        hint: 'Send a smaller JSON payload or increase server.maxBodyBytes in db.config.js for local development.',
         details: {
           maxBodyBytes: maxBytes,
         },

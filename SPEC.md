@@ -12,7 +12,6 @@ db/
 
   users.schema.json          optional schema/type source (strict JSON)
   users.schema.jsonc         optional schema/type source (JSON with comments)
-  users.schema.mjs           optional executable schema source
   users.schema.js            optional executable schema source when package type is module
   posts.schema.jsonc
   settings.schema.jsonc
@@ -172,10 +171,10 @@ outputs should live outside the active fixture directory by default, such as
 sources. Writing a bundle inside `db/` requires `--force`. Overwriting an existing
 different seed or bundle output also requires `--force`.
 
-`db.schema.mjs` at the project root is the canonical aggregate schema registry.
+`db.schema.js` at the project root is the canonical aggregate schema registry.
 When present, it is authoritative for explicit schema definitions and
 `db/**/*.schema.*` files are not auto-discovered as live schemas unless imported
-by the root module. `async-db schema bundle --all --out db.schema.mjs` creates a
+by the root module. `async-db schema bundle --all --out db.schema.js` creates a
 schema-only root registry without embedding seed/data fixtures. If a schema source
 has embedded seed and no separate data fixture is loaded, aggregate bundle first
 writes that seed to `db/<resource>.json` and leaves the root schema seed-free.
@@ -183,9 +182,9 @@ writes that seed to `db/<resource>.json` and leaves the root schema seed-free.
 per-resource schema files and leaves seed/data fixtures untouched.
 When bundling folder collection markers into a root registry, source globs are
 rebased from the marker folder to the project root; for example,
-`db/blog/index.schema.mjs` with `source: files('./**/*.mdx', { read: 'frontmatter' })`
+`db/blog/index.schema.js` with `source: files('./**/*.mdx', { read: 'frontmatter' })`
 becomes `source: files('./db/blog/**/*.mdx', { read: 'frontmatter' })` in
-`db.schema.mjs`.
+`db.schema.js`.
 
 If the two disagree, the CLI reports the mismatch:
 
@@ -367,7 +366,7 @@ const value = settings.get('/theme');
 JSONC is useful, but a JavaScript schema file can be more expressive while staying simple.
 
 ```txt
-db/users.schema.mjs
+db/users.schema.js
 db/users.schema.js
 ```
 
@@ -421,11 +420,11 @@ For v1, support:
 .csv
 .schema.json
 .schema.jsonc
-.schema.mjs
+.schema.js
 .schema.js
 ```
 
-Use `.schema.js` only with normal Node ESM rules: the nearest `package.json` must declare `"type": "module"`. Avoid direct `.ts` schema sources in v1; projects that author schemas in TypeScript should compile to `.schema.js` or `.schema.mjs`.
+Use `.schema.js` only with normal Node ESM rules: the nearest `package.json` must declare `"type": "module"`. Avoid direct `.ts` schema sources in v1; projects that author schemas in TypeScript should compile to `.schema.js` or `.schema.js`.
 
 ## Source Readers
 
@@ -437,11 +436,11 @@ All built-in source loading should use the same reader pipeline:
 .csv data
 .schema.json
 .schema.jsonc
-.schema.mjs
+.schema.js
 .schema.js
 ```
 
-Projects may add `sources.readers` in `db.config.mjs` to parse custom files into raw db inputs:
+Projects may add `sources.readers` in `db.config.js` to parse custom files into raw db inputs:
 
 ```ts
 type DbSourceReader = {
@@ -598,7 +597,7 @@ JSON itself does not support comments, so support comments through one or both o
 
 ```txt
 .schema.jsonc
-.schema.mjs
+.schema.js
 ```
 
 Comments are primarily for humans. For generated TypeScript and GraphQL docs, use machine-readable descriptions:
@@ -632,7 +631,7 @@ type User {
 
 ## Config
 
-Add this to `db.config.mjs`:
+Add this to `db.config.js`:
 
 ```js
 export default {
@@ -688,8 +687,13 @@ export default {
   },
 
   graphql: {
-    enabled: true,
+    enabled: false,
     path: '/graphql',
+  },
+
+  falcor: {
+    enabled: false,
+    path: '/model.json',
   },
 };
 ```
@@ -1264,7 +1268,7 @@ db/users.json              data-first fixture
 db/users.jsonc             data-first fixture with comments
 db/users.csv               data-first collection fixture
 db/users.schema.jsonc      schema/type-first fixture
-db/users.schema.mjs        schema/type-first fixture using JS helpers
+db/users.schema.js        schema/type-first fixture using JS helpers
 db/users.schema.js         schema/type-first fixture using JS helpers in type: module projects
 ```
 
@@ -1294,7 +1298,7 @@ A `.schema.jsonc` file can define a resource without seed data:
 }
 ```
 
-Support `.schema.mjs` and `.schema.js` files for richer authoring:
+Support `.schema.js` files for richer authoring:
 
 ```js
 import { collection, field } from '@async/db/schema';
@@ -1316,7 +1320,7 @@ export default collection({
 });
 ```
 
-Support a root `db.schema.mjs` or `db.schema.js` registry for one-file schema authoring:
+Support a root `db.schema.js` registry for one-file schema authoring:
 
 ```js
 import { collection, field } from '@async/db/schema';
@@ -1347,7 +1351,7 @@ commands may import trusted schema modules for metadata, but must not call
 computed resolvers.
 
 The package API should expose `loadDbSchema({ from })` for metadata-only schema
-loading from a project root, `db/` folder, `db.schema.mjs`, or individual schema
+loading from a project root, `db/` folder, `db.schema.js`, or individual schema
 file. `db.schema.js` follows the same locator rules when the project uses `"type": "module"`. Loaded schemas expose `schema.validator(resource, options)` for endpoint
 input validation and `schema.resolver(resourceOrField, options)` for direct
 computed field execution. Validators reject computed/read-only fields, default
@@ -1355,26 +1359,25 @@ unknown fields to `error`, and support `strip`, `allow`, `warn`, and patch/repla
 validation modes. `openDb({ schema })` accepts a loaded schema object and opens
 runtime stores from the same locator.
 
-Folder-backed content collections use `index.schema.mjs` or `index.schema.js` as an explicit marker:
+Folder-backed content collections use `index.schema.js` as an explicit marker:
 
 ```txt
-db/docs/index.schema.mjs
 db/docs/index.schema.js
 db/docs/intro.mdx
 ```
 
 The resource name comes from the containing folder. Folder collections require an
 explicit `source: files(pattern, { read })` declaration. Runtime store behavior
-belongs in `db.config.mjs` through `resources.<name>.store`; use `store: 'static'`
+belongs in `db.config.js` through `resources.<name>.store`; use `store: 'static'`
 there when file-backed content should be read-only. Core only parses frontmatter
 plus raw `.md` / `.mdx` body text. MDX compilation remains app-owned.
 
-Do not require TypeScript execution for schema files in v1. Use `.mjs` for package-type-independent executable schema definitions, or compile TypeScript-authored schema files to `.schema.js` / `.schema.mjs`.
+Do not require TypeScript execution for schema files in v1. Use `.schema.js` for executable schema definitions in ESM package boundaries, or compile TypeScript-authored schema files to `.schema.js`.
 
 Rules:
 
 1. If only `users.json` exists, infer schema from data.
-2. If only `users.schema.json`, `users.schema.jsonc`, `users.schema.mjs`, or `users.schema.js` exists, create the collection from schema and optional seed/default data.
+2. If only `users.schema.json`, `users.schema.jsonc`, or `users.schema.js` exists, create the collection from schema and optional seed/default data.
 3. If both `users.json` and `users.schema.*` exist, the schema file is authoritative for types and validation, while the JSON file provides seed data.
 4. Additive fields are safe and automatic.
 5. Removed fields and type changes require explicit approval.
@@ -1392,7 +1395,7 @@ async-db schema validate
 async-db schema unbundle users
 async-db schema unbundle --all --schema-dir db
 async-db schema bundle users --out artifacts/users.bundle.schema.json
-async-db schema bundle --all --out db.schema.mjs
+async-db schema bundle --all --out db.schema.js
 async-db generate hono
 async-db generate hono --api rest,graphql --out ./server
 async-db generate hono --api none --app module

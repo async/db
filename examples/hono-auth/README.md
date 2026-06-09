@@ -6,8 +6,8 @@ Use this when your app already has a Hono server and you want db to own the CRUD
 
 ## Files To Inspect
 
-- [src/app.mjs](./src/app.mjs): registers db REST routes with `beforeRequest`, `beforeWrite`, and a pages-specific create hook.
-- [src/server.mjs](./src/server.mjs): starts the Hono app locally.
+- [src/app.js](./src/app.js): registers db REST routes with `beforeRequest`, `beforeWrite`, and a pages-specific create hook.
+- [src/server.js](./src/server.js): starts the Hono app locally.
 - [db/pages.schema.jsonc](./db/pages.schema.jsonc): schema-backed page collection with timestamps set by hooks.
 - [db/users.schema.jsonc](./db/users.schema.jsonc): demo users used by the bearer-token sessions.
 
