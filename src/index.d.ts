@@ -697,9 +697,9 @@ export type DbResourceCustomizeContext = {
 };
 
 export type DbResourceOptions = {
-  /** How fixture paths become resource names. Defaults to "basename". */
+  /** How data file paths become resource names. Defaults to "basename". */
   naming?: DbResourceNamingStrategy;
-  /** Customize fixture path -> resource identity. */
+  /** Customize data file path -> resource identity. */
   customizeResource?: (context: DbResourceCustomizeContext) => { name?: string } | null | undefined;
   /** Per-resource storage settings keyed by normalized resource name. */
   [resourceName: string]: DbResourceNamingStrategy
@@ -1086,7 +1086,7 @@ export type DbSourceReader = {
 export type DbSourcesOptions = {
   /** Custom source readers. They run before built-in JSON, JSONC, CSV, and executable schema readers. */
   readers?: DbSourceReader[];
-  /** How db handles writes back to source fixtures. Defaults to "preserve". */
+  /** How db handles writes back to source data files. Defaults to "preserve". */
   writePolicy?: 'preserve' | 'allow';
 };
 
@@ -1169,9 +1169,9 @@ export type DbOptions = {
   load?: DbSchemaLoadMode;
   /** Explicit config file path. Defaults to db.config.js/mjs lookup from cwd. */
   configPath?: string;
-  /** Fixture source folder. Defaults to "./db". */
+  /** Data file source folder. Defaults to "./db". */
   dbDir?: string;
-  /** Backwards-compatible fixture source folder alias. If set, it wins over dbDir. */
+  /** Backwards-compatible data file source folder alias. If set, it wins over dbDir. */
   sourceDir?: string;
   /** Backwards-compatible alias for outputs.stateDir. */
   stateDir?: string;
@@ -1208,7 +1208,7 @@ export type DbOptions = {
   };
   /** Per-collection overrides such as custom id field names. */
   collections?: Record<string, { idField?: string }>;
-  /** Resource naming and fixture path identity options. */
+  /** Resource naming and data file path identity options. */
   resources?: DbResourceOptions;
   /** Public storage options. Defaults to the JSON store. */
   stores?: DbStoresOptions;
@@ -1289,7 +1289,7 @@ export type DbOptions = {
       db?: 'sqlite';
       app?: 'standalone' | 'module';
       runtime?: 'node-sqlite';
-      /** Include fixture seed support in generated starter code. */
+      /** Include data file seed support in generated starter code. */
       seed?: false | 'fixtures';
     };
   };

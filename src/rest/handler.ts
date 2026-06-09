@@ -675,7 +675,7 @@ function renderRootDiscovery(discovery: RootDiscovery): string {
 <body>
   <main>
     <h1>db</h1>
-    <p>Local fixture database resources and tools.</p>
+    <p>Local data file resources and tools.</p>
 
     <section aria-labelledby="tools-heading">
       <h2 id="tools-heading">Tools</h2>

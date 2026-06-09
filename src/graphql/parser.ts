@@ -130,7 +130,7 @@ class Parser {
         'GRAPHQL_SUBSCRIPTION_UNSUPPORTED',
         'GraphQL subscriptions are not supported by db.',
         {
-          hint: 'Use query or mutation operations. db is a local fixture server and does not keep long-lived subscription streams.',
+          hint: 'Use query or mutation operations. db is a local data file server and does not keep long-lived subscription streams.',
         },
       );
     } else {

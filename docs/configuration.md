@@ -24,9 +24,9 @@ See [db.config.example.js](../db.config.example.js) for a commented config with 
 
 | Need | Default | Configure |
 | --- | --- | --- |
-| Fixture folder | `./db` | `dbDir` |
+| Data folder (`db/`) | `./db` | `dbDir` |
 | Custom source formats | Built-in readers | `sources.readers` |
-| Nested resource names | Fixture basename | `resources.naming` or `resources.customizeResource` |
+| Nested resource names | Data file basename | `resources.naming` or `resources.customizeResource` |
 | Runtime store behavior | JSON files under `.db/state` | `stores.default` or `resources.<name>.store` |
 | Index intent metadata | Off | `resources.<name>.indexes` |
 | Generated output paths | `.db`, `.db/types/index.d.ts` | `outputs` |
@@ -48,23 +48,23 @@ See [db.config.example.js](../db.config.example.js) for a commented config with 
 | Falcor endpoint | `/model.json`, disabled until enabled | `falcor.enabled: true` |
 | Host, port, dev-tool route base, body limit | `127.0.0.1:7331`, `/__db`, 1 MB bodies | `server` |
 
-## Fixture Folder
+## Data Folder (db/)
 
-Use `dbDir` when fixtures live somewhere other than `./db`:
+Use `dbDir` when data files live somewhere other than `./db`:
 
 ```js
 import { defineConfig } from '@async/db/config';
 
 export default defineConfig({
-  dbDir: './fixtures',
+  dbDir: './data',
 });
 ```
 
-Existing `sourceDir` configs still work; `dbDir` is the shorter fixture-folder name. If both are provided, `sourceDir` wins for backwards compatibility.
+Existing `sourceDir` configs still work; `dbDir` is the shorter data-folder name. If both are provided, `sourceDir` wins for backwards compatibility.
 
 ## Source And Store Binding
 
-Source fixtures and runtime persistence are separate concerns. By default, source fixtures stay unchanged and app writes go to the generated JSON store under `.db/state`.
+Source data files and runtime persistence are separate concerns. By default, source JSON files stay unchanged and app writes go to the generated JSON store under `.db/state`.
 
 Use `stores.default` when every resource should use the same runtime store:
 
@@ -78,7 +78,7 @@ export default defineConfig({
 });
 ```
 
-With that config, writes to plain JSON resources update `db/<resource>.json` directly. This is useful for small local web apps where the project folder should contain the saved app state. JSONC and CSV files remain source inputs; they cannot use `sourceFile` as writable state.
+With that config, writes to plain JSON resources update `db/<resource>.json` directly. This is useful for small local web apps where the project folder should contain the saved app state.
 
 Use `resources.<name>.store` to override the default for one resource:
 
@@ -101,11 +101,11 @@ export default defineConfig({
 });
 ```
 
-The `sourceFile` store is intentionally narrow. It is only for resources where supported writebacks should update plain `.json` source fixtures. JSONC and CSV sources remain source inputs and still hydrate runtime state.
+The `sourceFile` store is intentionally narrow. It is only for resources where supported writebacks should update plain `.json` source data files. Other supported source formats stay read-only inputs and still hydrate runtime state.
 
 `indexes` is metadata for store selection, generated tooling, and `doctor` scale warnings. The default JSON store does not build physical indexes.
 
-Optional database stores keep the same fixture/schema workflow while moving
+Optional database stores keep the same data-file and schema workflow while moving
 runtime persistence out of `.db/state`. They store whole resources as JSON
 values in v1, so package API, REST, GraphQL, defaults, and source-hash refresh
 behavior stay the same:
@@ -134,7 +134,7 @@ edge KV, Valkey, Dragonfly, or compatible object with `get(key)` and
 
 ## Schema Strictness
 
-Unknown fields in schema-backed data warn by default. Use strict checks when fixture drift should fail:
+Unknown fields in schema-backed data warn by default. Use strict checks when data shape drift should fail:
 
 ```js
 import { defineConfig } from '@async/db/config';
@@ -146,13 +146,13 @@ export default defineConfig({
 });
 ```
 
-Keep the default `warn` while fixture shape is still changing.
+Keep the default `warn` while data shape is still changing.
 
 ## Schema JavaScript Modules
 
-`.schema.js` files are loaded as ESM. If the project root is not already `"type": "module"`, @async/db creates `db/package.json` with `"type": "module"` before loading schema files inside the fixture folder. Aggregate unbundle uses the same rule: it writes generated `.schema.js` files under `db/` when that folder can be loaded as ESM. For custom output folders, add an ESM package boundary or generate JSONC drafts instead.
+`.schema.js` files are loaded as ESM. If the project root is not already `"type": "module"`, @async/db creates `db/package.json` with `"type": "module"` before loading schema files inside the data folder (`db/`). Aggregate unbundle uses the same rule: it writes generated `.schema.js` files under `db/` when that folder can be loaded as ESM. For custom output folders, add an ESM package boundary or generate `.schema.json` drafts instead.
 
-Disable that marker when you manage fixture-folder package metadata yourself:
+Disable that marker when you manage data-folder package metadata yourself:
 
 ```js
 import { defineConfig } from '@async/db/config';
@@ -218,7 +218,7 @@ export default defineConfig({
 });
 ```
 
-Data files in `db/*.json`, `db/*.jsonc`, and `db/*.csv` remain the source of truth when present.
+Data files in `db/*.json` remain the source of truth when present.
 
 ## Mock Delay And Errors
 
@@ -382,12 +382,12 @@ guidance only when operation strict mode is enabled.
 Registered queries are optional allowlisted REST or GraphQL request templates.
 The config and CLI still use the `operations` name. Operation sources live under
 `operations.sourceDir`, which defaults to `./db/operations`. When that folder
-is inside the fixture folder, @async/db reserves it for operation templates and
-does not load it as fixture data. Move it elsewhere by changing
+is inside the data folder (`db/`), @async/db reserves it for operation templates and
+does not load it as data. Move it elsewhere by changing
 `operations.sourceDir`.
 
 ```txt
-db/operations/get-user.jsonc
+db/operations/get-user.json
 ```
 
 ```json
@@ -470,7 +470,7 @@ change.
 
 ## Runtime Forks
 
-Runtime forks are package API state, not `db.config.js` fixture folders. Use `db.forks.create()`, `db.forks.open()`, `db.forks.ensure()`, branches, snapshots, migrations, and routing when an app needs tenants, previews, debug copies, or upgrade flows.
+Runtime forks are package API state, not `db.config.js` data folders. Use `db.forks.create()`, `db.forks.open()`, `db.forks.ensure()`, branches, snapshots, migrations, and routing when an app needs tenants, previews, debug copies, or upgrade flows.
 
 ```js
 const tenant = await db.forks.ensure('tenant_acme', {
@@ -484,4 +484,4 @@ const draft = await tenant.branches.ensure('draft', {
 });
 ```
 
-The old fixture-folder `forks` and `templates` config surfaces were removed so `fork` has one meaning: an isolated logical database instance.
+The old data-folder `forks` and `templates` config surfaces were removed so `fork` has one meaning: an isolated logical database instance.

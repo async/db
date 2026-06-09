@@ -1,6 +1,6 @@
 # Server And Viewer
 
-`async-db serve` starts a local development server. It syncs on startup, watches fixture sources, serves REST and GraphQL endpoints, and exposes the built-in data viewer.
+`async-db serve` starts a local development server. It syncs on startup, watches data files in `db/`, serves REST and GraphQL endpoints, and exposes the built-in data viewer.
 
 ## Local Trust Boundary
 
@@ -11,7 +11,7 @@ Important write surfaces:
 - REST writes update runtime state.
 - GraphQL mutations update runtime state.
 - Viewer CSV import writes CSV files into the configured `dbDir`.
-- Resources bound to the `sourceFile` store may write supported changes back to source fixtures.
+- Resources bound to the `sourceFile` store may write supported changes back to source JSON files.
 
 Config and schema JavaScript are trusted project code. Do not treat `.schema.js`, `.schema.js`, or config hooks as untrusted data.
 
@@ -60,12 +60,12 @@ Opening `http://127.0.0.1:7331/` in a browser shows a small index with links to 
 The viewer includes:
 
 - resource and data browsing
-- drag-and-drop CSV import into the configured fixture folder
+- drag-and-drop CSV import into the configured data folder (`db/`)
 - REST specs with copyable examples
 - a REST request runner
 - GraphQL SDL and operation references
 - schema and field inspection
-- source diagnostics when one fixture file is broken
+- source diagnostics when one data file is broken
 
 ## Custom Viewer Manifest
 
@@ -129,8 +129,8 @@ REST routes are enabled by default. Set `rest.enabled: false` to turn off
 generated resource routes and REST batching while keeping dev-tool routes such
 as the viewer, schema, manifest, import, events, and GraphQL available.
 
-The app-facing REST route base defaults to `/db`, matching the fixture folder.
-For a fixture at `db/users.json`, fetch the synced runtime resource with:
+The app-facing REST route base defaults to `/db`, matching the data folder (`db/`).
+For a data file at `db/users.json`, fetch the synced runtime resource with:
 
 ```js
 const users = await fetch('/db/users.json').then((response) => response.json());
@@ -145,11 +145,11 @@ When a prototype route needs to become an app-owned API route, see the
 [Prototype To Production REST Guide](./prototype-to-production.md) for
 `/api/db/*`, `/api/*`, registered operation refs, and route lockdown.
 
-### Fixture-Like `.json` Routes
+### File-Like `.json` Routes
 
-Use `.json` routes when you want the URL to resemble the source fixture path:
+Use `.json` routes when you want the URL to resemble the source data file path:
 `db/users.json` becomes `GET /db/users.json`. The server still reads the
-synced runtime resource, not the source fixture file directly, so local writes
+synced runtime resource, not the source JSON file directly, so local writes
 continue going to the selected runtime store.
 
 Collections can use `.json` for list and record reads:
@@ -159,7 +159,7 @@ GET /db/users.json
 GET /db/users/u_1.json
 ```
 
-Singleton documents can use the same fixture-like read shape:
+Singleton documents can use the same file-like read shape:
 
 ```txt
 GET /db/settings.json
@@ -223,7 +223,7 @@ curl -X DELETE http://127.0.0.1:7331/db/users/u_2
 
 Schema-backed computed fields are resolved only when selected. For example,
 `GET /db/users/u_1.json?select=id,fullName` calls the trusted resolver registered
-by `field.computed(...)`; default reads continue returning only stored fixture
+by `field.computed(...)`; default reads continue returning only stored data
 fields.
 
 ## REST Formats
@@ -275,7 +275,7 @@ Function shorthand is resource-only for compatibility. Use object syntax when a 
 
 ## Relationship Expansion
 
-Schema-backed scalar fields can declare relation metadata while fixtures keep plain ids:
+Schema-backed scalar fields can declare relation metadata while data files keep plain ids:
 
 ```json
 {
@@ -419,7 +419,7 @@ items. Responses include per-item status and a summary:
 
 Registered queries are optional REST or GraphQL request templates with callable
 refs and optional names. They let production-style apps allowlist specific
-reads and writes while local fixture CRUD can stay open by default. The
+reads and writes while local data-file CRUD can stay open by default. The
 underlying config and CLI still use the `operations` name.
 
 ```txt
@@ -586,6 +586,6 @@ viewer, import, and events without a Falcor endpoint.
 
 ## Watch Behavior
 
-`serve` watches fixture sources, ignores `.db/`, reloads valid resources when files change, and surfaces file-specific diagnostics in the viewer without breaking unrelated resources.
+`serve` watches data files in `db/`, ignores `.db/`, reloads valid resources when files change, and surfaces file-specific diagnostics in the viewer without breaking unrelated resources.
 
 If an app commits generated files under frontend source folders, Vite may still reload when those files genuinely change. Only ignore generated files that the browser does not need to hot reload.

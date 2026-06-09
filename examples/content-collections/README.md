@@ -12,7 +12,7 @@ This example does not install `content-collections`, a frontmatter package, or a
 - [db/blog/index.schema.js](./db/blog/index.schema.js): blog collection with file sources, relations, and computed fields.
 - [db.config.js](./db.config.js): config-owned `static` store selection for docs and blog.
 - [db/blog/launch-notes.mdx](./db/blog/launch-notes.mdx): frontmatter plus raw MDX body.
-- [db/authors.json](./db/authors.json): normal writable fixture records used by blog relations.
+- [db/authors.json](./db/authors.json): normal writable JSON records used by blog relations.
 - [db/site.schema.jsonc](./db/site.schema.jsonc): embedded document seed for aggregate bundle seed splitting.
 - [src/content-preview.js](./src/content-preview.js): dependency-free app-owned preview renderer.
 
@@ -39,7 +39,7 @@ node ./examples/content-collections/src/content-preview.js
 
 ## Expected Result
 
-`sync` loads `authors`, `blog`, `docs`, and `site`. The docs and blog collections are static because `db.config.js` assigns those resources to the static store. The authors fixture stays writable in the runtime store.
+`sync` loads `authors`, `blog`, `docs`, and `site`. The docs and blog collections are static because `db.config.js` assigns those resources to the static store. The authors data file stays writable in the runtime store.
 
 ## REST And GraphQL Requests To Try
 
@@ -75,16 +75,16 @@ Because `db/site.schema.jsonc` has embedded seed and no `db/site.json`, the comm
 
 ## Why This Shape?
 
-Docs and blog posts are static content, so their source of truth is the MDX file. Authors are normal fixture data because an app may create or edit them during local development. The relation from `blog.authorId` to `authors.id` keeps the content file small while still letting REST and GraphQL expand author data.
+Docs and blog posts are static content, so their source of truth is the MDX file. Authors are normal JSON data because an app may create or edit them during local development. The relation from `blog.authorId` to `authors.id` keeps the content file small while still letting REST and GraphQL expand author data.
 
 `tags` is a comma-separated scalar string on purpose. The built-in frontmatter parser is lightweight and dependency-free; if your app needs arrays, nested frontmatter, or full MDX compilation, keep that parser or compiler in app code like [src/content-preview.js](./src/content-preview.js).
 
 ## Features To Notice
 
-- [Folder content collections](../../docs/fixtures-and-schemas.md#folder-content-collections)
-- [Computed fields](../../docs/fixtures-and-schemas.md#computed-fields)
-- [Bundle and unbundle](../../docs/fixtures-and-schemas.md#bundle-and-unbundle)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [Folder content collections](../../docs/data-files-and-schemas.md#folder-content-collections)
+- [Computed fields](../../docs/data-files-and-schemas.md#computed-fields)
+- [Bundle and unbundle](../../docs/data-files-and-schemas.md#bundle-and-unbundle)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 
 ## Cleanup
 

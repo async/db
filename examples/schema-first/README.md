@@ -41,9 +41,9 @@ curl http://127.0.0.1:7331/db/audit-events.json
 ## Features To Notice
 
 - [Schema-first resources](../../docs/concepts.md#schema-first)
-- [Schema files](../../docs/fixtures-and-schemas.md#schema-files)
+- [Schema files](../../docs/data-files-and-schemas.md#add-schema-when-inference-is-not-enough)
 - [Generated types](../../docs/generated-files.md#generated-types)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 
 ## Cleanup
 
@@ -52,4 +52,4 @@ Generated `.db/` output is ignored by git and can be removed whenever you want a
 ## More Docs
 
 - [Concepts](../../docs/concepts.md)
-- [Fixtures And Schemas](../../docs/fixtures-and-schemas.md)
+- [Data Files And Schemas](../../docs/data-files-and-schemas.md)

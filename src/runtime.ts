@@ -307,7 +307,7 @@ function reportWatchUnavailable(
     code: 'SERVER_WATCH_UNAVAILABLE',
     severity: 'warn',
     message: `File watching is disabled: ${error.message}`,
-    hint: 'async-db serve is still running, but fixture changes will require restarting the server.',
+    hint: 'async-db serve is still running, but data file changes will require restarting the server.',
     details: {
       code: error.code,
     },
@@ -320,7 +320,7 @@ function reportWatchUnavailable(
     version: db.schemaVersion,
     diagnostics: db.diagnostics,
   });
-  warn(`async-db serve: file watching disabled (${error.message}). Restart the server to pick up fixture changes.`);
+  warn(`async-db serve: file watching disabled (${error.message}). Restart the server to pick up data file changes.`);
 }
 
 function shouldIgnoreSourceEvent(db: RuntimeDb, filename: string | Buffer | null | undefined): boolean {

@@ -76,7 +76,7 @@ dbPlugin({
 
 Set `rootRoutes: true` only when you intentionally want Vite dev to also answer unscoped routes like `/users`. Standalone `async-db serve` keeps those root REST routes by default.
 
-The plugin watches fixture sources, not generated runtime output. @async/db also skips rewriting generated and state files when their content is unchanged, so normal `sync` or `openDb()` calls should not trigger Vite reloads by changing mtimes alone.
+The plugin watches data files in `db/`, not generated runtime output. @async/db also skips rewriting generated and state files when their content is unchanged, so normal `sync` or `openDb()` calls should not trigger Vite reloads by changing mtimes alone.
 
 If an app commits generated files under frontend source, Vite may still reload when those files genuinely change. Ignore only generated files that the browser does not need to hot reload.
 
@@ -212,7 +212,7 @@ route exposure, see the
 
 ## Hono And SQLite Starter Generation
 
-When fixtures and schemas have settled enough to graduate toward a real database API, generate a Hono starter:
+When data files and schemas have settled enough to graduate toward a real database API, generate a Hono starter:
 
 ```bash
 async-db generate hono

@@ -1,6 +1,6 @@
 # @async/db Architecture
 
-@async/db is a dependency-light Node.js ESM package. Fixture files become generated schema metadata, TypeScript types, runtime JSON state, and local API/viewer routes.
+@async/db is a dependency-light Node.js ESM package. Data files in `db/` become generated schema metadata, TypeScript types, runtime JSON state, and local API/viewer routes.
 
 Use this page when deciding where behavior belongs in the implementation. Use [SPEC.md](../SPEC.md) for the full product and acceptance model.
 
@@ -95,8 +95,8 @@ See [Generated Files](./generated-files.md).
 - `.schema.js` and `.schema.js` files execute as local project JavaScript. Treat them like source code, not untrusted data.
 - `db.config.js`, source readers, format renderers, and manifest hooks also execute as local project code.
 - The viewer CSV import endpoint writes CSV files into the configured `dbDir`.
-- The default `json` store keeps source fixtures clean and writes app changes to `.db/state`.
-- The `sourceFile` store may write generated ids back to plain `.json` source fixtures when configured intentionally.
+- The default `json` store keeps source data files clean and writes app changes to `.db/state`.
+- The `sourceFile` store may write generated ids back to plain `.json` source data files when configured intentionally.
 - `.db/` is generated runtime output and should normally stay uncommitted.
 
 ## Verification

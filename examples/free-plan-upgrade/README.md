@@ -1,6 +1,10 @@
 # Free Plan Upgrade Example
 
-This example shows app code for a free-plan tenant upgrade. `@async/db` only provides forks, branches, snapshots, migration locks, resource migration, and routing. The app decides that moving `projects` from JSON to another store means "upgrade to paid."
+## What This Teaches
+
+Use this when one tenant resource outgrows JSON and must move to another store without rewriting app data access. `@async/db` provides forks, branches, snapshots, migration locks, resource migration, and routing; the app decides that moving `projects` off JSON means "upgrade to paid."
+
+## Run It
 
 Run it from the repository root:
 

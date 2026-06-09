@@ -50,7 +50,7 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | `async-db sync` | stable | Load sources, validate/infer schema, write generated metadata/types, and refresh runtime state. |
 | `async-db types [--watch] [--out <file>]` | stable | Generate TypeScript declarations, optionally in watch mode or to an explicit path. |
 | `async-db schema [resource]` | stable | Print schema metadata for all resources or one resource. |
-| `async-db schema infer [resource] [--out <file>]` | stable | Infer schema from fixture data and optionally write it. |
+| `async-db schema infer [resource] [--out <file>]` | stable | Infer schema from data files and optionally write it. |
 | `async-db schema validate` | stable | Validate schema and source data diagnostics. |
 | `async-db schema manifest [--out <file>]` | generated | Render the schema manifest contract. |
 | `async-db schema unbundle ...` / `async-db schema bundle ...` | preview | Move between aggregate schema and per-resource schema files. |

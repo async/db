@@ -1,6 +1,6 @@
 # Prototype To Production REST Guide
 
-@async/db starts with fixture-like local REST routes so a prototype can move
+@async/db starts with file-like local REST routes so a prototype can move
 quickly. When the contract settles, keep the same resource model but move app
 traffic behind an owned API namespace, registered operations, or a generated
 server.
@@ -24,7 +24,7 @@ POST    /__db/operations/:ref
 ```
 
 Use `/db/*` while the data shape is still changing. It mirrors the `db/`
-fixture folder, works well with `.json` reads, and keeps the browser viewer
+data folder, works well with `.json` reads, and keeps the browser viewer
 and import tools under `/__db`.
 
 This default is local development infrastructure. Do not expose `async-db
@@ -47,7 +47,7 @@ fits the surrounding app:
 | `/api/{resource}` | The API is dedicated to db resources and there is no need for an extra `/db` segment. |
 | `/db/{resource}` | Local prototype and test routes. Avoid this as the customer-facing production namespace. |
 
-For a production-like local server, move the fixture-style alias and dev-tool
+For a production-like local server, move the file-backed data alias and dev-tool
 base together:
 
 ```js
@@ -482,7 +482,7 @@ registerDbRoutes(app, db, {
 });
 ```
 
-When fixtures and schemas have settled enough for a standalone service, use the
+When data files and schemas have settled enough for a standalone service, use the
 Hono/SQLite starter:
 
 ```bash

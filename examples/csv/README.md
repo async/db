@@ -6,7 +6,7 @@ Use this when product, customer, or spreadsheet-like data starts as CSV. db scan
 
 ## Files To Inspect
 
-- [db/customers.csv](./db/customers.csv): source CSV fixture.
+- [db/customers.csv](./db/customers.csv): source CSV data file.
 - [db.config.js](./db.config.js): default mirror setup using `defineConfig`.
 
 ## Run It
@@ -38,9 +38,9 @@ curl 'http://127.0.0.1:7331/db/customers.json?select=id,name,email'
 
 ## Features To Notice
 
-- [CSV fixtures](../../docs/fixtures-and-schemas.md#csv-fixtures)
+- [CSV data files](../../docs/data-files-and-schemas.md#csv)
 - [Runtime state refreshes](../../docs/generated-files.md#runtime-state)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 
 ## Cleanup
 
@@ -48,5 +48,5 @@ Generated `.db/` output is ignored by git and can be removed whenever you want f
 
 ## More Docs
 
-- [Fixtures And Schemas](../../docs/fixtures-and-schemas.md)
+- [Data Files And Schemas](../../docs/data-files-and-schemas.md)
 - [Generated Files](../../docs/generated-files.md)

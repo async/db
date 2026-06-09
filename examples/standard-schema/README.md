@@ -1,6 +1,10 @@
 # Standard Schema Example
 
-This example shows the dependency-free integration path for validators that implement the Standard Schema v1 contract. The validator object lives in trusted project code; @async/db imports the schema module, recognizes `~standard.validate`, and calls it during schema helpers and runtime writes without bundling a validator-library dependency.
+## What This Teaches
+
+Use this when a Zod, Valibot, ArkType, or local validator should own parsing and validation. Any object that implements the Standard Schema v1 contract can be the resource contract; @async/db calls `~standard.validate` during writes and layers its own metadata and computed fields on top, without bundling a validator-library dependency.
+
+## Run It
 
 Run it:
 

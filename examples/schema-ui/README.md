@@ -56,7 +56,7 @@ node ./examples/schema-ui/serve.js --port 8080 --host 127.0.0.1
 node ./examples/schema-ui/serve.js --no-sync
 ```
 
-`--no-sync` skips fixture sync on startup (faster restart). Use it only after you have already synced once so `.db/state` exists.
+`--no-sync` skips data sync on startup (faster restart). Use it only after you have already synced once so `.db/state` exists.
 
 ### Print Static Templates To A File
 
@@ -91,7 +91,7 @@ curl 'http://127.0.0.1:7331/db/pages.json?expand=author&select=id,title,status,a
 - [Schema manifest output](../../docs/generated-files.md#schema-manifest-output)
 - [Custom viewer manifest](../../docs/server-and-viewer.md#custom-viewer-manifest)
 - [Relationship expansion](../../docs/server-and-viewer.md#relationship-expansion)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 
 ## Cleanup
 

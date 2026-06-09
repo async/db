@@ -61,7 +61,7 @@ export function renderDbViewer(options: DbViewerOptions = {}): string {
     <header class="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-lg font-bold tracking-normal text-slate-950">db viewer</h1>
-        <div class="${mutedClass}" id="subtitle">Loading local fixture database</div>
+        <div class="${mutedClass}" id="subtitle">Loading local data files</div>
       </div>
       <div class="${rowClass} sm:justify-end" id="status"></div>
     </header>

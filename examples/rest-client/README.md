@@ -40,9 +40,9 @@ curl 'http://127.0.0.1:7331/db/users.json?select=id,name,email'
 ## Features To Notice
 
 - [HTTP client operations](../../docs/package-api.md#http-client)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 - [REST batching](../../docs/server-and-viewer.md#rest-batching)
-- [Schema-backed fixtures](../../docs/fixtures-and-schemas.md#schema-files)
+- [Schema-backed data files](../../docs/data-files-and-schemas.md#add-schema-when-inference-is-not-enough)
 
 ## Cleanup
 

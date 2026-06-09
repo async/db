@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when you have fixture data before you have a contract. db infers collections, singleton documents, REST routes, GraphQL fields, and TypeScript types from plain JSON.
+Use this when you have JSON data before you have a contract. db infers collections, singleton documents, REST routes, GraphQL fields, and TypeScript types from plain JSON.
 
 ## Files To Inspect
 
@@ -39,8 +39,8 @@ curl 'http://127.0.0.1:7331/db/users.json?select=id,name,email'
 
 ## Features To Notice
 
-- [Data-first JSON fixtures](../../docs/fixtures-and-schemas.md#data-first-json-or-jsonc)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [Data-first JSON files](../../docs/data-files-and-schemas.md#start-with-json-files)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 - [REST query parameters](../../docs/server-and-viewer.md#rest-routes)
 - [Runtime state](../../docs/generated-files.md#runtime-state)
 
@@ -51,4 +51,4 @@ Generated `.db/` output is ignored by git and can be removed whenever you want a
 ## More Docs
 
 - [Concepts](../../docs/concepts.md)
-- [Fixtures And Schemas](../../docs/fixtures-and-schemas.md)
+- [Data Files And Schemas](../../docs/data-files-and-schemas.md)

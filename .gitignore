@@ -9,3 +9,6 @@ coverage/
 pack.json
 /.tmp
 /docs/goals
+docs/async-db-devex-gap-analysis.md
+website/dist/
+website/.db/

@@ -206,7 +206,7 @@ function templateFiles(
     return [{
       relativePath: 'db/users.json',
       action: 'create',
-      description: 'starter fixture',
+      description: 'starter JSON file',
       content: USERS_FIXTURE,
     }];
   }

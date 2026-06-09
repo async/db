@@ -80,7 +80,7 @@ rewrite a consumer app.
 
 | Need | Tool |
 | --- | --- |
-| Validate current fixtures, schema, and config | `async-db doctor` or `async-db check --strict` |
+| Validate current data files, schema, and config | `async-db doctor` or `async-db check --strict` |
 | Find app usage of Async DB APIs and route exposure | `async-db usage scan ./src --production` |
 | Inventory existing SQLite and source usage | `async-db integrate inspect ./src --sqlite ./data/app.sqlite` |
 | Inventory Postgres source usage | `async-db integrate inspect ./src --postgres` |
@@ -163,13 +163,13 @@ local tooling surface:
 
 1. Install `@async/db` using the app's package manager.
 2. Add a script such as `"db": "async-db"` if the app does not have one.
-3. Add or infer only the fixture/schema resources needed for the requested
+3. Add or infer only the data/schema resources needed for the requested
    workflow.
 4. Run `async-db sync` and `async-db doctor`.
 5. Stop and report the first plan if the app already has a mature database or
    ORM layer.
 
-For a pure fixture or mock-data app, a direct `db/` fixture workflow may be
+For a pure file-backed or mock-data app, a direct `db/` data file workflow may be
 enough. For an app with existing SQLite, Postgres, Prisma, Drizzle, Kysely, or
 custom repositories, treat Async DB as an integration layer until the human
 chooses a deeper migration.

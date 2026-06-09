@@ -255,7 +255,7 @@ Usage:
   async-db init [--template data-first|schema-first|source-file] [--dry-run] [--json]
 
 Templates:
-  data-first     One JSON fixture in db/ with no config file (default)
+  data-first     One JSON file in db/ with no config file (default)
   schema-first   Empty schema-backed collection in db/users.schema.jsonc
   source-file    Local app state saved directly to db/*.json
 
@@ -309,7 +309,7 @@ Usage:
   async-db types [--watch] [--out <file>]
 
 Options:
-  --watch        Regenerate types when fixture sources change
+  --watch        Regenerate types when data files change
   --out <file>   Write generated types to this path
   --cwd <dir>     Project directory
   --config <file> Config file path
@@ -340,7 +340,7 @@ Options:
   --format <format>   Schema migration output format: mixed or jsonc
   --json              Print machine-readable schema migration report
   --check <file>      Fail if the generated schema migration report differs from this path, ignoring generatedAt
-  --empty-seed        Write an empty seed fixture when unbundling schema-only resources
+  --empty-seed        Write an empty seed data file when unbundling schema-only resources
   --force             Allow overwriting outputs or writing bundle output inside db/
   --all               Skip the interactive target prompt and use all schemas
   --cwd <dir>     Project directory

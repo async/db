@@ -38,7 +38,7 @@ curl 'http://127.0.0.1:7331/db/projects.json?expand=owner&select=id,name,status,
 - [Schema manifest output](../../docs/generated-files.md#schema-manifest-output)
 - [Field UI metadata](../../docs/server-and-viewer.md#custom-viewer-manifest)
 - [Relationship expansion](../../docs/server-and-viewer.md#relationship-expansion)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 
 ## Cleanup
 

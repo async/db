@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Start here when you want the smallest schema-backed db workflow. It demonstrates sync, committed generated types, the viewer, fixture-like `.json` REST reads, and creating a record.
+Start here when you want the smallest schema-backed db workflow. It demonstrates sync, committed generated types, the viewer, file-backed `.json` REST reads, and creating a record.
 
 ## Files To Inspect
 
@@ -49,7 +49,7 @@ Leave `serve` running and run this from another terminal:
 curl http://127.0.0.1:7331/db/users.json
 ```
 
-The `.json` route is intentional: a source fixture such as `db/users.json`
+The `.json` route is intentional: a source data file such as `db/users.json`
 maps naturally to `GET /db/users.json`, while the server still reads from the
 synced runtime resource under `.db/state`.
 
@@ -80,8 +80,8 @@ curl -X POST http://127.0.0.1:7331/__db/operations/REF \
 
 ## Features To Notice
 
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
-- [Schema-backed fixtures](../../docs/fixtures-and-schemas.md#schema-files)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [Schema-backed data files](../../docs/data-files-and-schemas.md#add-schema-when-inference-is-not-enough)
 - [Generated types](../../docs/generated-files.md#generated-types)
 - [Registered REST operations](../../docs/server-and-viewer.md#registered-rest-operations)
 

@@ -1,8 +1,8 @@
-# JSON Fixture DB Spec
+# JSON-First DB Spec
 
 ## Schema And Type Generation
 
-The `db/` folder can contain fixture data, schema/type definitions, or both.
+The `db/` folder can contain data files, schema/type definitions, or both.
 
 ```txt
 db/
@@ -34,11 +34,11 @@ src/generated/
 
 ## Developer Workflows
 
-Developers can choose among data-first fixtures, schema/type-first fixtures, or mixed mode.
+Developers can choose among data-first files, schema/type-first files, or mixed mode.
 
-### Data-First Fixtures
+### Data-First Files
 
-The simplest path is a JSON fixture:
+The simplest path is a JSON file:
 
 ```txt
 db/users.json
@@ -66,7 +66,7 @@ REST routes
 GraphQL fields
 ```
 
-### Schema/Type-First Fixtures
+### Schema/Type-First Files
 
 Developers can define types without real data:
 
@@ -142,7 +142,7 @@ pattern                   JavaScript RegExp source for string values
 
 ### Mixed Mode
 
-Developers can provide both a data fixture and a schema fixture:
+Developers can provide both a data file and a schema file:
 
 ```txt
 db/users.json
@@ -157,16 +157,16 @@ users.json controls the seed records
 ```
 
 If the schema file also contains `seed`, that embedded seed is ignored in favor of
-the data fixture. The CLI should warn and suggest unbundling the seed from the
+the data file. The CLI should warn and suggest unbundling the seed from the
 schema source so mixed mode keeps contracts and seed records in separate files.
 `async-db schema unbundle users` removes embedded seed from the schema source and
 writes non-empty seed data to `db/users.json`. Empty schema-only seed is removed
-without creating an empty fixture unless `--empty-seed` is passed. In-place JSONC
+without creating an empty data file unless `--empty-seed` is passed. In-place JSONC
 rewrites may lose comments, so the CLI should warn when it rewrites `.schema.jsonc`
 without `--schema-out`.
 
 `async-db schema bundle users` creates a portable schema-plus-seed artifact. Bundled
-outputs should live outside the active fixture directory by default, such as
+outputs should live outside the active data folder by default, such as
 `artifacts/users.bundle.schema.json`, so they are not rediscovered as live schema
 sources. Writing a bundle inside `db/` requires `--force`. Overwriting an existing
 different seed or bundle output also requires `--force`.
@@ -175,11 +175,11 @@ different seed or bundle output also requires `--force`.
 When present, it is authoritative for explicit schema definitions and
 `db/**/*.schema.*` files are not auto-discovered as live schemas unless imported
 by the root module. `async-db schema bundle --all --out db.schema.js` creates a
-schema-only root registry without embedding seed/data fixtures. If a schema source
-has embedded seed and no separate data fixture is loaded, aggregate bundle first
+schema-only root registry without embedding seed/data files. If a schema source
+has embedded seed and no separate data file is loaded, aggregate bundle first
 writes that seed to `db/<resource>.json` and leaves the root schema seed-free.
 `async-db schema unbundle --all --schema-dir db` spreads a root registry back to
-per-resource schema files and leaves seed/data fixtures untouched.
+per-resource schema files and leaves seed/data files untouched.
 When bundling folder collection markers into a root registry, source globs are
 rebased from the marker folder to the project root; for example,
 `db/blog/index.schema.js` with `source: files('./**/*.mdx', { read: 'frontmatter' })`
@@ -456,11 +456,11 @@ type DbSourceReaderResult =
   | null;
 ```
 
-Custom readers run before built-in readers. Returning `null` lets later readers try; the first non-null result owns the file. Reader context includes repo-relative file path, absolute source path, parsed fixture path metadata, config, source hash, `readText()`, and `readBuffer()`.
+Custom readers run before built-in readers. Returning `null` lets later readers try; the first non-null result owns the file. Reader context includes repo-relative file path, absolute source path, parsed data file path metadata, config, source hash, `readText()`, and `readBuffer()`.
 
 Readers must return raw data or raw schema only. Resource normalization, diagnostics, type generation, schema manifest output, REST/GraphQL metadata, generated ids, and runtime sync stay centralized in db. A reader may return multiple sources from one file, but each result must include `resourceName`; otherwise db reports a structured diagnostic.
 
-## Type-Only Fixtures
+## Type-Only Schema Files
 
 A schema file can define a resource without seed data.
 
@@ -698,7 +698,7 @@ export default {
 };
 ```
 
-Set `dbDir: './db'` to use `db/` instead of the default `db/` fixture folder. Existing `sourceDir` configs remain supported; if both are provided, `sourceDir` wins for backwards compatibility.
+Set `dbDir` to point at a custom data folder instead of the default `./db`. Existing `sourceDir` configs remain supported; if both are provided, `sourceDir` wins for backwards compatibility.
 
 ## CLI
 
@@ -837,7 +837,7 @@ standalone viewer, viewer manifest, schema, batch, import, events, log, and fork
 without changing root REST resource routes or the standalone GraphQL/Falcor paths.
 
 `server.dataPath` should default to `/db` and should mount an app-facing REST
-resource alias. For a fixture at `db/users.json`, `GET /db/users.json` should
+resource alias. For a data file at `db/users.json`, `GET /db/users.json` should
 return the same synced runtime JSON resource as the REST resource route, not raw
 static file contents. `GET /db/users.json?id=u_1` should return the same single
 record shape as `GET /db/users/u_1.json`. Setting `server.dataPath: false`
@@ -853,7 +853,7 @@ resource list
 collection table viewer
 singleton document JSON viewer
 selected JSON copy
-CSV drag-and-drop import into the configured fixture folder
+CSV drag-and-drop import into the configured data folder
 REST route specs with copy/paste examples
 REST request runner
 GraphQL SDL viewer
@@ -863,7 +863,7 @@ schema and field inspection
 diagnostics summary
 ```
 
-The CLI should include a fixture health check:
+The CLI should include a data health check:
 
 ```txt
 async-db doctor
@@ -872,13 +872,13 @@ async-db doctor --strict
 async-db check --strict
 ```
 
-`doctor` should include existing source/schema diagnostics and advisory fixture findings. It should detect duplicate collection ids, mixed id value types, inconsistent field value types, likely relation fields such as `todos.userId -> users.id`, and likely relation values missing from a target collection. Relation inference must be suggestive only; it must not mutate fixtures, write schema files, or silently change REST/GraphQL shape behavior. `doctor` should exit nonzero for error diagnostics, while `--strict` should also exit nonzero for warnings. Informational relation suggestions should not fail strict mode.
+`doctor` should include existing source/schema diagnostics and advisory data file findings. It should detect duplicate collection ids, mixed id value types, inconsistent field value types, likely relation fields such as `todos.userId -> users.id`, and likely relation values missing from a target collection. Relation inference must be suggestive only; it must not mutate data files, write schema files, or silently change REST/GraphQL shape behavior. `doctor` should exit nonzero for error diagnostics, while `--strict` should also exit nonzero for warnings. Informational relation suggestions should not fail strict mode.
 
-CSV data-first fixtures should be treated as collections. The first row is the header row, headers become JSON field names, values are parsed into records, and the default JSON store is written as `.db/state/<resource>.json`. When a CSV data file is paired with a schema file, schema-declared array fields should coerce semicolon-delimited cells and JSON array string cells into arrays before validation and store hydration.
+CSV data-first files should be treated as collections. The first row is the header row, headers become JSON field names, values are parsed into records, and the default JSON store is written as `.db/state/<resource>.json`. When a CSV data file is paired with a schema file, schema-declared array fields should coerce semicolon-delimited cells and JSON array string cells into arrays before validation and store hydration.
 
-Collection fixtures should always have an id field. If a JSON/JSONC/CSV collection source omits `id`, generate counter ids in the selected runtime store, starting at `"1"` and avoiding existing ids. Source files stay unchanged by default. For resources bound to the `sourceFile` store, write generated ids back to plain `.json` fixtures.
+Collection data files should always have an id field. If a JSON/JSONC/CSV collection source omits `id`, generate counter ids in the selected runtime store, starting at `"1"` and avoiding existing ids. Source files stay unchanged by default. For resources bound to the `sourceFile` store, write generated ids back to plain `.json` data files.
 
-Runtime stores should track source hashes for JSON, JSONC, and CSV files. If a source hash changes during sync, regenerate runtime state for that resource from the source fixture. If the hash is unchanged, preserve runtime edits.
+Runtime stores should track source hashes for JSON, JSONC, and CSV files. If a source hash changes during sync, regenerate runtime state for that resource from the source data file. If the hash is unchanged, preserve runtime edits.
 
 The viewer should support uploading a CSV through:
 
@@ -886,9 +886,9 @@ The viewer should support uploading a CSV through:
 POST /__db/import
 ```
 
-The upload should copy the CSV into the configured fixture folder, run sync, reload the in-memory resources, update the URL query parameter to the imported resource, and reload the dashboard view.
+The upload should copy the CSV into the configured data folder, run sync, reload the in-memory resources, update the URL query parameter to the imported resource, and reload the dashboard view.
 
-While serving, db should watch the configured fixture folder for fixture and schema changes, ignoring `.db/`. On change, reload resources and notify the single-file viewer through the configured events route, defaulting to `/__db/events`, so the dashboard refreshes automatically. If one source file fails to parse or load, report a file-specific diagnostic in the viewer and keep the remaining valid resources available. If the runtime cannot create a file watcher because of environment resource limits such as `EMFILE` or `ENOSPC`, keep the HTTP server running, publish a warning diagnostic, and serve without live reload.
+While serving, db should watch the configured data folder for data and schema changes, ignoring `.db/`. On change, reload resources and notify the single-file viewer through the configured events route, defaulting to `/__db/events`, so the dashboard refreshes automatically. If one source file fails to parse or load, report a file-specific diagnostic in the viewer and keep the remaining valid resources available. If the runtime cannot create a file watcher because of environment resource limits such as `EMFILE` or `ENOSPC`, keep the HTTP server running, publish a warning diagnostic, and serve without live reload.
 
 Vite development should be supported through a dependency-light plugin export:
 
@@ -900,7 +900,7 @@ export default {
 };
 ```
 
-The plugin should return a plain Vite-compatible plugin object with `apply: 'serve'`, mount @async/db into the existing Vite dev middleware stack, and avoid bundling Node-only fixture runtime code into production builds. By default, Vite dev routes should be scoped under `/__db` and should not answer root app routes. A plugin-level `apiBase` should win over `server.apiBase`:
+The plugin should return a plain Vite-compatible plugin object with `apply: 'serve'`, mount @async/db into the existing Vite dev middleware stack, and avoid bundling Node-only file-backed runtime code into production builds. By default, Vite dev routes should be scoped under `/__db` and should not answer root app routes. A plugin-level `apiBase` should win over `server.apiBase`:
 
 ```txt
 GET  /db/users.json
@@ -1108,7 +1108,7 @@ GraphQL errors should use standard GraphQL `errors[]` entries with `extensions`:
 Append this to the Codex prompt:
 
 ````md
-## Type generation and schema-only fixtures
+## Type generation and schema-only files
 
 Add automatic TypeScript type generation.
 
@@ -1227,7 +1227,7 @@ relation field -> relationSelect with optionsFrom
 collection id field -> readonly
 ```
 
-Manifest defaults are metadata only. They must not change fixtures, seed data, runtime state, validation, REST, or GraphQL behavior.
+Manifest defaults are metadata only. They must not change data files, seed data, runtime state, validation, REST, or GraphQL behavior.
 
 Apps can customize or omit field entries with a visitor hook:
 
@@ -1259,20 +1259,20 @@ The visitor return value must be JSON-serializable. Functions, classes, symbols,
 
 The intended first use is permissioned admin CRUD for resources such as dashboards, users, and permission policies. Admin screens can map manifest field metadata to reusable create/edit/view components while policy checks decide whether fields are hidden, readonly, or editable for a given session.
 
-Support schema-only fixtures.
+Support schema-only files.
 
 The package should accept these source formats:
 
 ```txt
-db/users.json              data-first fixture
-db/users.jsonc             data-first fixture with comments
-db/users.csv               data-first collection fixture
-db/users.schema.jsonc      schema/type-first fixture
-db/users.schema.js        schema/type-first fixture using JS helpers
-db/users.schema.js         schema/type-first fixture using JS helpers in type: module projects
+db/users.json              data-first file
+db/users.jsonc             data-first file with comments
+db/users.csv               data-first collection file
+db/users.schema.jsonc      schema/type-first file
+db/users.schema.js        schema/type-first file using JS helpers
+db/users.schema.js         schema/type-first file using JS helpers in type: module projects
 ```
 
-The main source JSON/JSONC/CSV fixture can be used to infer schema and generate types.
+The main source JSON/JSONC/CSV data file can be used to infer schema and generate types.
 
 A `.schema.jsonc` file can define a resource without seed data:
 
@@ -1403,7 +1403,7 @@ async-db generate hono --api none --app module
 
 ## Hono And SQLite Starter Generation
 
-Add `async-db generate hono` for graduating a fixture-backed app into a starter API backed by SQLite.
+Add `async-db generate hono` for graduating a file-backed app into a starter API backed by SQLite.
 
 Default behavior:
 
@@ -1438,7 +1438,7 @@ boolean -> INTEGER
 object/array/unknown -> JSON text in TEXT columns
 ```
 
-Generation should fail on schema errors. For production SQLite output, warning diagnostics should also block generation unless `--allow-warnings` is provided. Seed insertion is disabled by default; `--seed fixtures` can emit fixture seed support for local SQLite mimicry.
+Generation should fail on schema errors. For production SQLite output, warning diagnostics should also block generation unless `--allow-warnings` is provided. Seed insertion is disabled by default; `--seed fixtures` can emit data file seed support for local SQLite mimicry.
 
 Keep Hono and SQLite runtime support isolated under optional exports:
 
@@ -1451,8 +1451,8 @@ The core package must not add mandatory Hono or SQLite npm dependencies.
 
 Acceptance criteria:
 
-* Data-first fixtures generate TypeScript types.
-* Schema-only fixtures generate TypeScript types.
+* Data-first files generate TypeScript types.
+* Schema-only files generate TypeScript types.
 * JSONC schema comments are allowed.
 * Field descriptions become JSDoc in generated TypeScript.
 * `types.outFile` writes to `.db/types/index.d.ts` by default.
@@ -1463,7 +1463,7 @@ Acceptance criteria:
 The intended developer loop is:
 
 ```txt
-create/edit JSON or schema fixtures
+create/edit JSON or schema data files
 run async-db sync
 types are generated
 REST and GraphQL are generated

@@ -1,6 +1,10 @@
 # CMS JSON Publish Example
 
-This example shows how an app can build CMS behavior on top of generic `@async/db` primitives. The CMS helper is app code, not package API.
+## What This Teaches
+
+Use this when an app needs CMS draft/publish behavior on top of generic `@async/db` primitives. The CMS helper is app code, not package API: branches store draft and published content, and the app decides what "published" means.
+
+## Run It
 
 Run it from the repository root:
 

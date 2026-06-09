@@ -20,7 +20,7 @@ Use the JSON store for small low-write resources that are naturally files:
 - prompt templates and model/provider defaults
 - plan, pricing, and entitlement definitions
 - policy rules and permission maps
-- seed data, demo data, fixtures, mocks, and test baselines
+- seed data, demo data, sample JSON files, mocks, and test baselines
 
 These are control-plane resources. They are valuable in production when they stay easy to review, snapshot, diff, and promote between environments.
 

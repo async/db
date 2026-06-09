@@ -25,7 +25,7 @@ ${project.resources.map((resource) => `- ${resource.name} (${resource.kind})`).j
 - API: ${apiText}
 - Database: SQLite with node:sqlite
 - Runtime: Node.js >=22.13
-- Seed fixtures: ${options.seed === 'fixtures' ? 'enabled' : 'disabled'}
+- Seed data files: ${options.seed === 'fixtures' ? 'enabled' : 'disabled'}
 
 ## Commands
 

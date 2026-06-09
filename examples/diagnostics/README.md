@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when you want to see how db reports local fixture drift. It intentionally includes schema/data mismatches so the viewer can show source diagnostics while valid resources still work.
+Use this when you want to see how db reports local data file drift. It intentionally includes schema/data mismatches so the viewer can show source diagnostics while valid resources still work.
 
 ## Files To Inspect
 
@@ -42,8 +42,8 @@ Expected diagnostics include an extra `twitterHandle` field in `users.json` and 
 ## Features To Notice
 
 - [Diagnostics workflow](../../docs/concepts.md#diagnostics)
-- [Schema validation](../../docs/fixtures-and-schemas.md#schema-files)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [Schema validation](../../docs/data-files-and-schemas.md#add-schema-when-inference-is-not-enough)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 
 ## Cleanup
 
@@ -52,4 +52,4 @@ Generated `.db/` output is ignored by git and can be removed whenever you want a
 ## More Docs
 
 - [Concepts](../../docs/concepts.md)
-- [Fixtures And Schemas](../../docs/fixtures-and-schemas.md)
+- [Data Files And Schemas](../../docs/data-files-and-schemas.md)

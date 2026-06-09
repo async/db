@@ -549,7 +549,7 @@ function mixedModeSchemaSeedDiagnostic(resource: string, dataSource: SourceRecor
     resource,
     file: schemaSource.file,
     message: `${schemaSource.file} includes seed records, but ${dataSource.file} provides seed data for "${resource}".`,
-    hint: `Remove "seed" from ${schemaSource.file}, or run async-db schema unbundle ${resource} to keep seed data in a separate fixture.`,
+    hint: `Remove "seed" from ${schemaSource.file}, or run async-db schema unbundle ${resource} to keep seed data in a separate data file.`,
     details: {
       resource,
       schemaFile: schemaSource.file,
@@ -563,7 +563,7 @@ function resourceAliasCollisionDiagnostics(resources: ProjectResource[]): Schema
     code: 'RESOURCE_ALIAS_COLLISION',
     severity: 'error',
     message: `Resource aliases are ambiguous for "${collision.alias}": ${collision.resources.map((resource) => `"${resource}"`).join(' and ')} both resolve through ${collision.aliases.map((alias) => `"${alias}"`).join(', ')}.`,
-    hint: 'Rename one fixture or customize resource names so every camelCase and kebab-case alias maps to one resource.',
+    hint: 'Rename one data file or customize resource names so every camelCase and kebab-case alias maps to one resource.',
     details: {
       alias: collision.alias,
       aliases: collision.aliases,

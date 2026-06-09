@@ -65,7 +65,7 @@ Compile to `.schema.js`:
 }
 ```
 
-When the project root `package.json` is not already `"type": "module"`, @async/db creates `db/package.json` with `"type": "module"` before loading `.schema.js` files from the fixture folder. Set `schema.autoModulePackageJson: false` when you want to manage that file yourself.
+When the project root `package.json` is not already `"type": "module"`, @async/db creates `db/package.json` with `"type": "module"` before loading `.schema.js` files from the data folder (`db/`). Set `schema.autoModulePackageJson: false` when you want to manage that file yourself.
 
 ```json
 {

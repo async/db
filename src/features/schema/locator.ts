@@ -51,7 +51,7 @@ export async function resolveSchemaLocator(options: ResolveSchemaLocatorOptions 
         'DB_SCHEMA_LOCATOR_NOT_FOUND',
         `Schema locator path does not exist: ${path.relative(baseCwd, from) || from}`,
         {
-          hint: 'Pass from: "." for a project root, from: "./db" for a fixture folder, or from: "./db.schema.mjs" / "./db.schema.js" / "./db/users.schema.mjs" for a schema file.',
+          hint: 'Pass from: "." for a project root, from: "./db" for a data folder, or from: "./db.schema.mjs" / "./db.schema.js" / "./db/users.schema.mjs" for a schema file.',
           details: {
             from: input.from,
             path: from,

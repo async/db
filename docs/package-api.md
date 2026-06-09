@@ -173,11 +173,11 @@ await db.collection('users').create({
 const state = await fs.readFile('/virtual-app/.db/state/users.json', 'utf8');
 ```
 
-The adapter is used for fixture reads, generated outputs, JSON runtime state,
+The adapter is used for data-file reads, generated outputs, JSON runtime state,
 `sourceFile` writebacks, operations manifests, forks, branches, and snapshots.
 Executable local code such as `db.config.js` and `.schema.js` still runs through
 Node's module loader, so virtual projects should use inline options or
-JSON/JSONC/CSV schema sources.
+JSON and `.schema.json` schema sources.
 
 Collections also expose small store-neutral query helpers for local app reads:
 `find({ where, orderBy, limit, offset })`, `count({ where })`, and
@@ -252,7 +252,7 @@ Call `db.close()` when a long-running process is done with the database so store
 
 Use `createDbRuntime()` when custom Node middleware should own the same
 development lifecycle as `async-db serve`: open the db, sync or hydrate, watch
-fixture sources, publish lifecycle events, expose request middleware, and clean
+data files in `db/`, publish lifecycle events, expose request middleware, and clean
 everything up together.
 
 ```ts
@@ -650,10 +650,10 @@ drafts, suggestions, and an output plan. `generate` writes
 `db/<resource>.schema.jsonc` drafts where possible and refuses to overwrite
 existing schema files unless `--force` is passed.
 
-`--format mixed` is the default. It writes JSONC for static contracts and
-`.schema.js` drafts when executable validator behavior needs manual
-preservation. `--format jsonc` forces JSONC output and reports warnings for
-unsupported executable behavior.
+`--format mixed` is the default. It writes `.schema.jsonc` for static contracts
+and `.schema.js` drafts when executable validator behavior needs manual
+preservation. `--format jsonc` forces JSONC-only output and reports warnings for
+unsupported behavior.
 
 Programmatic inspection is available from the root package:
 
@@ -682,7 +682,7 @@ const db = await openDb({ schema });
 
 `loadDbSchema()` is metadata-only by default and does not call content/data
 readers, runtime stores, or computed resolvers. `openDb()` defaults to runtime
-loading and reads the matching fixture/content sources.
+loading and reads the matching data/content sources.
 
 JavaScript schema files can describe folder content sources with the helper
 exported from `@async/db/schema`:
@@ -775,7 +775,7 @@ manifest once, normalizes collection records by resource id, normalizes
 documents by resource name, and keeps query results by canonical request key.
 Cacheable reads use exact in-flight dedupe outside the batching window. Runtime
 write events from `/__db/log` invalidate or refetch affected resources according
-to `eventPolicy`; fixture/source reload events from `/__db/events` refresh the
+to `eventPolicy`; data-file reload events from `/__db/events` refresh the
 manifest and invalidate cached queries. IndexedDB is explicit opt-in because it
 persists record data in the browser.
 

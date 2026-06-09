@@ -62,7 +62,7 @@ export function validateProjectRelations(resources: SchemaResource[]): SchemaDia
           resource: resource.name,
           field: relation.sourceField,
           message: `${resource.name} relation "${relation.name}" targets missing collection "${relation.targetResource}"`,
-          hint: 'Add the target collection fixture or update the relation.to value.',
+          hint: 'Add the target collection data file or update the relation.to value.',
           details: relation,
         });
         continue;

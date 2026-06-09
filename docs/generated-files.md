@@ -19,17 +19,17 @@ Default sync output:
 With the default JSON store:
 
 ```txt
-db/users.json              source fixture
+db/users.json              source data file
 .db/state/users.json   writable runtime JSON store
 ```
 
-REST writes, GraphQL mutations, package API writes, and viewer operations write to runtime state. Changed source fixtures refresh state based on source hashes; unchanged source fixtures preserve runtime edits.
+REST writes, GraphQL mutations, package API writes, and viewer operations write to runtime state. Changed source data files refresh state based on source hashes; unchanged source data files preserve runtime edits.
 
 ## Generated Ids
 
-Collections need ids. If a JSON, JSONC, or CSV collection fixture omits `id`, @async/db adds counter ids in the selected runtime store.
+Collections need ids. If a JSON collection data file omits `id`, @async/db adds counter ids in the selected runtime store.
 
-Source fixtures stay unchanged by default. For resources bound to the `sourceFile` store, @async/db may write generated ids back to plain `.json` collection fixtures when configured intentionally.
+Source data files stay unchanged by default. For resources bound to the `sourceFile` store, @async/db may write generated ids back to plain `.json` collection data files when configured intentionally.
 
 ## Generated Types
 

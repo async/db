@@ -328,7 +328,7 @@ async function ensureSchemaJsModuleContext(
 
   const error = new Error('JavaScript schema files require ESM module context.') as DiagnosticError;
   error.code = 'DB_SCHEMA_JS_REQUIRES_MODULE';
-  error.hint = 'Add "type": "module" to the nearest package.json, move .schema.js and imported .js files under an ESM package boundary, or keep schema.autoModulePackageJson enabled for fixture-folder schemas.';
+  error.hint = 'Add "type": "module" to the nearest package.json, move .schema.js and imported .js files under an ESM package boundary, or keep schema.autoModulePackageJson enabled for data folder schemas.';
   throw error;
 }
 
@@ -851,8 +851,8 @@ export function duplicateResourceDiagnostics(resourceSources: Map<string, unknow
       severity: 'error',
       resource: name,
       file: files[0],
-      message: `Duplicate resource name "${name}" from nested fixtures:\n${files.map((file) => `- ${file}`).join('\n')}`,
-      hint: `Rename one fixture, set resources.naming to "folder-prefixed" or "path", or use resources.customizeResource to assign explicit names.`,
+      message: `Duplicate resource name "${name}" from nested data files:\n${files.map((file) => `- ${file}`).join('\n')}`,
+      hint: `Rename one data file, set resources.naming to "folder-prefixed" or "path", or use resources.customizeResource to assign explicit names.`,
       details: {
         resource: name,
         files,
@@ -900,7 +900,7 @@ function schemaModuleLoadHint(relativePath: string, error: unknown): string | nu
   }
   const message = String((error as DiagnosticError | null | undefined)?.message ?? '');
   if (message.includes('Cannot use import statement outside a module') || message.includes('Unexpected token \'export\'')) {
-    return 'Add "type": "module" to the nearest package.json, move .schema.js and imported .js files under an ESM package boundary, or keep schema.autoModulePackageJson enabled for fixture-folder schemas.';
+    return 'Add "type": "module" to the nearest package.json, move .schema.js and imported .js files under an ESM package boundary, or keep schema.autoModulePackageJson enabled for data folder schemas.';
   }
   return null;
 }

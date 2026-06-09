@@ -305,7 +305,7 @@ await db.query(operationRefs.operations.ListOrders.ref, { accountId });
 3. Generate and commit the client-safe operation contract if the app ships refs.
 4. Add the target store to `db.config.js`.
 5. Set only the graduating resource to that store with `resources.<name>.store`.
-6. Run `async-db sync` so the target store hydrates from the existing seed or fixture.
+6. Run `async-db sync` so the target store hydrates from the existing seed data.
 7. Move existing production state with an app-owned migration or export/import script.
 8. Keep JSON resources in JSON unless they have their own reason to graduate.
 9. Run `async-db doctor --production`, operation contract checks, and app integration tests before deploying.

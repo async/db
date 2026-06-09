@@ -66,7 +66,7 @@ export function mixedIdTypeFindings(resource: DoctorResource): DoctorFinding[] {
       resource: resource.name,
       field: resource.idField,
       message: `${resource.name}.${resource.idField} uses mixed value types: ${describeCounts(counts)}.`,
-      hint: 'Use one id type consistently. String ids are usually safest for JSON fixtures.',
+      hint: 'Use one id type consistently. String ids are usually safest for JSON data files.',
       details: {
         idField: resource.idField,
         types: Object.fromEntries(counts),

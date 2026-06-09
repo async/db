@@ -40,10 +40,10 @@ export function defineConfig<Config extends DbConfig>(config: Config): Config;
 /** Deep-merge JSON-serializable manifest patches without mutating inputs. */
 export function mergeManifest<Base, Patch>(base: Base, patch: Patch): Base & Patch;
 
-/** Derive a resource name from a fixture path using db naming strategies. */
+/** Derive a resource name from a data file path using db naming strategies. */
 export function resourceNameFromPath(file: string, options?: { strategy?: 'basename' | 'folder-prefixed' | 'path' }): string;
 
-/** Parse a fixture path into folder, basename, filename, and extension metadata. */
+/** Parse a data file path into folder, basename, filename, and extension metadata. */
 export function parseFixturePath(file: string): {
   file: string;
   folders: string[];

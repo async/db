@@ -268,7 +268,7 @@ function rejectRemovedForkOption(options: ClientOptions): void {
   if (fork !== undefined) {
     throw dbError(
       'CLIENT_FORK_OPTION_REMOVED',
-      'The HTTP client fork option was removed with fixture-folder fork routes.',
+      'The HTTP client fork option was removed with legacy data-folder fork routes.',
       {
         hint: 'Use the package API runtime scope with db.forks.open(name) and tenant.branches.open(name), or pass explicit REST/GraphQL paths for an app-owned tenant route.',
         details: {

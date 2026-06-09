@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when local fixtures need related records but you still want plain ids in JSON. It demonstrates to-one relation metadata, explicit REST `expand`, and nested `select`.
+Use this when local data files need related records but you still want plain ids in JSON. It demonstrates to-one relation metadata, explicit REST `expand`, and nested `select`.
 
 ## Files To Inspect
 
@@ -43,8 +43,8 @@ Relation expansion is intentionally explicit and depth 1 in this version.
 
 - [Relationship expansion](../../docs/server-and-viewer.md#relationship-expansion)
 - [Nested `select` fields](../../docs/server-and-viewer.md#rest-routes)
-- [Schema relation metadata](../../docs/fixtures-and-schemas.md#schema-files)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [Schema relation metadata](../../docs/data-files-and-schemas.md#add-schema-when-inference-is-not-enough)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 
 ## Cleanup
 
@@ -52,5 +52,5 @@ Generated `.db/` output is ignored by git and can be removed whenever you want a
 
 ## More Docs
 
-- [Fixtures And Schemas](../../docs/fixtures-and-schemas.md)
+- [Data Files And Schemas](../../docs/data-files-and-schemas.md)
 - [Server And Viewer](../../docs/server-and-viewer.md)

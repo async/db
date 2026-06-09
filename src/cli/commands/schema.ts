@@ -431,7 +431,7 @@ async function runSchemaBundle(config: CliConfig, project: SchemaProject, args: 
   if (isInsidePath(config.sourceDir, outFile) && !force) {
     throw dbError(
       'SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE',
-      `SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE: schema bundle output ${path.relative(config.cwd, outFile)} is inside the active fixture directory.`,
+      `SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE: schema bundle output ${path.relative(config.cwd, outFile)} is inside the active data folder.`,
       {
         hint: 'Write bundled schema artifacts outside db/, or pass --force if you intentionally want a live bundled schema source.',
       },
@@ -457,7 +457,7 @@ async function runSchemaBundleAll(config: CliConfig, project: SchemaProject, arg
     const relative = path.relative(config.cwd, outFile);
     throw dbError(
       'SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE',
-      `SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE: schema bundle output ${relative} is inside the active fixture directory.`,
+      `SCHEMA_BUNDLE_LIVE_OUTPUT_REQUIRES_FORCE: schema bundle output ${relative} is inside the active data folder.`,
       {
         hint: 'Write the root schema outside db/, or pass --force if you intentionally want a live schema source inside db/.',
         details: {
@@ -534,7 +534,7 @@ async function runSchemaUnbundleAll(config: CliConfig, project: SchemaProject, a
   printDiagnostic({
     code: 'SCHEMA_UNBUNDLE_SEED_NOT_MOVED',
     severity: 'warn',
-    message: 'SCHEMA_UNBUNDLE_SEED_NOT_MOVED: schema unbundle --all writes schema files only; seed/data fixtures are left untouched.',
+    message: 'SCHEMA_UNBUNDLE_SEED_NOT_MOVED: schema unbundle --all writes schema files only; seed/data files are left untouched.',
     hint: 'Use single-resource schema unbundle with --seed-out when you want to move embedded seed data.',
     details: {
       command: 'schema unbundle --all',
@@ -996,7 +996,7 @@ function bundleAllSeedWrites(config: CliConfig, project: SchemaProject, rootOutF
         options: {
           force: options.force,
           existsCode: 'SCHEMA_BUNDLE_SEED_OUTPUT_EXISTS',
-          existsHint: 'Review the existing seed fixture, remove embedded schema seed, choose a different fixture source, or pass --force to overwrite it.',
+          existsHint: 'Review the existing seed data file, remove embedded schema seed, choose a different data file source, or pass --force to overwrite it.',
           command: 'schema bundle --all',
           resource: resource.name,
         },
@@ -1401,7 +1401,7 @@ async function executableSchemaOutputPlan(
         content: `${JSON.stringify({ type: 'module' }, null, 2)}\n`,
         options: {
           existsCode: 'SCHEMA_UNBUNDLE_MODULE_PACKAGE_EXISTS',
-          existsHint: 'Review the existing fixture package marker, choose a different --schema-dir, or disable schema.autoModulePackageJson.',
+          existsHint: 'Review the existing data folder package marker, choose a different --schema-dir, or disable schema.autoModulePackageJson.',
           command: 'schema unbundle --all',
         },
       },

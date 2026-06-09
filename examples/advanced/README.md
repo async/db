@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this after the basics when you want to see several features working together: mixed-mode fixtures, `.schema.js`, defaults, nested objects, and committed generated types.
+Use this after the basics when you want to see several features working together: mixed-mode data files, `.schema.js`, defaults, nested objects, and committed generated types.
 
 ## Files To Inspect
 
@@ -40,9 +40,9 @@ curl 'http://127.0.0.1:7331/db/projects.json?select=id,name,status,metadata'
 
 ## Features To Notice
 
-- [JavaScript schema sources](../../docs/fixtures-and-schemas.md#javascript-schema-sources)
+- [JavaScript schema sources](../../docs/data-files-and-schemas.md#javascript-schema-sources)
 - [Schema defaults](../../docs/configuration.md#schema-defaults)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 - [Generated types](../../docs/generated-files.md#generated-types)
 
 ## Cleanup
@@ -51,5 +51,5 @@ Generated `.db/` output is ignored by git and can be removed whenever you want f
 
 ## More Docs
 
-- [Fixtures And Schemas](../../docs/fixtures-and-schemas.md)
+- [Data Files And Schemas](../../docs/data-files-and-schemas.md)
 - [Package API](../../docs/package-api.md)

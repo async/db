@@ -1,16 +1,16 @@
 # @async/db
 
-`@async/db` gives frontend teams a gradual path from mock JSON to production data contracts. Drop fixtures in `db/`, infer schema metadata, serve a local REST API and viewer, then graduate persistence per resource without rewriting frontend data access.
+`@async/db` gives frontend teams a gradual path from mock JSON to production data contracts. Drop JSON files in `db/`, infer schema metadata, serve a local REST API and viewer, then graduate persistence per resource without rewriting frontend data access.
 
 Use it to:
 
-- Start from editable JSON, JSONC, or CSV fixtures in `db/`.
-- Infer schema contracts and generate TypeScript types from fixtures and schemas.
+- Start from editable JSON, JSONC, or CSV data files in `db/`.
+- Infer schema contracts and generate TypeScript types from data files and schemas.
 - Serve local REST routes and a lightweight viewer while the backend contract is still forming.
 - Upgrade persistence per resource without rewriting frontend data access.
 - Emit schema metadata for admin, CMS, or form-building screens.
 
-`@async/db` is not a universal key/value driver layer; storage is one boundary inside the fixture-to-contract workflow.
+`@async/db` is not a universal key/value driver layer; storage is one boundary inside the JSON-to-contract workflow.
 
 ## 30-Second Start
 
@@ -22,7 +22,7 @@ npx async-db serve
 
 Open `http://127.0.0.1:7331/__db` and call `GET /db/users.json`.
 
-No config file is required. `init` writes a starter fixture, `.gitignore` entry for `.db/`, optional package scripts, and runs the first sync. Prefer a manual one-file start?
+No config file is required. `init` writes a starter JSON file, `.gitignore` entry for `.db/`, optional package scripts, and runs the first sync. Prefer a manual one-file start?
 
 ```bash
 mkdir -p db
@@ -36,7 +36,7 @@ npx async-db serve
 
 | Files | Purpose |
 | --- | --- |
-| `db/*.json`, `db/*.jsonc`, `db/*.csv` | Fixture data |
+| `db/*.json`, `db/*.jsonc`, `db/*.csv` | Data files |
 | `db/*.schema.json`, `db/*.schema.jsonc`, `db/*.schema.js` | Optional stricter schema contracts |
 | `db.schema.js` | Optional root schema registry for all resources |
 | `.db/state/*` | Generated writable JSON store state |
@@ -65,7 +65,7 @@ The package import name is `@async/db`. Helpers are available from `@async/db/co
 
 ## Five-Minute Start
 
-Create a fixture:
+Create a JSON file:
 
 ```bash
 mkdir -p db
@@ -130,7 +130,7 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 
 | Behavior | Default |
 | --- | --- |
-| Source fixtures | Read from `./db` |
+| Source data files | Read from `./db` |
 | App data routes | Exposed under `/db`, such as `GET /db/users.json` |
 | Runtime writes | Go to the JSON store under `.db/state` |
 | Local server | `127.0.0.1:7331` |
@@ -140,7 +140,7 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 
 ## Add Schema When It Pays For It
 
-Data-first fixtures are enough until the shape matters:
+Data-first JSON files are enough until the shape matters:
 
 ```bash
 npm run db -- schema infer users
@@ -150,7 +150,7 @@ npm run db -- schema validate
 
 Add `db/users.schema.json`, `db/users.schema.jsonc`, or `db/users.schema.js` when you need stricter behavior, defaults, relations, or Standard Schema validators.
 
-See [docs/concepts.md](./docs/concepts.md) and [docs/fixtures-and-schemas.md](./docs/fixtures-and-schemas.md).
+See [docs/concepts.md](./docs/concepts.md) and [docs/data-files-and-schemas.md](./docs/data-files-and-schemas.md).
 
 ## Common Commands
 
@@ -174,7 +174,7 @@ The default path stays small on purpose. When a resource gets serious, follow th
 
 | Tier | When | Next step |
 | --- | --- | --- |
-| **0 — Fixtures** | Prototype with JSON in `db/` | You are here after `init` or `serve` |
+| **0 — JSON files** | Prototype with JSON in `db/` | You are here after `init` or `serve` |
 | **1 — Contracts** | Shape, defaults, and types matter | Add schema files and committed generated types |
 | **2 — Hardened API** | Browser or external clients consume data | Registered operations, `server.expose`, contracts, `doctor --production` |
 | **3 — Mixed stores** | JSON is no longer the right persistence | Per-resource store graduation to SQLite, Postgres, or custom stores |
@@ -204,7 +204,7 @@ npm run db -- serve --cwd ./examples/basic
 
 | Example | What it shows |
 | --- | --- |
-| [`examples/data-first`](./examples/data-first) | Plain fixtures before schemas exist |
+| [`examples/data-first`](./examples/data-first) | Plain JSON files before schemas exist |
 | [`examples/basic`](./examples/basic) | Shortest schema-backed workflow |
 | [`examples/schema-first`](./examples/schema-first) | Schema-only resources and empty seed records |
 | [`examples/csv`](./examples/csv) | CSV inference and mirror refreshes |
@@ -241,7 +241,7 @@ Each example README is the runnable authority for that example.
 | --- | --- |
 | Start a project | [docs/getting-started.md](./docs/getting-started.md) |
 | Understand the model | [docs/concepts.md](./docs/concepts.md) |
-| Author fixtures and schemas | [docs/fixtures-and-schemas.md](./docs/fixtures-and-schemas.md) |
+| Author data files and schemas | [docs/data-files-and-schemas.md](./docs/data-files-and-schemas.md) |
 | Manage generated output | [docs/generated-files.md](./docs/generated-files.md) |
 | Configure @async/db | [docs/configuration.md](./docs/configuration.md) |
 | Use JSON in production safely | [docs/json-production.md](./docs/json-production.md) |

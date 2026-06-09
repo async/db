@@ -100,7 +100,7 @@ function schemaMatchesInferenceFindings(resources: SchemaResource[], inferredRes
       source: 'doctor',
       resource: resource.name,
       message: `${resource.name} schema matches inferred data and may be removable.`,
-      hint: 'Keep the schema if you want it as an explicit contract; otherwise the data fixture can infer the same local shape.',
+      hint: 'Keep the schema if you want it as an explicit contract; otherwise the data file can infer the same local shape.',
       details: {
         resource: resource.name,
       },

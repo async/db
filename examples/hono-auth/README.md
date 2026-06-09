@@ -66,7 +66,7 @@ This is intentionally tiny demo auth. In a real app, `beforeRequest` would read 
 
 - [Hono route registration](../../docs/integrations.md#hono-route-registration)
 - [Lifecycle hooks](../../docs/integrations.md#hono-route-registration)
-- [Schema-backed fixtures](../../docs/fixtures-and-schemas.md#schema-files)
+- [Schema-backed data files](../../docs/data-files-and-schemas.md#add-schema-when-inference-is-not-enough)
 
 ## More Docs
 

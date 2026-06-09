@@ -47,7 +47,7 @@ server into `db/appState.json`.
 ## Why Sync With `sourceFile`?
 
 `npm run db -- sync --cwd ./examples/local-web-app` still matters even though
-the app writes directly to `db/appState.json`. Sync validates the fixture folder,
+the app writes directly to `db/appState.json`. Sync validates the data folder,
 infers the schema, and writes generated metadata/types for the viewer and tools.
 
 `stores.default: 'sourceFile'` changes where runtime writes land. Instead of

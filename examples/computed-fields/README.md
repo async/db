@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when you want to see several ways to model computed fields with `.schema.js`. Computed fields are read-only projections: stored fixture records stay small, and REST or GraphQL resolves the computed value only when a client selects it.
+Use this when you want to see several ways to model computed fields with `.schema.js`. Computed fields are read-only projections: stored data records stay small, and REST or GraphQL resolves the computed value only when a client selects it.
 
 ## Files To Inspect
 
@@ -79,13 +79,13 @@ Normal function resolvers can read internal runtime values such as `db`, `value`
 context object to `schema.resolver(...)` to override or add values; `this._internal`
 keeps the original internal view available when a resolver needs it.
 
-Computed fields are useful for values that are cheap to derive, read-only, and easier to keep out of source fixtures. They should not replace stored data that users need to edit directly.
+Computed fields are useful for values that are cheap to derive, read-only, and easier to keep out of source data files. They should not replace stored data that users need to edit directly.
 
 ## Features To Notice
 
-- [Computed fields](../../docs/fixtures-and-schemas.md#computed-fields)
-- [JavaScript schema sources](../../docs/fixtures-and-schemas.md#javascript-schema-sources)
-- [Fixture-like `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
+- [Computed fields](../../docs/data-files-and-schemas.md#computed-fields)
+- [JavaScript schema sources](../../docs/data-files-and-schemas.md#javascript-schema-sources)
+- [File-backed `.json` REST routes](../../docs/server-and-viewer.md#fixture-like-json-routes)
 - [Generated types](../../docs/generated-files.md#generated-types)
 
 ## Cleanup

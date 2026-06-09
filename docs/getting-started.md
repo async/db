@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide takes a project from one fixture file to a local API, viewer, generated schema metadata, and generated TypeScript types.
+This guide takes a project from one JSON file to a local API, viewer, generated schema metadata, and generated TypeScript types.
 
 ## Scaffold A Project
 
@@ -12,7 +12,7 @@ npx async-db init
 npx async-db serve
 ```
 
-`init` writes a starter fixture, a `.gitignore` entry for `.db/`, optional package scripts when `package.json` exists, and runs the first sync. Templates:
+`init` writes a starter JSON file, a `.gitignore` entry for `.db/`, optional package scripts when `package.json` exists, and runs the first sync. Templates:
 
 ```bash
 npx async-db init --template data-first
@@ -55,7 +55,7 @@ If you need an unreleased fix, pin a reviewed GitHub commit or release tag inste
 
 The scripts use the local `node_modules/.bin/async-db` binary, so each project controls its own @async/db version.
 
-## Create A Fixture
+## Create A JSON File
 
 @async/db uses `./db` by default:
 
@@ -78,7 +78,7 @@ JSON
 npm run db:sync
 ```
 
-Sync reads fixtures and writes generated runtime output:
+Sync reads data files and writes generated runtime output:
 
 ```txt
 .db/schema.generated.json
@@ -86,7 +86,7 @@ Sync reads fixtures and writes generated runtime output:
 .db/state/users.json
 ```
 
-By default, app writes update the generated JSON store under `.db/state`. Source fixtures stay unchanged.
+By default, app writes update the generated JSON store under `.db/state`. Source JSON files stay unchanged.
 
 ## Serve
 
@@ -108,7 +108,7 @@ In terminal 2, call the REST API:
 curl http://127.0.0.1:7331/db/users.json
 ```
 
-You can also read one record through the fixture-shaped URL:
+You can also read one record through the JSON-shaped URL:
 
 ```bash
 curl 'http://127.0.0.1:7331/db/users.json?id=u_1'
@@ -180,6 +180,6 @@ The example README has the exact files and requests for that workflow: [examples
 ## Next Steps
 
 - Use [Concepts](./concepts.md) to understand data-first, schema-first, mixed resources, runtime stores, and source writebacks.
-- Use [Fixtures And Schemas](./fixtures-and-schemas.md) to author richer fixtures and schemas.
+- Use [Data Files And Schemas](./data-files-and-schemas.md) to author richer JSON files and schemas.
 - Use [Server And Viewer](./server-and-viewer.md) for REST, GraphQL, viewer, and watch behavior.
 - Use [Generated Files](./generated-files.md) before committing generated output.

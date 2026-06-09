@@ -213,7 +213,7 @@ export async function checkContracts(config: ContractsConfig): Promise<DbContrac
             resource: resourceName,
             field: fieldName,
             message: `Contract "${contractName}" references unknown field "${resourceName}.${fieldName}".`,
-            hint: 'Use a field declared in the schema or fixture-inferred resource.',
+            hint: 'Use a field declared in the schema or data-inferred resource.',
           });
         }
       }
