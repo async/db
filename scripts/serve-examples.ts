@@ -282,6 +282,13 @@ export async function stopExamplesStack(stack: Awaited<ReturnType<typeof serveEx
   }
 }
 
+const EXAMPLE_LEVEL_ORDER = {
+  starter: 0,
+  core: 1,
+  production: 2,
+  pattern: 3,
+};
+
 export async function findExamples(examplesDir) {
   const entries = await readdir(examplesDir, { withFileTypes: true });
   const examples = [];
@@ -298,33 +305,41 @@ export async function findExamples(examplesDir) {
       ...metadata,
       cwd,
       relativePath: path.relative(root, cwd),
-      hasCustomRuntime: await fileExists(path.join(cwd, 'serve-example.mjs')),
+      hasCustomRuntime: await exampleRuntimeHookExists(cwd),
     });
   }
 
-  return examples.sort((left, right) => left.name.localeCompare(right.name));
+  return examples.sort(compareExamples);
+}
+
+export function compareExamples(left, right) {
+  const leftLevel = EXAMPLE_LEVEL_ORDER[left.level ?? 'core'] ?? EXAMPLE_LEVEL_ORDER.core;
+  const rightLevel = EXAMPLE_LEVEL_ORDER[right.level ?? 'core'] ?? EXAMPLE_LEVEL_ORDER.core;
+  if (leftLevel !== rightLevel) {
+    return leftLevel - rightLevel;
+  }
+
+  const leftOrder = Number.isFinite(left.order) ? left.order : Number.MAX_SAFE_INTEGER;
+  const rightOrder = Number.isFinite(right.order) ? right.order : Number.MAX_SAFE_INTEGER;
+  if (leftOrder !== rightOrder) {
+    return leftOrder - rightOrder;
+  }
+
+  return left.name.localeCompare(right.name);
 }
 
 export function renderExamplesIndex(examples) {
-  const rows = examples.map((example) => `
-        <article class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-semibold text-slate-950">${escapeHtml(example.title ?? titleFromName(example.name))}</h2>
-              <p class="mt-1 text-sm text-slate-600">${escapeHtml(example.relativePath)}</p>
-            </div>
-            <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(example.starterKind ?? 'db')}</span>
-          </div>
-          <p class="mt-3 text-sm text-slate-700">${escapeHtml(example.description ?? '')}</p>
-          <div class="mt-3 flex flex-wrap gap-1.5">${renderTags(example.tags ?? [])}</div>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <a class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800" href="${escapeHtml(example.demoUrl ?? example.viewerUrl)}">${escapeHtml(example.demoUrl ? 'Open demo' : 'Open viewer')}</a>
-            ${example.demoUrl ? `<a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.viewerUrl)}">Built-in viewer</a>` : ''}
-            ${renderDemoLinks(example)}
-            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/__db/schema">Schema JSON</a>
-            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/graphql">GraphQL SDL</a>
-          </div>
-        </article>`).join('');
+  const grouped = groupExamplesByLevel(examples);
+  const sections = grouped.map(({ label, items }) => {
+    const rows = items.map((example) => renderExampleCard(example)).join('');
+    return `
+    <section class="mb-8">
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">${escapeHtml(label)}</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+${rows}
+      </div>
+    </section>`;
+  }).join('');
 
   return `<!doctype html>
 <html lang="en">
@@ -339,14 +354,54 @@ export function renderExamplesIndex(examples) {
   <main class="mx-auto max-w-5xl px-5 py-8">
     <header class="mb-6">
       <h1 class="text-2xl font-bold tracking-normal">db examples</h1>
-      <p class="mt-2 text-sm text-slate-600">Examples run through this single host and start lazily when opened. Examples may ship <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">serve-example.mjs</code> to mount custom middleware ahead of the db REST stack.</p>
+      <p class="mt-2 text-sm text-slate-600">Examples run through this single host and start lazily when opened. Start with the <strong>Start here</strong> section, then follow the production and pattern examples when you need more. Examples may ship <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">serve-example.js</code> to mount custom middleware ahead of the db REST stack.</p>
     </header>
-    <section class="grid gap-4 sm:grid-cols-2">
-${rows}
-    </section>
+${sections}
   </main>
 </body>
 </html>`;
+}
+
+function groupExamplesByLevel(examples) {
+  const groups = [
+    { level: 'starter', label: 'Start here' },
+    { level: 'core', label: 'Core workflows' },
+    { level: 'production', label: 'Production patterns' },
+    { level: 'pattern', label: 'App patterns' },
+  ];
+
+  return groups
+    .map(({ level, label }) => ({
+      label,
+      items: examples.filter((example) => (example.level ?? 'core') === level),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+function renderExampleCard(example) {
+  return `
+        <article class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h3 class="text-base font-semibold text-slate-950">${escapeHtml(example.title ?? titleFromName(example.name))}</h3>
+              <p class="mt-1 text-sm text-slate-600">${escapeHtml(example.relativePath)}</p>
+            </div>
+            <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">${escapeHtml(example.starterKind ?? 'db')}</span>
+          </div>
+          <p class="mt-3 text-sm text-slate-700">${escapeHtml(example.description ?? '')}</p>
+          <div class="mt-3 flex flex-wrap gap-1.5">${renderTags(example.tags ?? [])}</div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <a class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800" href="${escapeHtml(example.demoUrl ?? example.viewerUrl)}">${escapeHtml(example.demoUrl ? 'Open demo' : 'Open viewer')}</a>
+            ${example.demoUrl ? `<a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.viewerUrl)}">Built-in viewer</a>` : ''}
+            ${renderDemoLinks(example)}
+            <a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-700" href="${escapeHtml(example.url)}/__db/schema">Schema JSON</a>
+          </div>
+        </article>`;
+}
+
+async function exampleRuntimeHookExists(cwd) {
+  return await fileExists(path.join(cwd, 'serve-example.js'))
+    || await fileExists(path.join(cwd, 'serve-example.mjs'));
 }
 
 function renderDemoLinks(example) {
@@ -377,6 +432,8 @@ function publicExample(example) {
     title: example.title,
     description: example.description,
     tags: example.tags,
+    level: example.level,
+    order: example.order,
     relativePath: example.relativePath,
     url: example.url,
     viewerUrl: example.viewerUrl,
@@ -487,6 +544,8 @@ async function readExampleMetadata(cwd, name) {
     title: titleFromName(name),
     description: 'Local db example.',
     tags: [],
+    level: 'core',
+    order: undefined,
   };
 
   try {
@@ -495,6 +554,8 @@ async function readExampleMetadata(cwd, name) {
       title: String(metadata.title ?? defaults.title),
       description: String(metadata.description ?? defaults.description),
       tags: Array.isArray(metadata.tags) ? metadata.tags.map((tag) => String(tag)) : defaults.tags,
+      level: String(metadata.level ?? defaults.level),
+      order: Number.isFinite(metadata.order) ? metadata.order : defaults.order,
     };
   } catch (error) {
     if (error.code === 'ENOENT') {

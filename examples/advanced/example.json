@@ -1,5 +1,7 @@
 {
   "title": "Advanced Schema Mix",
-  "description": "Mixed data and schema sources, .schema.mjs helpers, defaults, nested objects, and committed generated types.",
-  "tags": ["schema-mjs", "mixed-mode", "defaults"]
+  "description": "Mixed data and schema sources, `.schema.js` helpers, defaults, nested objects, and committed generated types.",
+  "level": "core",
+  "order": 9,
+  "tags": ["schema-js", "mixed-mode", "defaults"]
 }

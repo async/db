@@ -1,5 +1,7 @@
 {
   "title": "Computed Fields",
   "description": "Several schema-backed models showing computed fields for display names, formatted prices, reading time, and cross-resource order totals.",
-  "tags": ["computed", "schema-mjs", "graphql"]
+  "level": "core",
+  "order": 4,
+  "tags": ["computed", "schema-js", "graphql"]
 }

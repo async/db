@@ -25,7 +25,7 @@ Do not use it for core runtime/API contract changes unless the task is specifica
 
 ## Start Here
 
-- Example learning path and current list: `README.md`, especially "Which Example Should I Start With?"
+- Example learning path and current list: `README.md`, especially the tiered "Examples" section, plus `level`/`order` metadata in `examples/*/example.json`.
 - Repo rules, generated-file policy, and standard checks: `AGENTS.md`.
 - Example discovery/index behavior: `examples/*/example.json`, `scripts/serve-examples.js`, and `scripts/example-launcher.js`.
 - Example behavior tests: `test/examples/examples.test.js`.

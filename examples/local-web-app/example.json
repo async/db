@@ -1,5 +1,7 @@
 {
   "title": "Local Web App",
-  "description": "A tiny loopback web app that treats @async/db server state as canonical, saves form edits on blur, and writes directly to db/*.json.",
+  "description": "A tiny loopback web app that treats @async/db server state as canonical, saves form edits on blur, and writes directly to `db/*.json`.",
+  "level": "pattern",
+  "order": 3,
   "tags": ["local-app", "source-file", "live-reload"]
 }

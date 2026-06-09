@@ -1,5 +1,7 @@
 {
   "title": "Basic",
   "description": "The smallest schema-backed workflow: sync fixtures, inspect the viewer, and create a record through REST or the CLI.",
+  "level": "starter",
+  "order": 2,
   "tags": ["quick-start", "schema", "rest"]
 }

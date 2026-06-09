@@ -1,5 +1,7 @@
 {
   "title": "Production JSON",
   "description": "Feature flags and app settings kept in the first-party JSON store while browser traffic uses registered operations.",
+  "level": "production",
+  "order": 1,
   "tags": ["json", "production", "operations"]
 }

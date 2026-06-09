@@ -1,5 +1,7 @@
 {
   "title": "Schema First",
   "description": "Schema-only resources, empty seed records, generated types, and contract-first local APIs.",
+  "level": "starter",
+  "order": 3,
   "tags": ["schema-first", "types", "empty-seed"]
 }

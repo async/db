@@ -1,5 +1,7 @@
 {
   "title": "Relations",
   "description": "Users and posts with to-one relation metadata, REST expand, and nested select examples.",
+  "level": "core",
+  "order": 1,
   "tags": ["relations", "expand", "select"]
 }

@@ -34,31 +34,31 @@ const executeGraphql = async (...args: any[]): Promise<any> => typedExecuteGraph
 const buildOperationManifest = async (...args: any[]): Promise<any> => typedBuildOperationManifest(args[0] as never, args[1] as never) as Promise<any>;
 const createDbOperationHandler = (...args: any[]): any => typedCreateDbOperationHandler(args[0] as never, args[1] as never);
 const handleRestRequest = async (...args: any[]): Promise<void> => typedHandleRestRequest(args[0], args[1], args[2], args[3]);
-const { renderRecordDetailPage } = await import(pathToFileURL(path.resolve('examples/schema-ui/src/cms-ssr.mjs')).href);
+const { renderRecordDetailPage } = await import(pathToFileURL(path.resolve('examples/schema-ui/src/cms-ssr.js')).href);
 
 test('examples launcher can discover repo examples and render an index page', async () => {
   const examples = await findExamples(path.resolve('examples'));
   const names = examples.map((example) => example.name);
 
   assert.deepEqual(names, [
-    'advanced',
-    'basic',
-    'cms-json-publish',
-    'computed-fields',
-    'content-collections',
-    'csv',
     'data-first',
-    'diagnostics',
-    'free-plan-upgrade',
-    'hono-auth',
-    'local-web-app',
-    'production-json',
+    'basic',
+    'schema-first',
+    'csv',
     'relations',
     'rest-client',
-    'schema-first',
+    'diagnostics',
+    'computed-fields',
+    'content-collections',
+    'standard-schema',
     'schema-manifest',
     'schema-ui',
-    'standard-schema',
+    'advanced',
+    'production-json',
+    'hono-auth',
+    'cms-json-publish',
+    'free-plan-upgrade',
+    'local-web-app',
   ]);
   assert.equal(examples.find((example) => example.name === 'relations').title, 'Relations');
   assert.deepEqual(examples.find((example) => example.name === 'rest-client').tags, ['client', 'rest', 'batching']);
@@ -74,9 +74,10 @@ test('examples launcher can discover repo examples and render an index page', as
   })));
 
   assert.match(html, /db examples/);
-  assert.match(html, /serve-example\.mjs/);
+  assert.match(html, /serve-example\.js/);
   assert.match(html, /Open viewer/);
-  assert.match(html, /advanced/);
+  assert.match(html, /Start here/);
+  assert.match(html, /data-first/);
   assert.match(html, /Content Collections/);
   assert.match(html, /CMS JSON Publish/);
   assert.match(html, /Computed Fields/);
@@ -94,7 +95,7 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /Schema UI/);
   assert.match(html, /Standard Schema/);
 
-  const schemaUiHook = await readFile(path.resolve('examples/schema-ui/serve-example.mjs'), 'utf8');
+  const schemaUiHook = await readFile(path.resolve('examples/schema-ui/serve-example.js'), 'utf8');
   assert.match(schemaUiHook, /createExampleRuntime/);
 });
 
@@ -554,10 +555,10 @@ test('new onboarding examples sync expected resources', async () => {
   }
 
   const cmsCwd = await copyExampleProject('cms-json-publish');
-  await execFileAsync(process.execPath, ['src/cms.mjs'], { cwd: cmsCwd });
+  await execFileAsync(process.execPath, ['src/cms.js'], { cwd: cmsCwd });
 
   const upgradeCwd = await copyExampleProject('free-plan-upgrade');
-  await execFileAsync(process.execPath, ['src/upgrade-tenant-to-paid.mjs'], { cwd: upgradeCwd });
+  await execFileAsync(process.execPath, ['src/upgrade-tenant-to-paid.js'], { cwd: upgradeCwd });
 
   const productionJsonCwd = await copyExampleProject('production-json');
   const productionJsonConfig = await loadConfig({ cwd: productionJsonCwd });
@@ -612,7 +613,7 @@ test('new onboarding examples sync expected resources', async () => {
   assert.equal(schemaUiManifest.collections.pages.fields.status.ui.component, 'segmented-control');
   assert.equal(schemaUiManifest.collections.pages.fields.bodyMarkdown.ui.component, 'markdown');
 
-  const { stdout } = await execFileAsync(process.execPath, ['src/render-admin.mjs'], { cwd: schemaUiCwd });
+  const { stdout } = await execFileAsync(process.execPath, ['src/render-admin.js'], { cwd: schemaUiCwd });
   assert.match(stdout, /<h1>Schema UI Example<\/h1>/);
   assert.match(stdout, /data-mode="view" data-component="markdown" data-field="bodyMarkdown"/);
   assert.match(stdout, /data-mode="editor" data-component="relationSelect" data-field="authorId"/);
@@ -670,7 +671,7 @@ test('new onboarding examples sync expected resources', async () => {
   assert.equal(launchNotes.permalink, '/blog/launch-notes');
   assert.equal(launchNotes.readingTimeMinutes, 1);
 
-  const preview = await execFileAsync(process.execPath, ['src/content-preview.mjs'], { cwd: contentCwd });
+  const preview = await execFileAsync(process.execPath, ['src/content-preview.js'], { cwd: contentCwd });
   assert.match(preview.stdout, /<article data-kind="blog" data-id="launch-notes" data-href="\/blog\/launch-notes">/);
   assert.match(preview.stdout, /Intro To Local Content/);
 
@@ -682,11 +683,11 @@ test('new onboarding examples sync expected resources', async () => {
     '--cwd',
     contentCwd,
   ]);
-  const rootSchema = await readFile(path.join(contentCwd, 'db.schema.mjs'), 'utf8');
+  const rootSchema = await readFile(path.join(contentCwd, 'db.schema.js'), 'utf8');
   const siteSeed = JSON.parse(await readFile(path.join(contentCwd, 'db/site.json'), 'utf8'));
 
   assert.match(bundled.stdout, /Generated db\/site\.json/);
-  assert.match(bundled.stdout, /Generated db\.schema\.mjs/);
+  assert.match(bundled.stdout, /Generated db\.schema\.js/);
   assert.match(bundled.stderr, /SCHEMA_BUNDLE_SEED_UNBUNDLED/);
   assert.deepEqual(siteSeed, {
     title: 'Local Content Lab',
@@ -812,7 +813,7 @@ test('computed fields example resolves different computed field patterns', async
 });
 
 test('hono auth example shows lifecycle hook integration code', async () => {
-  const source = await readFile(path.resolve('examples/hono-auth/src/app.mjs'), 'utf8');
+  const source = await readFile(path.resolve('examples/hono-auth/src/app.js'), 'utf8');
 
   assert.match(source, /registerDbRoutes/);
   assert.match(source, /lifecycleHooks/);

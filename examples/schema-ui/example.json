@@ -1,5 +1,7 @@
 {
   "title": "Schema UI",
   "description": "Generate simple admin/CMS view and editor HTML from the committed schema manifest using string templates.",
+  "level": "core",
+  "order": 8,
   "tags": ["manifest", "cms", "templates"]
 }
