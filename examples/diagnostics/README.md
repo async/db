@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when you want to see how db reports local data file drift. It intentionally includes schema/data mismatches so the viewer can show source diagnostics while valid resources still work.
+Use this when you want to see how db reports local data file drift. It intentionally includes schema/data mismatches so the local data explorer can show source diagnostics while valid resources still work.
 
 ## Files To Inspect
 
@@ -19,7 +19,7 @@ npm run db -- sync --cwd ./examples/diagnostics
 npm run db -- serve --cwd ./examples/diagnostics
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db
@@ -27,7 +27,7 @@ http://127.0.0.1:7331/__db
 
 ## Expected Result
 
-`sync` reports warnings. The viewer surfaces diagnostics for the broken source files instead of making unrelated resources unusable.
+`sync` reports warnings. The local data explorer surfaces diagnostics for the broken source files instead of making unrelated resources unusable.
 
 ## REST Request To Try
 

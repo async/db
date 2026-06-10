@@ -1,11 +1,11 @@
 # Server Routes
 
-Use REST as the local app contract and keep dev tools on their own route base. The server starts from data-backed resources, exposes readable REST routes, supports local writes, and keeps viewer, schema, manifest, import, batch, log, and operation routes explicit. Optional GraphQL is available when enabled in config. File-like suffixes such as `.json` and `.md` choose response formats for the same shaped data.
+Use REST as the local app contract and keep dev tools on their own route base. The server starts from data-backed resources, exposes readable REST routes, supports local writes, and keeps the local data explorer, schema, manifest, import, batch, log, and operation routes explicit. Optional GraphQL is available when enabled in config. File-like suffixes such as `.json` and `.md` choose response formats for the same shaped data.
 
 | Route base | Purpose |
 | --- | --- |
 | `/db/*` | App-facing REST alias for file-like reads and writes. |
-| `/__db/*` | Viewer, schema, manifest, import, batch, logs, events, and scoped REST. |
+| `/__db/*` | Local data explorer, schema, manifest, import, batch, logs, events, and scoped REST. |
 | `/graphql` | Optional GraphQL route for local queries and mutations when enabled. |
 
 ## Route families
@@ -14,12 +14,12 @@ Defaults shown for `127.0.0.1:7331`.
 
 | Route | Method | Use |
 | --- | --- | --- |
-| `/__db` | GET | Built-in viewer shell. |
+| `/__db` | GET | Built-in local data explorer shell. |
 | `/__db/schema` | GET | Normalized schema metadata. |
 | `/__db/manifest[.json\|.html\|.md]` | GET | Viewer/API manifest in negotiated or explicit format. |
-| `/__db/events` | GET | Live event stream for viewer refreshes. |
+| `/__db/events` | GET | Live event stream for explorer refreshes. |
 | `/__db/log` | GET | Runtime log and request trace output. |
-| `/__db/import` | POST | CSV import endpoint used by the viewer. |
+| `/__db/import` | POST | CSV import endpoint used by the explorer. |
 | `/__db/batch` | POST | Sequential REST batch execution. |
 | `/__db/rest/*` | GET, POST, PATCH, PUT, DELETE | Scoped REST when the app data alias is disabled or not desired. |
 | `/db/*` | GET, POST, PATCH, PUT, DELETE | App-facing REST alias controlled by `server.dataPath`. |
@@ -112,4 +112,4 @@ export default defineConfig({
 
 Set `server.dataPath: false` when an app should not receive the `/db` alias. The same REST resources remain available under `/__db/rest` for local tools.
 
-See [Server And Viewer](../server-and-viewer.md) for the full route reference.
+See [Server And Local Data Explorer](../server-and-viewer.md) for the full route reference.

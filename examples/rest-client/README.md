@@ -51,4 +51,4 @@ Generated `.db/` output is ignored by git and can be removed whenever you want a
 ## More Docs
 
 - [Package API](../../docs/package-api.md)
-- [Server And Viewer](../../docs/server-and-viewer.md)
+- [Server And Local Data Explorer](../../docs/server-and-viewer.md)

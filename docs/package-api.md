@@ -905,13 +905,13 @@ const handler = createDbOperationHandler(db, {
 
 ## Repo Example Launcher
 
-Run every repo example and open an index of their viewers:
+Run every repo example and open an index of their local data explorers:
 
 ```bash
 npm run examples
 ```
 
-The examples index runs on one loopback port and starts each example runtime lazily when you open its demo or `/__db` viewer.
+The examples index runs on one loopback port and starts each example runtime lazily when you open its demo or `/__db` local data explorer.
 
 To get an HTTPS URL for the examples index inside your tailnet, opt in to
 Tailscale Serve:

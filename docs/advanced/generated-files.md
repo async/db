@@ -9,7 +9,7 @@ Sync writes runtime metadata and state under `.db/`. Commit generated contracts 
 | Runtime state | `.db/state/*.json` | No, unless a task explicitly asks for runtime state. |
 | Generated types | `outputs.committedTypes` | Yes, when TypeScript imports need a fresh-checkout contract. |
 | Schema manifest | `outputs.schemaManifest` | Yes, when a local UI imports field metadata. |
-| Viewer manifest | `outputs.viewerManifest` | Yes, when a custom viewer imports route and capability metadata. |
+| Viewer manifest | `outputs.viewerManifest` | Yes, when a custom data explorer imports route and capability metadata. |
 | Operation refs | `outputs.operationRefs` | Yes, when client code imports approved callable refs. |
 | Operation registry | `outputs.operationRegistry` | Server-side only. Do not ship full templates to browser code. |
 

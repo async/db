@@ -23,7 +23,7 @@ db/users.json              source data file
 .db/state/users.json   writable runtime JSON store
 ```
 
-REST writes, GraphQL mutations, package API writes, and viewer operations write to runtime state. Changed source data files refresh state based on source hashes; unchanged source data files preserve runtime edits.
+REST writes, GraphQL mutations, package API writes, and local data explorer operations write to runtime state. Changed source data files refresh state based on source hashes; unchanged source data files preserve runtime edits.
 
 ## Generated Ids
 
@@ -125,7 +125,7 @@ The manifests at [examples/schema-manifest/src/generated/db.schema.json](../exam
 
 ## Viewer Manifest Output
 
-Use `outputs.viewerManifest` when a custom data viewer needs the same JSON metadata used by the built-in viewer:
+Use `outputs.viewerManifest` when a custom data explorer needs the same JSON metadata used by the built-in viewer:
 
 ```js
 import { defineConfig } from '@async/db/config';
@@ -194,7 +194,7 @@ plus the contract resource field map.
 - Do not commit `.db/` unless a task explicitly asks for generated runtime state.
 - Do commit configured `outputs.committedTypes` output when an app needs stable imports in a fresh checkout.
 - Do commit configured `outputs.schemaManifest` output when an app needs stable schema metadata at runtime.
-- Do commit configured `outputs.viewerManifest` output when a custom viewer needs stable metadata and route links at runtime.
+- Do commit configured `outputs.viewerManifest` output when a custom data explorer needs stable metadata and route links at runtime.
 - Do commit configured `outputs.operationRefs` output when app or CI code imports approved registered operation refs.
 - Do commit configured `outputs.contractRefs` output when root apps import per-contract operation refs.
 - Smoke commands against examples may create `examples/*/.db/`; remove that generated runtime output before finalizing.

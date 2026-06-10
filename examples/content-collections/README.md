@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Use this when you want a dependency-free version of the content collection pattern: docs and blog posts live as MDX files, `index.schema.js` files describe the record shape, and async-db exposes the content through generated types, REST, GraphQL, and the local viewer.
+Use this when you want a dependency-free version of the content collection pattern: docs and blog posts live as MDX files, `index.schema.js` files describe the record shape, and async-db exposes the content through generated types, REST, GraphQL, and the local data explorer.
 
 This example does not install `content-collections`, a frontmatter package, or an MDX compiler. Core reads simple scalar frontmatter plus the raw MDX body. The app-owned preview script shows where rendering or richer parsing belongs.
 
@@ -25,7 +25,7 @@ npm run db -- sync --cwd ./examples/content-collections
 npm run db -- serve --cwd ./examples/content-collections
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db

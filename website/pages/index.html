@@ -94,14 +94,14 @@
               A database made of JSON files.
             </h1>
             <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-300 text-pretty [.light_&]:text-slate-700">
-              Start with JSON files in <code class="font-mono text-cyan-100 [.light_&]:text-cyan-900">db/</code>, infer useful schema
-              metadata, serve local REST and viewer routes, then graduate each resource behind stable operation refs when production
-              constraints appear.
+              Start with JSON files in <code class="font-mono text-cyan-100 [.light_&]:text-cyan-900">db/</code>. @async/db infers
+              schema metadata, writes TypeScript types, and serves local REST, GraphQL, and a local data explorer while your app
+              contract takes shape.
               </p>
               <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-400 [.light_&]:text-slate-600">
-                This docs site is built with <a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
+                This docs site uses <a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
                   href="https://github.com/async-framework/async-db/blob/main/website/db.schema.js">@async/db content collections</a>
-                — markdown lives in <code class="font-mono">docs/</code>, the allowlist lives in <code
+                to load markdown from <code class="font-mono">docs/</code> through the allowlist in <code
                   class="font-mono">website/db.schema.js</code>.
             </p>
             <div class="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -111,7 +111,7 @@
               </a>
               <a class="inline-flex items-center justify-center rounded-full border border-slate-600 px-5 py-3 text-sm font-bold text-slate-100 transition hover:border-cyan-300 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-slate-300 [.light_&]:text-slate-800 [.light_&]:hover:border-cyan-700 [.light_&]:hover:text-cyan-900"
                 href="./docs/advanced/overview.html">
-                Browse advanced settings
+                Production guides
               </a>
             </div>
             <div class="mt-8 w-full max-w-2xl rounded-lg border border-cyan-900/80 bg-[#071427] p-4 [.light_&]:border-slate-200 [.light_&]:bg-white" data-install-tabs>
@@ -130,7 +130,7 @@
                 <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>pnpm add @async/db
 pnpm exec async-db init
 pnpm exec async-db serve</code></pre>
-                <p class="mt-3 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Keep <code class="font-mono">serve</code> running, then open <code class="font-mono">http://127.0.0.1:7331/__db</code>.</p>
+                <p class="mt-3 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Keep <code class="font-mono">serve</code> running, then open the local data explorer at <code class="font-mono">http://127.0.0.1:7331/__db</code>.</p>
               </div>
               <div class="mt-4 hidden" data-install-panel="npm" role="tabpanel">
                 <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>npm install @async/db
@@ -143,7 +143,7 @@ npx async-db serve</code></pre>
                 <pre class="mt-3 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>Install @async/db in this repo with the current package manager.
 Add scripts for db, db:sync, and db:serve.
 Create db/users.json with one seed user.
-Run async-db sync and report the viewer URL.</code></pre>
+Run async-db sync and report the local data explorer URL.</code></pre>
               </div>
             </div>
           </div>
@@ -183,34 +183,34 @@ Run async-db sync and report the viewer URL.</code></pre>
                 </div>
                 <div class="min-w-0 rounded-lg border border-cyan-900/80 bg-[#071427] p-4 [.light_&]:border-slate-200 [.light_&]:bg-white">
                   <div class="mb-3 flex items-center justify-between">
-                    <span class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">production boundary</span>
-                    <span class="text-xs font-semibold text-slate-400 [.light_&]:text-slate-600">resource-level</span>
+                    <span class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">when data grows</span>
+                    <span class="text-xs font-semibold text-slate-400 [.light_&]:text-slate-600">per resource</span>
                   </div>
                   <div class="flex flex-wrap gap-2 text-xs font-bold">
                     <span class="rounded-full bg-emerald-300 px-3 py-1 text-slate-950">json</span>
                     <span class="rounded-full bg-sky-300 px-3 py-1 text-slate-950">sqlite</span>
                     <span class="rounded-full bg-cyan-300 px-3 py-1 text-slate-950">postgres</span>
-                    <span class="rounded-full bg-amber-300 px-3 py-1 text-slate-950">ops refs</span>
+                    <span class="rounded-full bg-amber-300 px-3 py-1 text-slate-950">app API</span>
                   </div>
                 </div>
               </div>
             </div>
             <div class="grid min-w-0 gap-3 rounded-lg border border-cyan-900/80 bg-[#06101f] p-4 text-sm text-slate-300 md:grid-cols-4 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-700">
               <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">01 JSON files</p>
-                <p class="mt-2">Editable source files in `db/`.</p>
+                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">01 data files</p>
+                <p class="mt-2">Editable source files in <code class="font-mono">db/</code>.</p>
               </div>
               <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">02 contract</p>
-                <p class="mt-2">Inferred or explicit resource schema.</p>
+                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">02 generated contract</p>
+                <p class="mt-2">Schema metadata, types, and validation.</p>
               </div>
               <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">03 local API</p>
-                <p class="mt-2">REST, optional GraphQL, and viewer state.</p>
+                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">03 local explorer</p>
+                <p class="mt-2">REST, GraphQL, and browsing tools.</p>
               </div>
               <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">04 graduate</p>
-                <p class="mt-2">Registered operations and store choices.</p>
+                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">04 production path</p>
+                <p class="mt-2">Keep JSON where it fits, switch stores where it does not.</p>
               </div>
             </div>
           </div>
@@ -223,16 +223,17 @@ Run async-db sync and report the viewer URL.</code></pre>
           <div class="max-w-3xl">
             <h2 class="text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">Learning path
             </h2>
-            <p class="mt-4 text-base leading-7 text-slate-300 [.light_&]:text-slate-700">Four tiers from first JSON file to
-              production contracts. Each page is generated from markdown in <code class="font-mono">docs/</code>.</p>
+            <p class="mt-4 text-base leading-7 text-slate-300 [.light_&]:text-slate-700">Start with one JSON file, then add
+              schemas, route controls, stores, and generated files as your app needs them. Each page is generated from markdown in
+              <code class="font-mono">docs/</code>.</p>
           </div>
           <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
               href="./docs/getting-started.html">
               <p class="text-xs font-bold uppercase tracking-wide text-cyan-300 [.light_&]:text-cyan-800">Start</p>
               <h3 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Install and first JSON file</h3>
-              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Scaffold, sync, serve, viewer, and
-                first REST call.</p>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Scaffold, sync, serve, open the local
+                data explorer, and make the first REST call.</p>
             </a>
             <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
               href="./docs/data-files-and-schemas.html">
@@ -244,9 +245,9 @@ Run async-db sync and report the viewer URL.</code></pre>
             <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
               href="./docs/json-production.html">
               <p class="text-xs font-bold uppercase tracking-wide text-amber-300 [.light_&]:text-amber-800">Production</p>
-              <h3 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Graduate resources</h3>
-              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">JSON production, store graduation,
-                and route lockdown.</p>
+              <h3 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Prepare for production</h3>
+              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Use JSON safely, choose stores,
+                and limit exposed routes.</p>
             </a>
             <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
               href="./docs/package-api.html">
@@ -264,11 +265,11 @@ Run async-db sync and report the viewer URL.</code></pre>
           <div class="grid min-w-0 gap-6 lg:grid-cols-[0.8fr_1.2fr]">
             <div class="min-w-0">
               <h2 class="text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">
-                Advanced pages for the settings that change production behavior.
+                Settings for the path from local files to app-backed APIs.
               </h2>
               <p class="mt-4 max-w-xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
-                The public docs now have separate pages for the settings developers need after the first JSON file works: config, schema
-                strictness, runtime stores, server exposure, operations, mocks, and generated artifacts.
+                After your first JSON file works, use these guides for config, schema strictness, runtime stores, server exposure,
+                registered operations, mocks, and generated files.
               </p>
             </div>
             <div class="grid min-w-0 gap-3 sm:grid-cols-2">
@@ -364,9 +365,9 @@ Run async-db sync and report the viewer URL.</code></pre>
         <div class="mx-auto max-w-7xl min-w-0 px-5 sm:px-8">
           <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 class="text-3xl font-black text-slate-50 [.light_&]:text-slate-950">Example paths stay visible.</h2>
+              <h2 class="text-3xl font-black text-slate-50 [.light_&]:text-slate-950">Learn from runnable examples.</h2>
               <p class="mt-3 max-w-2xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
-                The docs point readers toward concrete repo examples instead of abstract feature claims.
+                Each example shows the real files to inspect, the command to run, and one request to try.
               </p>
             </div>
             <a class="text-sm font-bold text-cyan-200 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:text-cyan-800 [.light_&]:hover:text-cyan-950"
@@ -393,7 +394,7 @@ Run async-db sync and report the viewer URL.</code></pre>
                     class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
                     href="https://github.com/PatrickJS" rel="noopener">Patrick Stapleton (PatrickJS)</a>, a long-time open-source
                   JavaScript engineer. It comes from years of starting frontend projects the same way: mock JSON first, real
-                  backend later — this package makes that path a first-class workflow.
+                  backend later. This package makes that path a first-class workflow.
                 </p>
                 <div class="mt-5 flex flex-wrap gap-3 text-sm font-semibold">
                   <a class="rounded-full border border-cyan-800 bg-[#071427] px-4 py-2 text-slate-200 transition hover:border-cyan-300 hover:text-cyan-100 [.light_&]:border-slate-300 [.light_&]:bg-slate-50 [.light_&]:text-slate-800 [.light_&]:hover:border-cyan-700"

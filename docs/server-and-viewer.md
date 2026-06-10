@@ -1,6 +1,6 @@
-# Server And Viewer
+# Server And Local Data Explorer
 
-`async-db serve` starts a local development server. It syncs on startup, watches data files in `db/`, serves REST and GraphQL endpoints, and exposes the built-in data viewer.
+`async-db serve` starts a local development server. It syncs on startup, watches data files in `db/`, serves REST and GraphQL endpoints, and exposes the built-in local data explorer.
 
 ## Local Trust Boundary
 
@@ -10,7 +10,7 @@ Important write surfaces:
 
 - REST writes update runtime state.
 - GraphQL mutations update runtime state.
-- Viewer CSV import writes CSV files into the configured `dbDir`.
+- Explorer CSV import writes CSV files into the configured `dbDir`.
 - Resources bound to the `sourceFile` store may write supported changes back to source JSON files.
 
 Config and schema JavaScript are trusted project code. Do not treat `.schema.js`, `.schema.js`, or config hooks as untrusted data.
@@ -43,21 +43,21 @@ Trace data intentionally omits request bodies, response bodies, cookie headers,
 authorization headers, and query values. Query strings are represented as keys
 only, for example `["select", "expand"]`.
 
-## Viewer
+## Local Data Explorer
 
-Open the built-in viewer after starting the server:
+Open the built-in local data explorer after starting the server:
 
 ```txt
 http://127.0.0.1:7331/__db
 ```
 
-The default viewer and dev-tool route base is `/__db`. Change it with
+The local data explorer opens at the default dev-tool route base, `/__db`. Change it with
 `server.apiBase` when an app needs a different reserved path; schema, batch,
 import, events, log, and fork routes move with that base.
 
-Opening `http://127.0.0.1:7331/` in a browser shows a small index with links to the data viewer, schema, GraphQL endpoint, and resource routes. API-style requests to `/` keep returning JSON discovery data by default.
+Opening `http://127.0.0.1:7331/` in a browser shows a small index with links to the local data explorer, schema, GraphQL endpoint, and resource routes. API-style requests to `/` keep returning JSON discovery data by default.
 
-The viewer includes:
+The explorer includes:
 
 - resource and data browsing
 - drag-and-drop CSV import into the configured data folder (`db/`)
@@ -69,7 +69,7 @@ The viewer includes:
 
 ## Custom Viewer Manifest
 
-The built-in viewer reads the same JSON manifest that custom viewer UIs can use:
+The built-in local data explorer reads the same JSON manifest that custom viewer UIs can use:
 
 ```txt
 GET /__db/manifest
@@ -82,10 +82,10 @@ GET /__db/manifest.md
 
 The manifest includes:
 
-- API links for the viewer, manifest, manifest JSON/HTML/Markdown routes, schema, events, batch, import, GraphQL, and each REST resource
+- API links for the local data explorer, manifest, manifest JSON/HTML/Markdown routes, schema, events, batch, import, GraphQL, and each REST resource
 - built-in and configured custom viewer links
 - resource and field metadata, including generated UI hints and relation hints
-- viewer capabilities such as writes, batching, CSV import, GraphQL, and live events
+- UI capabilities such as writes, batching, CSV import, GraphQL, and live events
 - diagnostics suitable for display in a custom UI
 
 The manifest does not include seed records, source paths, source hashes, runtime state paths, or GraphQL SDL. Custom viewers should fetch `manifest.json` for UI metadata and route links, then fetch actual records from REST or GraphQL. `api.formats` lists the registered response formats, media types, and manifest paths for custom viewers and tools.
@@ -127,7 +127,7 @@ async-db viewer manifest --out ./src/generated/db.viewer.json
 
 REST routes are enabled by default. Set `rest.enabled: false` to turn off
 generated resource routes and REST batching while keeping dev-tool routes such
-as the viewer, schema, manifest, import, events, and GraphQL available.
+as the local data explorer, schema, manifest, import, events, and GraphQL available.
 
 The app-facing REST route base defaults to `/db`, matching the data folder (`db/`).
 For a data file at `db/users.json`, fetch the synced runtime resource with:
@@ -513,13 +513,13 @@ It supports aliases, variables, `operationName`, `__typename`, named and inline
 fragments, `@include`/`@skip`, HTTP batching, and minimal
 `__schema`/`__type` introspection for local tooling.
 
-Set `graphql.enabled: false` when an app wants REST, schema, manifest, viewer,
-import, and events without a GraphQL endpoint. GraphQL is disabled by default
-so the starter surface stays REST-first.
+Set `graphql.enabled: false` when an app wants REST, schema, manifest, the local
+data explorer, import, and events without a GraphQL endpoint. GraphQL is disabled
+by default so the starter surface stays REST-first.
 
 GraphQL HTTP batches execute sequentially and are intentionally non-transactional. If an earlier mutation succeeds and a later batch item fails, the earlier mutation stays committed.
 
-REST remains the documented happy path because REST plus the viewer is the intended default workflow.
+REST remains the documented happy path because REST plus the local data explorer is the intended default workflow.
 
 GraphQL selections use the same read projection/fanout path as REST for computed
 fields. Registered GraphQL operations are fixed query templates; they are not a
@@ -582,10 +582,10 @@ returns a JSONGraph envelope, @async/db passes it through. Otherwise the result
 is wrapped under `operations.users.get.result`.
 
 Set `falcor.enabled: false` when an app wants REST, GraphQL, schema, manifest,
-viewer, import, and events without a Falcor endpoint.
+the local data explorer, import, and events without a Falcor endpoint.
 
 ## Watch Behavior
 
-`serve` watches data files in `db/`, ignores `.db/`, reloads valid resources when files change, and surfaces file-specific diagnostics in the viewer without breaking unrelated resources.
+`serve` watches data files in `db/`, ignores `.db/`, reloads valid resources when files change, and surfaces file-specific diagnostics in the local data explorer without breaking unrelated resources.
 
 If an app commits generated files under frontend source folders, Vite may still reload when those files genuinely change. Only ignore generated files that the browser does not need to hot reload.

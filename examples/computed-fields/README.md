@@ -21,7 +21,7 @@ npm run db -- sync --cwd ./examples/computed-fields
 npm run db -- serve --cwd ./examples/computed-fields
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db

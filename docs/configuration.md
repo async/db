@@ -259,7 +259,7 @@ export default defineConfig({
 });
 ```
 
-`server.apiBase` scopes the standalone viewer and internal development routes:
+`server.apiBase` scopes the local data explorer and internal development routes:
 viewer, schema, batch, import, live events, and runtime log. REST
 resources such as `/users` and the standalone GraphQL path stay unchanged unless
 you configure those surfaces separately.

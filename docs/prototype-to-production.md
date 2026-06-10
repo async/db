@@ -24,7 +24,7 @@ POST    /__db/operations/:ref
 ```
 
 Use `/db/*` while the data shape is still changing. It mirrors the `db/`
-data folder, works well with `.json` reads, and keeps the browser viewer
+data folder, works well with `.json` reads, and keeps the local data explorer
 and import tools under `/__db`.
 
 This default is local development infrastructure. Do not expose `async-db
@@ -293,7 +293,7 @@ still needs normal auth, authorization, rate limits, and monitoring.
 ## Operation-Only Exposure
 
 `operations.enabled: true` enables registered operation execution without
-closing local REST or viewer routes. Once the app uses registered operation
+closing local REST or local data explorer routes. Once the app uses registered operation
 refs as its public data contract, opt into operation-only exposure to block raw
 REST exploration:
 
@@ -405,8 +405,8 @@ should keep working but raw REST should close. `graphql.enabled: false`
 disables GraphQL execution entirely. If registered GraphQL operations still
 need GraphQL execution, keep `graphql.enabled: true` and set
 `server.expose.graphql: false` to hide the direct GraphQL endpoint.
-`falcor.enabled: false` disables `/model.json`. Keep viewer, schema, and
-manifest exposure at `'dev'` for local tools, or set them to `false` when a
+`falcor.enabled: false` disables `/model.json`. Keep the local data explorer,
+schema, and manifest exposure at `'dev'` for local tools, or set them to `false` when a
 production-facing mount should not serve those metadata routes.
 
 Use the static usage scanner to review what the app appears to call:

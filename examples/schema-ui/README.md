@@ -27,7 +27,7 @@ From the repository root:
 node ./examples/schema-ui/serve.js
 ```
 
-Open **http://127.0.0.1:7342/** — CMS home with links into each collection. The built-in viewer is **http://127.0.0.1:7342/__db**.
+Open **http://127.0.0.1:7342/** for the CMS home with links into each collection. The built-in local data explorer is **http://127.0.0.1:7342/__db**.
 
 ### From the repo examples index
 
@@ -45,7 +45,7 @@ Routes:
 | `/cms/pages` | List pages from the mirror |
 | `/cms/pages/page_home` | SSR detail: resolved author link, markdown body text, filled editor controls |
 | `/templates` | Static component templates only (no database rows), matching the CLI renderer |
-| `/__db`, `/graphql`, `/db/pages.json`, … | Stock db viewer, GraphQL, and REST on the same origin |
+| `/__db`, `/graphql`, `/db/pages.json`, … | Built-in local data explorer, GraphQL, and REST on the same origin |
 
 URLs are printed when the server starts.
 

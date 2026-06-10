@@ -20,7 +20,7 @@ npm run db -- sync --cwd ./examples/schema-first
 npm run db -- serve --cwd ./examples/schema-first
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db

@@ -138,4 +138,4 @@ npm run db -- doctor --json
 npm run db -- check --strict
 ```
 
-See [Data Files And Schemas](./data-files-and-schemas.md) for authoring details and [Server And Viewer](./server-and-viewer.md) for how diagnostics appear while serving.
+See [Data Files And Schemas](./data-files-and-schemas.md) for authoring details and [Server And Local Data Explorer](./server-and-viewer.md) for how diagnostics appear while serving.

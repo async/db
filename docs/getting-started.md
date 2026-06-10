@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide takes a project from one JSON file to a local API, viewer, generated schema metadata, and generated TypeScript types.
+This guide takes a project from one JSON file to a local API, local data explorer, generated schema metadata, and generated TypeScript types.
 
 ## Scaffold A Project
 
@@ -96,7 +96,7 @@ In terminal 1:
 npm run db:serve
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db
@@ -181,5 +181,5 @@ The example README has the exact files and requests for that workflow: [examples
 
 - Use [Concepts](./concepts.md) to understand data-first, schema-first, mixed resources, runtime stores, and source writebacks.
 - Use [Data Files And Schemas](./data-files-and-schemas.md) to author richer JSON files and schemas.
-- Use [Server And Viewer](./server-and-viewer.md) for REST, GraphQL, viewer, and watch behavior.
+- Use [Server And Local Data Explorer](./server-and-viewer.md) for REST, GraphQL, explorer, and watch behavior.
 - Use [Generated Files](./generated-files.md) before committing generated output.

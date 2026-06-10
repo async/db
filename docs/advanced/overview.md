@@ -33,7 +33,7 @@ operations.acceptRefs = "ref"
 1. **[Configuration](./configuration.md)** — Use config when defaults stop matching the project shape.
 2. **[Schema contracts](./schema.md)** — Know what inference can prove and when explicit schema should take over.
 3. **[Runtime stores](./runtime-stores.md)** — Keep JSON where it fits and move only the resource that outgrows it.
-4. **[Server routes](./server.md)** — Separate local viewer routes from app-facing data routes.
+4. **[Server routes](./server.md)** — Separate local data explorer routes from app-facing data routes.
 5. **[Registered operations](./operations.md)** — Expose reviewed callable refs instead of raw resource exploration.
 6. **[Mocking](./mocking.md)** — Make loading, retry, and empty states visible while staying local.
 7. **[Generated files](./generated-files.md)** — Keep `.db/` out of git, then deliberately commit generated types, manifests, or operation refs only when the app imports them.

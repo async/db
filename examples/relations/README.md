@@ -19,7 +19,7 @@ npm run db -- sync --cwd ./examples/relations
 npm run db -- serve --cwd ./examples/relations
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db
@@ -27,7 +27,7 @@ http://127.0.0.1:7331/__db
 
 ## Expected Result
 
-The viewer lists `posts` and `users`. The posts schema shows an `author` relation derived from `authorId`.
+The local data explorer lists `posts` and `users`. The posts schema shows an `author` relation derived from `authorId`.
 
 ## REST Request To Try
 
@@ -53,4 +53,4 @@ Generated `.db/` output is ignored by git and can be removed whenever you want a
 ## More Docs
 
 - [Data Files And Schemas](../../docs/data-files-and-schemas.md)
-- [Server And Viewer](../../docs/server-and-viewer.md)
+- [Server And Local Data Explorer](../../docs/server-and-viewer.md)

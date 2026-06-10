@@ -2,7 +2,7 @@
 
 ## What This Teaches
 
-Start here when you want the smallest schema-backed db workflow. It demonstrates sync, committed generated types, the viewer, file-backed `.json` REST reads, and creating a record.
+Start here when you want the smallest schema-backed db workflow. It demonstrates sync, committed generated types, the local data explorer, file-backed `.json` REST reads, and creating a record.
 
 ## Files To Inspect
 
@@ -21,7 +21,7 @@ npm run db -- operations build --cwd ./examples/basic
 npm run db -- serve --cwd ./examples/basic
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db

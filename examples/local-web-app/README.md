@@ -48,7 +48,7 @@ server into `db/appState.json`.
 
 `npm run db -- sync --cwd ./examples/local-web-app` still matters even though
 the app writes directly to `db/appState.json`. Sync validates the data folder,
-infers the schema, and writes generated metadata/types for the viewer and tools.
+infers the schema, and writes generated metadata/types for the local data explorer and tools.
 
 `stores.default: 'sourceFile'` changes where runtime writes land. Instead of
 copying app edits into `.db/state/appState.json`, the server writes the plain
@@ -74,4 +74,4 @@ Generated `.db/` output is ignored by git and can be removed whenever you want a
 ## More Docs
 
 - [Configuration](../../docs/configuration.md)
-- [Server And Viewer](../../docs/server-and-viewer.md)
+- [Server And Local Data Explorer](../../docs/server-and-viewer.md)

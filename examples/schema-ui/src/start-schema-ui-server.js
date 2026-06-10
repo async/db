@@ -7,7 +7,7 @@ import { sendJson } from '../../../dist/rest/handler.js';
 import { handleSchemaUiSsrRequest } from './schema-ui-ssr-handler.js';
 
 /**
- * Schema UI demo runtime: SSR CMS routes composed ahead of the stock db REST / viewer stack.
+ * Schema UI demo runtime: SSR CMS routes composed ahead of the stock db REST / explorer stack.
  *
  * @param {{ cwd: string; basePath?: string; skipSync?: boolean }} options
  */

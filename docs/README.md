@@ -27,7 +27,7 @@ The root [README](../README.md) is the mini guide; these pages hold the task and
 
 ## Start
 
-- [Getting Started](./getting-started.md): install, first JSON file, sync, serve, viewer, REST call, and first schema.
+- [Getting Started](./getting-started.md): install, first JSON file, sync, serve, local data explorer, REST call, and first schema.
 - [Concepts](./concepts.md): data-first JSON files, schema-first resources, mixed resources, runtime stores, source writebacks, and product boundaries.
 - [Examples](../examples/basic/README.md): runnable example READMEs are the authority for example-specific commands.
 
@@ -48,7 +48,7 @@ The root [README](../README.md) is the mini guide; these pages hold the task and
 
 ## Serve And Integrate
 
-- [Server And Viewer](./server-and-viewer.md): REST routes, registered operations, GraphQL boundary, viewer, CSV import, watch behavior, batching, response formats, and local trust boundaries.
+- [Server And Local Data Explorer](./server-and-viewer.md): REST routes, registered operations, GraphQL boundary, CSV import, watch behavior, batching, response formats, and local trust boundaries.
 - [Prototype To Production REST Guide](./prototype-to-production.md): move `/db/*` prototypes to `/api/db/*` or `/api/*`, registered operation refs, and route lockdown.
 - [Package API](./package-api.md): CLI commands, runtime API, HTTP client operations, schema/config helpers, and package export map.
 - [Integrations](./integrations.md): Vite plugin, Hono route registration, SQLite starter generation, and optional dependency boundaries.

@@ -15,7 +15,7 @@ const app = await startSchemaUiServer({
 });
 
 console.log(`Schema UI SSR + db: ${app.url}/`);
-console.log(`Built-in viewer: ${app.url}/__db`);
+console.log(`Built-in local data explorer: ${app.url}/__db`);
 console.log(`Static templates (no records): ${app.url}/templates`);
 
 function parseArgs(argv) {

@@ -19,7 +19,7 @@ npm run db -- sync --cwd ./examples/data-first
 npm run db -- serve --cwd ./examples/data-first
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db

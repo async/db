@@ -71,4 +71,4 @@ This is intentionally tiny demo auth. In a real app, `beforeRequest` would read 
 ## More Docs
 
 - [Integrations](../../docs/integrations.md)
-- [Server And Viewer](../../docs/server-and-viewer.md)
+- [Server And Local Data Explorer](../../docs/server-and-viewer.md)

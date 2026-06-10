@@ -1,12 +1,12 @@
 # @async/db
 
-`@async/db` gives frontend teams a gradual path from mock JSON to production data contracts. Drop JSON files in `db/`, infer schema metadata, serve a local REST API and viewer, then graduate persistence per resource without rewriting frontend data access.
+`@async/db` gives frontend teams a gradual path from mock JSON to production data contracts. Drop JSON files in `db/`, infer schema metadata, serve REST, GraphQL, and a local data explorer, then move persistence per resource without rewriting frontend data access.
 
 Use it to:
 
 - Start from editable JSON, JSONC, or CSV data files in `db/`.
 - Infer schema contracts and generate TypeScript types from data files and schemas.
-- Serve local REST routes and a lightweight viewer while the backend contract is still forming.
+- Serve local REST routes, GraphQL, and a lightweight data explorer while the backend contract is still forming.
 - Upgrade persistence per resource without rewriting frontend data access.
 - Emit schema metadata for admin, CMS, or form-building screens.
 
@@ -20,7 +20,7 @@ npx async-db init
 npx async-db serve
 ```
 
-Open `http://127.0.0.1:7331/__db` and call `GET /db/users.json`.
+Open the local data explorer at `http://127.0.0.1:7331/__db` and call `GET /db/users.json`.
 
 No config file is required. `init` writes a starter JSON file, `.gitignore` entry for `.db/`, optional package scripts, and runs the first sync. Prefer a manual one-file start?
 
@@ -86,13 +86,13 @@ Sync generated metadata, types, and runtime state:
 npm run db:sync
 ```
 
-Start the local API and viewer:
+Start the local server:
 
 ```bash
 npm run db:serve
 ```
 
-Open the viewer at `http://127.0.0.1:7331/__db`.
+Open the local data explorer at `http://127.0.0.1:7331/__db`.
 
 Call the REST API:
 
@@ -245,7 +245,7 @@ Each example README is the runnable authority for that example.
 | Manage generated output | [docs/generated-files.md](./docs/generated-files.md) |
 | Configure @async/db | [docs/configuration.md](./docs/configuration.md) |
 | Use JSON in production safely | [docs/json-production.md](./docs/json-production.md) |
-| Serve local data and REST/viewer | [docs/server-and-viewer.md](./docs/server-and-viewer.md) |
+| Serve local data and explore it locally | [docs/server-and-viewer.md](./docs/server-and-viewer.md) |
 | Graduate REST prototypes | [docs/prototype-to-production.md](./docs/prototype-to-production.md) |
 | Use the package API or CLI | [docs/package-api.md](./docs/package-api.md) |
 | Review public API surface | [API_SURFACE.md](./API_SURFACE.md) |

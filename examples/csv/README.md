@@ -18,7 +18,7 @@ npm run db -- sync --cwd ./examples/csv
 npm run db -- serve --cwd ./examples/csv
 ```
 
-Open the viewer:
+Open the local data explorer:
 
 ```txt
 http://127.0.0.1:7331/__db

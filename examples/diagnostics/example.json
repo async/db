@@ -1,7 +1,7 @@
 {
   "title": "Diagnostics",
-  "description": "Intentional schema and source warnings so the viewer can show file-specific diagnostics while valid resources keep working.",
+  "description": "Intentional schema and source warnings so the local data explorer can show file-specific diagnostics while valid resources keep working.",
   "level": "core",
   "order": 3,
-  "tags": ["diagnostics", "viewer", "warnings"]
+  "tags": ["diagnostics", "explorer", "warnings"]
 }
