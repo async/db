@@ -2,13 +2,23 @@
 
 ## Unreleased
 
+## [0.6.0](https://github.com/async-framework/async-db/releases/tag/v0.6.0) - 2026-06-10
+
 ### Added
 
+- Added the static docs website build, refreshed landing page copy, and ordered examples browser for the published docs site.
+- Added `async-db init` for scaffolding new Async DB projects, plus a corrected CLI `--version` output path.
 - Added wrapper-first Postgres integration inspection with source-only and optional read-only catalog modes, redacted env-based connection handling, Postgres adoption paths, and explicit import planning.
 - Added `@async/db/postgres/compat` for optional low-level Postgres driver adapters and dry-run import helpers.
 - Added `openPostgresDb({ tables })` for mapping Async DB resources to existing Postgres tables, including read-only mappings, column mappings, compound object keys, and append-only event tables.
 - Added review-first schema declaration migration with `async-db schema migrate inspect/generate`, schema migration report types, JSONC/mixed draft generation, and source detection for Prisma, Drizzle, SQL, JSON Schema/OpenAPI, TypeBox, and common validator declarations.
 - Added `field.derived(...)` and serializable `derived` metadata for database- or externally-owned read-only fields that Async DB documents but does not compute.
+
+### Changed
+
+- Made generated GraphQL and Falcor endpoints opt-in by default in the local server; REST resource routes remain enabled by default, while apps can enable GraphQL or Falcor explicitly through server configuration.
+- Updated docs, examples, and starter guidance to prefer `.js` config and schema files in ESM packages while keeping existing `.mjs` discovery support.
+- Reworked README and docs-site onboarding around JSON files in `db/`, generated schemas/types, local REST/GraphQL routes, and the local data explorer.
 
 ## [0.5.1](https://github.com/async-framework/async-db/releases/tag/v0.5.1) - 2026-06-07
 
