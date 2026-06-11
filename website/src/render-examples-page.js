@@ -74,36 +74,8 @@ export function renderExamplesPage(examples) {
   });
 }
 
-/**
- * @param {Awaited<ReturnType<import('./examples-loader.js').loadTeaserExample>>} example
- */
-export function renderExamplesTeaser(example) {
-  return `
-    <div class="example-teaser">
-      <div>
-        <p class="eyebrow">runnable example</p>
-        <h3>${escapeHtml(example.title)}</h3>
-        <p>${escapeHtml(example.intro || 'Open a complete example project with the data files, config, and commands together.')}</p>
-      </div>
-      <div class="button-row">
-        <a class="primary-link" href="./docs/examples.html">Browse examples</a>
-        <a href="${escapeHtml(example.githubUrl)}" rel="noopener">Open on GitHub</a>
-      </div>
-    </div>
-  `;
-}
-
-const TEASER_PLACEHOLDER = '<!-- @example-explorer -->';
-
-export function renderLandingWithTeaser(landingHtml, teaserHtml) {
-  if (!landingHtml.includes(TEASER_PLACEHOLDER)) {
-    throw new Error(`Landing page is missing the ${TEASER_PLACEHOLDER} placeholder.`);
-  }
-  // Function replacements avoid String.replace's special "$" substitution
-  // patterns, which could corrupt injected example file contents.
-  const withTeaser = landingHtml.replace(TEASER_PLACEHOLDER, () => teaserHtml);
-  const withPagesLinks = withTeaser.replace(/href="([^"]+)"/gu, (match, href) => (
+export function renderLandingPage(landingHtml) {
+  return landingHtml.replace(/href="([^"]+)"/gu, (match, href) => (
     `href="${escapeHtml(rewriteLandingSourceLink(href))}"`
   ));
-  return withPagesLinks;
 }
