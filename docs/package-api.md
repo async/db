@@ -70,9 +70,19 @@ async-db doctor
 async-db doctor --production
 async-db doctor --production --usage ./src --json
 async-db check --strict --production
+async-db backup --out ./backups/db-backup.json
+async-db restore featureFlags --list
+async-db restore featureFlags --version latest
+async-db restore --from ./backups/db-backup.json --dry-run
 async-db serve
 async-db generate hono
 ```
+
+`backup` bundles every resource's JSON state (with content hashes) into one
+file and records backup recency for `doctor --production`. `restore` rolls a
+resource back to a version snapshot (requires `stores.json.durability:
+'versioned'` for ongoing history) or restores from a backup bundle; both
+snapshot the current contents first so restores are undoable.
 
 With pnpm and a `"db": "async-db"` script, pass arguments directly to the script name:
 
@@ -527,6 +537,31 @@ const collapsed = await settings.get(['ui', 'sidebar', 'collapsed']);
 Document paths support JSON Pointer strings such as `/ui/theme`, exact array
 paths such as `['ui', 'theme']`, and bare top-level string shorthand such as
 `'theme'`. Use `document.put(value)` to replace the whole document.
+
+### Optimistic Concurrency With ETags
+
+Collection `update`/`patch`/`delete` and document `put`/`update` accept an
+optional `{ ifMatch }` precondition. The write only applies when the stored
+value's current tag matches; otherwise it fails with a 412
+`DB_PRECONDITION_FAILED` error instead of overwriting a concurrent edit.
+`recordEtag(value)` computes the tag for a value you previously read:
+
+```ts
+import { openDb, recordEtag } from '@async/db';
+
+const users = db.collection('users');
+const ada = await users.get('u_1');
+const etag = recordEtag(ada);
+
+// Later: only apply the edit if nobody else changed the record meanwhile.
+await users.patch('u_1', { name: 'Ada King' }, { ifMatch: etag });
+```
+
+REST exposes the same behavior over HTTP: single-record `GET` responses carry
+an `ETag` header, and item-level `PATCH`/`DELETE` plus document `PUT`/`PATCH`
+honor the `If-Match` request header (`*` means "must exist"). Mismatches answer
+`412` with the `DB_PRECONDITION_FAILED` error envelope. Bulk routes ignore
+`If-Match`.
 
 Fork and branch usage:
 

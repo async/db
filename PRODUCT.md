@@ -10,7 +10,13 @@ Frontend and full-stack developers use Async DB while a product's data contract 
 
 ## Product Purpose
 
-Async DB gives projects a file-backed JSON database workflow from zero to prod. It starts with editable `db/` fixtures, infers useful contracts, generates schema metadata and TypeScript types, serves local REST and viewer routes, and lets individual resources graduate to JSON file state, SQLite, Postgres, KV/Redis-like stores, or custom stores as their operational needs change.
+Async DB gives projects a file-backed JSON database workflow from zero to prod: drop a JSON file, it's your database; when it's time to ship, promote it — the file retires into seed data and the database it taught becomes production.
+
+The thesis: every web app's data becomes JSON at the boundary, so the JSON shape is the real contract and storage engines are implementation details behind it. Async DB lets teams define that shape first (with editable `db/` files that infer contracts, generate types, and serve local REST/viewer routes), then choose where each shape's truth lives.
+
+Two layers carry this. `@async/db/json` is the engine: a durable embedded JSON database with real primitives — write-ahead logging with tunable fsync, atomic versioned checkpoints, cross-process locks, crash recovery, ETags, encryption at rest, backups, audit trails. `@async/db` is the platform: schemas, types, routes, contracts, and the lifecycle verbs (promote, status, reseed, graduate) that the engine's guarantees make possible. Promotion is the platform's story, not a database feature.
+
+Every resource is born a draft (the file is the live database). Promoting it picks where production data lives: the file itself (the lower production tier — single-instance tools and local-first apps), the managed JSON state store, a registered SQLite/Postgres/custom store, or eventually a cache that materializes the contract shape from upstream systems. Staying JSON in production is choosing, not settling.
 
 Success looks like a developer understanding the progression quickly: fixture files become contracts, local APIs, viewer metadata, and production-ready route boundaries without adding mandatory runtime dependencies.
 

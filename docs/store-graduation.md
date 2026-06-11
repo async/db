@@ -176,6 +176,8 @@ export default defineConfig({
 
 SQLite keeps the deployment simple, but it still changes the operational boundary: backup the SQLite file, avoid multi-writer network filesystems, and move to Postgres when many app instances need concurrent writes.
 
+The built-in SQLite store requires Node.js 22.13 or newer for `node:sqlite` (it fails with `SQLITE_RUNTIME_UNAVAILABLE` otherwise; the package itself supports Node 20 for every JSON-backed path). Like the JSON store, query helpers such as `find`, `count`, and `aggregate` load the collection into memory first, and generated ids scan existing ids per create, so keep collections in the small-thousands range or move query-heavy resources behind app-owned SQL or registered operations.
+
 ## Inspecting Existing SQLite Apps
 
 When an app already has SQLite tables, inspect before migrating. The default

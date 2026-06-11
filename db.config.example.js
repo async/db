@@ -36,12 +36,19 @@ export default defineConfig({
   // clients so the core package stays dependency-light.
   stores: {
     default: 'json',
+    // Keep undoable per-write history under .db/state/.versions/<resource>/
+    // and roll back with `async-db restore <resource>`.
+    // json: { driver: 'json', durability: 'versioned', maxVersions: 10 },
     // postgres: postgresStore({ client: pgPool }),
     // redis: redisStore({ client: redisClient, prefix: 'my-app:' }),
+    // Seal state files at rest with AES-256-GCM (32-byte key or passphrase):
+    // sealed: jsonStore({ encryption: { key: () => process.env.DB_STATE_KEY } }),
   },
 
   resources: {
     // users: { store: 'sourceFile' },
+    // featureFlags: { audit: true },                // who-changed-what JSONL trail
+    // billingSettings: { audit: { values: true } }, // plus before/after snapshots
     // activityEvents: {
     //   store: 'json',
     //   indexes: [
@@ -81,6 +88,9 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 7331,
     maxBodyBytes: 1048576,
+    // Maximum concurrent /__db/events live-event subscribers. Extra
+    // subscriptions answer 503 VIEWER_EVENTS_LIMIT. Defaults to 100.
+    maxEventClients: 100,
     // Opt-in request tracing. When enabled, traces are written to /__db/log,
     // concise console lines are printed, and responses get a request id header.
     // Trace metadata includes query keys only, never request bodies, response
@@ -96,6 +106,12 @@ export default defineConfig({
     viewerLinks: [
       // { label: 'My Viewer', href: 'http://127.0.0.1:5173/db' },
     ],
+    // App-owned gate for every db-handled request. GET /__db/health has its
+    // own exposure setting (expose.health, default 'open') for load balancers.
+    // authorize({ request, route, method }) {
+    //   if (method === 'GET') return true;
+    //   return request.headers.authorization === `Bearer ${process.env.DB_WRITE_TOKEN}`;
+    // },
   },
 
   // REST and manifest response formats. Built-ins are json, html, and md.
@@ -126,10 +142,13 @@ export default defineConfig({
 
   // Local latency is on by default so loading states are visible. Use 0 to
   // disable delay, 50 for a fixed 50ms delay, or [50, 300] for a range.
-  // Random errors are off by default.
+  // Random errors are off by default. All mock behavior is skipped
+  // automatically when NODE_ENV=production; set production: true only when a
+  // production-like environment should keep mock delays/errors (chaos testing).
   mock: {
     delay: [30, 100],
     errors: null,
+    // production: false,
   },
 
 });

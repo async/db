@@ -241,6 +241,12 @@ export default defineConfig({
 
 Random errors stay off by default. Turn them on when testing retries and error UI.
 
+Mock behavior is a development tool, so the whole `mock` block (delay and
+errors) is skipped automatically when `NODE_ENV=production`. Set
+`mock.production: true` only when a production-like environment should keep
+artificial delays or chaos errors, for example during chaos testing.
+`async-db doctor --production` reports which of the two states applies.
+
 ## Server Options
 
 Use `server` for a different host, port, dev-tool route base, or JSON body limit:
@@ -255,9 +261,68 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 7331,
     maxBodyBytes: 1048576,
+    maxEventClients: 100,
   },
 });
 ```
+
+`server.maxEventClients` caps concurrent `/__db/events` live-event subscribers;
+extra subscriptions receive a 503 `VIEWER_EVENTS_LIMIT` error until a slot
+frees up. The stream sends a keep-alive comment every 30 seconds so proxies do
+not drop idle connections.
+
+`GET /__db/health` is a readiness probe with its own exposure setting
+(`server.expose.health`, default `'open'`), so it stays reachable for load
+balancers even when viewer and schema routes are locked down.
+
+`server.authorize` gates every db-handled request (REST, viewer, schema,
+manifest, GraphQL, Falcor, events, health, operations) before it executes.
+Return `true` to allow, `false` for a 403, or `{ status, body }` for a custom
+denial. Requests that fall through to your own app routes never reach the hook:
+
+```js
+export default defineConfig({
+  server: {
+    authorize({ request, route, method }) {
+      if (method === 'GET') return true;
+      return request.headers.authorization === `Bearer ${process.env.DB_WRITE_TOKEN}`;
+    },
+  },
+});
+```
+
+### JSON Store Durability
+
+`stores.json.durability: 'wal'` gives Redis-style write durability: each write
+is acknowledged after its delta is appended (and fsynced per `fsync:
+'always' | 'everysec' | 'no'`) to a hidden per-resource log, and the pretty
+state file is checkpointed shortly after (`checkpointMs`, default 250ms).
+Boot and reads replay the log tail, so acknowledged writes survive crashes;
+checkpoints are versioned. `async-db promote` configures this for you.
+
+`stores.json.durability: 'versioned'` keeps a snapshot of the previous state
+file on every write under `.db/state/.versions/<resource>/`, pruned to
+`maxVersions` (default 10). Roll back with `async-db restore <resource>`, and
+bundle full backups with `async-db backup`:
+
+```js
+export default defineConfig({
+  stores: {
+    json: {
+      driver: 'json',
+      durability: 'versioned',
+      maxVersions: 10,
+    },
+  },
+});
+```
+
+### Audit Trails
+
+`resources.<name>.audit: true` appends one JSON line per successful runtime
+write to `.db/state/.audit/<resource>.jsonl` with the op, id, and changed field
+names; `audit: { values: true }` also records before/after snapshots. Audit
+failures emit a process warning and never fail the data write.
 
 `server.apiBase` scopes the local data explorer and internal development routes:
 viewer, schema, batch, import, live events, and runtime log. REST

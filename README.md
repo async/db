@@ -116,7 +116,7 @@ Default sync output:
 .db/state/users.json
 ```
 
-Local responses include a small `30-100ms` mock delay by default so loading states are visible. Disable it when you want immediate responses:
+Local responses include a small `30-100ms` mock delay by default so loading states are visible. It is skipped automatically when `NODE_ENV=production`. Disable it locally when you want immediate responses:
 
 ```js
 export default {
@@ -170,7 +170,7 @@ See [docs/package-api.md](./docs/package-api.md) for CLI and package export deta
 
 ## Going To Production
 
-The default path stays small on purpose. When a resource gets serious, follow the ladder:
+The default path stays small on purpose: every resource is born a draft, and `async-db promote <resource>` moves it to production — pinning the seed, capturing the schema, and turning on write-ahead-log durability (`--fsync always|everysec|no`). `async-db status` shows each resource's phase; see [docs/shape-is-the-contract.md](./docs/shape-is-the-contract.md) for the full story. When a resource gets serious, follow the ladder:
 
 | Tier | When | Next step |
 | --- | --- | --- |
@@ -187,7 +187,7 @@ Production topics:
 - [Configuration](./docs/configuration.md): `server.expose`, operations, contracts, stores, and mock behavior
 - Contracts CLI: `async-db contracts infer`, `async-db contracts check`, `async-db contracts refs`
 
-The built-in JSON store is production-appropriate only for file-suitable resources: app settings, feature flags, content, templates, and other small low-write data with a single writer. Keep high-write user data, chat, analytics, ledgers, and compliance-heavy records in SQLite, Postgres, or another app-owned store.
+The built-in JSON store is production-appropriate only for file-suitable resources: app settings, feature flags, content, templates, and other small low-write data with a single writer. Writes are fsync-durable atomic file replaces guarded by a per-resource cross-process lock; `durability: 'versioned'` keeps undoable per-write history with `async-db backup`/`restore` on top; REST supports `ETag`/`If-Match`/`If-None-Match`; and `GET /__db/health`, `server.authorize`, per-resource `audit` trails, and AES-256-GCM encryption at rest cover the operational basics. Keep high-write user data, chat, analytics, ledgers, and compliance-heavy records in SQLite, Postgres, or another app-owned store.
 
 `@async/db` is not an auth layer, an ORM, or a hosted database service. Put production traffic behind registered operations, app-owned auth, rate limits, and observability.
 
@@ -240,6 +240,8 @@ Each example README is the runnable authority for that example.
 | Task | Read |
 | --- | --- |
 | Start a project | [docs/getting-started.md](./docs/getting-started.md) |
+| Understand the product story | [docs/shape-is-the-contract.md](./docs/shape-is-the-contract.md) |
+| Build a docs site / use MDX | [docs/docs-and-mdx.md](./docs/docs-and-mdx.md) |
 | Understand the model | [docs/concepts.md](./docs/concepts.md) |
 | Author data files and schemas | [docs/data-files-and-schemas.md](./docs/data-files-and-schemas.md) |
 | Manage generated output | [docs/generated-files.md](./docs/generated-files.md) |

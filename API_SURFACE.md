@@ -46,7 +46,7 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 
 | Command | Stability | Contract |
 | --- | --- | --- |
-| `async-db init [--template data-first\|schema-first\|source-file] [--dry-run] [--json]` | stable | Scaffold the smallest valid local project shape, optionally patch package scripts, and run the first sync. |
+| `async-db init [--template data-first\|schema-first\|source-file\|content] [--dry-run] [--json]` | stable | Scaffold the smallest valid local project shape (the `content` template scaffolds a db/ contract sourcing repo-level docs/ markdown), optionally patch package scripts, and run the first sync. |
 | `async-db sync` | stable | Load sources, validate/infer schema, write generated metadata/types, and refresh runtime state. |
 | `async-db types [--watch] [--out <file>]` | stable | Generate TypeScript declarations, optionally in watch mode or to an explicit path. |
 | `async-db schema [resource]` | stable | Print schema metadata for all resources or one resource. |
@@ -66,6 +66,12 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | `async-db doctor [--strict] [--json] [--production] [--usage [target]]` | stable | Report schema/data drift, production-readiness guidance, and opt-in usage findings. |
 | `async-db check [--strict] [--json] [--production] [--usage [target]]` | stable | CI-oriented alias for doctor/check behavior. |
 | `async-db create <collection> <json>` | stable | Create one record through the package runtime path. |
+| `async-db promote <resource> [--store json\|file\|<registered>] [--fsync always\|everysec\|no] [--dry-run]` | preview | Zero-to-production ceremony: capture inferred schema, pin the seed hash, choose the engine and WAL fsync policy, and record it all in `db.lifecycle.jsonc`. |
+| `async-db status [--json]` | preview | Derived lifecycle phase per resource (draft / production (engine)), durability, seed pin and drift state, and the next verb. |
+| `async-db reseed <resource> --force` | preview | Deliberately re-apply the seed file to live state and re-pin its hash. |
+| `async-db backup [--out <file>]` | preview | Bundle every resource's JSON state (plus content hashes) into one backup file and record backup recency for `doctor --production`. |
+| `async-db restore <resource> [--list] [--version <id\|latest>]` | preview | List or roll back a resource's version snapshots; restores snapshot the current contents first so they are undoable. |
+| `async-db restore --from <backup.json> [--resource <name>] [--dry-run]` | preview | Restore resource state from a backup bundle, snapshotting current state per resource before overwriting. |
 | `async-db serve [--host <host>] [--port <port>]` | dev-only | Start the local writable development API and viewer. |
 | `async-db generate hono [--out <dir>] [--api <targets>] [--app <shape>]` | preview | Generate a Hono/SQLite starter from the current contract. |
 
@@ -73,13 +79,22 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 
 | Surface | Stability | Public contract |
 | --- | --- | --- |
-| Runtime database | stable | `openDb`, `Db`, collection APIs including `find`, `count`, `aggregate`, and `append`, document APIs, forks, branches, snapshots, migrations, and `close`. |
+| Runtime database | stable | `openDb`, `Db`, collection APIs including `find`, `count`, `aggregate`, and `append`, document APIs, forks, branches, snapshots, migrations, and `close`. Collection `update`/`patch`/`delete` and document `put`/`update` accept an optional `{ ifMatch }` precondition that fails with 412 `DB_PRECONDITION_FAILED` when the stored value's ETag no longer matches; `recordEtag(value)` computes the matching tag. |
 | Runtime lifecycle | stable | `createDbRuntime`, `reloadDb`, `watchDbSources`, and `createDbRequestHandler` for custom local servers. |
 | Schema loading | stable | `loadDbSchema`, validators, computed field resolvers, metadata-only loading, and schema locator support. |
 | Schema authoring | stable | `@async/db/schema` helpers for collection/document/field/files authoring in trusted local schema files, including `field.derived(...)` for database- or externally-owned read-only values that Async DB documents but does not compute. |
 | Schema declaration migration | preview | `inspectSchemaMigration`, `DbSchemaMigrationReport`, `DbSchemaMigrationResource`, `DbSchemaMigrationField`, `DbSchemaMigrationSuggestion`, and `DbSchemaMigrationOutputPlan` support review-first conversion from existing schema declarations into Async DB schema drafts. |
 | HTTP client | stable | `createDbClient`, direct REST/GraphQL calls, automatic batching, dedupe, and cache options. |
-| JSON store | stable | `jsonStore`, `fileStorage`, `s3Storage`, JSON state helpers, capabilities, and atomic/write-lock helpers exported from `@async/db/json`. |
+| JSON store | stable | `jsonStore`, `fileStorage`, JSON state helpers, capabilities, and atomic/write-lock helpers exported from `@async/db/json`. Atomic writes fsync file contents (and best-effort the directory) before publishing. `withJsonStateWrite` accepts `JsonStateWriteOptions` and guards writes with an on-disk advisory lock by default on the real filesystem; a held lock fails with 503 `JSON_STATE_LOCKED` after `lockTimeoutMs`. |
+| JSON WAL durability | preview | `durability: 'wal'` (on `stores.json`, `stores.sourceFile`, or `jsonStore()` options) acknowledges writes through a hidden per-resource JSONL write-ahead log with `fsync: 'always' \| 'everysec' \| 'no'`, then checkpoints the pretty canonical file (debounced `checkpointMs`, default 250ms; forced at `maxWalEntries`). Reads and boot replay the log tail; log generations are hash-bound to their checkpoint so hand-edited files supersede stale logs. WAL + encryption is rejected (`JSON_WAL_ENCRYPTION_UNSUPPORTED`). Adapters expose optional `writeResourceDelta(resource, value, delta)` for O(change) acknowledgment. |
+| Content watch roots | preview | `files()` resources record resolved glob roots (`watchRoots`); `serve` watches roots outside the data folder so external markdown/content edits hot-reload. `status` shows static-store resources as `content (files)` with no promotion nudge. |
+| MDX component contract | preview | `files(patterns, { read: 'mdx', components: [...] })` parses frontmatter like `read: 'frontmatter'` plus a dependency-free body scan that emits `components`, `imports`, and `exports` string-array fields on every record (auto-declared on schemas that declare fields). With a `components` allow-list, a doc using an unregistered capitalized JSX tag fails sync with `CONTENT_COMPONENT_NOT_ALLOWED` (doc-local imports/exports are allowed automatically; allowing `Tabs` permits `Tabs.Item`). Without the list the scan is inventory-only. A `components` list on a non-mdx read warns `CONTENT_COMPONENTS_IGNORED`. Async DB never imports an MDX compiler. |
+| Lifecycle file | preview | `db.lifecycle.jsonc` is machine-managed (promote/reseed), committed, merged by `loadConfig` under user config, and exposed as `config.lifecycle`. Pinned `seedHash` stops sync from auto-reseeding live state past promotion. |
+| JSON versioned durability | preview | `durability: 'versioned'` (on `jsonStore()` options or `stores.json` config) snapshots previous state into `.versions/<resource>/` per write, pruned to `maxVersions` (default 10). `atomicWriteJsonVersioned`, `listJsonStateVersions`, `restoreJsonStateVersion`, `jsonStateVersionsDir`, and `DEFAULT_MAX_JSON_STATE_VERSIONS` are exported from `@async/db/json`; unknown versions fail with `JSON_STATE_VERSION_NOT_FOUND`. |
+| JSON crash recovery | preview | `recoverJsonStateDir` (also run automatically at hydrate) removes orphaned atomic-write temp files and dead-owner locks. Corrupt state files are quarantined to `<file>.corrupt-<ts>` and the newest version snapshot is restored when one exists; recovery emits `ASYNC_DB_STATE_RECOVERY` process warnings instead of failing boot. |
+| JSON encryption at rest | preview | `jsonStore({ encryption: { key } })` seals state files with AES-256-GCM (32-byte key or SHA-256-derived passphrase). Plaintext files read transparently and seal on next write; wrong keys fail with `JSON_ENCRYPTION_FAILED`, missing keys with `JSON_ENCRYPTION_KEY_REQUIRED`. |
+| JSON object storage | experimental | `s3Storage` is a declarative descriptor only; the built-in runtime has no S3 backend yet and selecting it fails with `JSON_STORAGE_BACKEND_UNAVAILABLE`. |
+| Audit trail | preview | `resources.<name>.audit: true \| { values: true }` appends one JSON line per successful runtime write to `.audit/<resource>.jsonl` beside the resource state (op, id, changed fields; values opt-in). Audit failures warn (`ASYNC_DB_AUDIT_FAILED`) and never fail the data write. |
 | Memory filesystem | stable | `createMemoryFs` for tests and programmatic schema/runtime loading. |
 | Operations | stable | Operation manifests, registered operation handlers, refs, hashing, and readiness checks. |
 | SQLite inspection | preview | `inspectSqliteIntegration`, `DbSqliteIntegrationReport`, report suggestions, adoption paths, driver hints, and optional import plans for wrapper-first SQLite adoption or explicit import planning. |
@@ -97,12 +112,15 @@ The public binary is `async-db`. Global flags include `--cwd <dir>` and
 | Surface | Stability | Public contract |
 | --- | --- | --- |
 | Root discovery | dev-only | `GET /` returns HTML or JSON discovery links depending on request headers. |
-| REST resources | stable | Resource routes under `/db` by default, with JSON collection/document reads and writes. |
+| REST resources | stable | Resource routes under `/db` by default, with JSON collection/document reads and writes. Single-record GET/PATCH and document GET/PUT/PATCH responses carry an `ETag` header; item-level PATCH/DELETE and document PUT/PATCH honor `If-Match` and answer 412 `DB_PRECONDITION_FAILED` on mismatch. Bulk routes ignore `If-Match`. Collection list, single-record, and document GETs honor `If-None-Match` and answer 304 when the stored value is unchanged. |
+| Health probe | preview | `GET <apiBase>/health` returns 200 `{ status: "ok", ... }` with uptime, schema version, resource/diagnostic counts, and a cached state-dir writability probe; 503 `degraded` when the state dir is not writable. Controlled by `server.expose.health` (default open, independent of viewer exposure) and exempt from mock behavior. |
+| Authorization hook | preview | `server.authorize(context)` runs once per db-handled request (REST, viewer, schema, manifest, GraphQL, Falcor, events, health, operations) with `{ request, url, method, route }`. `false` answers 403 `SERVER_AUTHORIZATION_DENIED`; `{ status, body }` sends a custom denial; hook errors answer 500 `SERVER_AUTHORIZE_ERROR`. Requests that fall through to app routes never reach the hook. |
 | REST batching | stable | Client-facing batch requests preserve per-item result shape and errors. |
 | GraphQL | stable | Dependency-free GraphQL subset for queries, mutations, aliases, variables, batching, and introspection. |
 | Operations routes | stable | Registered operation execution and client-safe operation ref boundaries. |
 | Falcor records | preview | Falcor-compatible record route support where enabled. |
 | Viewer app | dev-only | Built-in local viewer under `/__db` by default. |
+| Viewer events | dev-only | `GET /__db/events` server-sent events stream with a 30s keep-alive comment ping; subscriptions beyond `server.maxEventClients` (default 100) answer 503 `VIEWER_EVENTS_LIMIT`. |
 | Viewer manifest | generated | `/__db/manifest.json`, `/__db/manifest.html`, `/__db/manifest.md`, and negotiated `/__db/manifest`. |
 | Server exposure settings | stable | Config decides which REST/GraphQL/operations/viewer surfaces are exposed, including registered-only modes. |
 
@@ -136,12 +154,14 @@ metadata are not public API.
 | `outputs` | stable | Preferred generated output locations for state, types, manifests, operations, and generated starter code. |
 | `types` | stable | Generated TypeScript options such as output paths, committed copy, comments, readonly properties, and runtime helper exports. |
 | `schema` | stable | Schema validation/inference options, unknown-field policy, and schema behavior toggles. |
-| `server` | stable | Host/port/base path, route exposure, trace, watcher, viewer, and local server behavior. |
+| `server` | stable | Host/port/base path, route exposure (including `expose.health`), trace, watcher, viewer, `maxEventClients`, `authorize` hook, and local server behavior. |
 | `rest`, `graphql`, `falcor` | stable | Protocol exposure and request/response behavior toggles. REST is enabled by default; GraphQL and Falcor are opt-in (`enabled: false` by default). |
 | `operations` | stable | Registered operation registry, refs, contract output, source directory, accept-ref policy, and opt-in strict readiness. |
-| `mock` | stable | Local mock delay/error behavior. |
+| `lifecycle` (via `db.lifecycle.jsonc`) | preview | Machine-managed promotion facts: per-resource phase/store/seedHash and store durability defaults. Doctor adds `DOCTOR_DRAFT_IN_PRODUCTION` (error) and `DOCTOR_SEED_DRIFT` (warn). |
+| `mock` | stable | Local mock delay/error behavior. Skipped automatically under `NODE_ENV=production` unless `mock.production: true` opts in; `doctor --production` reports both states. |
 | `stores` | preview | Store factory configuration and optional adapter selection. |
-| `resources` / `collections` | stable | Per-resource schema, source, store, route, validation, defaults, relation, append-only `writePolicy`, and UI metadata. |
+| `resources` / `collections` | stable | Per-resource schema, source, store, route, validation, defaults, relation, append-only `writePolicy`, opt-in `audit`, and UI metadata. |
+| `stores.json` durability | preview | `durability: 'versioned'` and `maxVersions` switch the default JSON store to snapshot-keeping writes. |
 | `defaults` / `seed` | stable | Default application and seed/hydration behavior. |
 
 ## Internal Boundaries
