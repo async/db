@@ -4,30 +4,34 @@
   "description": "The Async data workflow package for fixtures, generated types, local APIs, runtime stores, and database-backed graduation.",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
+    "api-surface:check": "npm run build:test --silent && node ./.tmp/test-build/scripts/check-api-surface.js",
     "build": "tsc -p tsconfig.build.json && cp src/*.d.ts dist/",
     "build:test": "tsc -p tsconfig.test.json",
     "check": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/check-syntax.js && node ./.tmp/test-build/scripts/check-api-surface.js && node ./.tmp/test-build/scripts/check-docs-module-extensions.js && node ./scripts/tasks/docs-build.js --check",
-    "test": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/run-tests.js",
-    "api-surface:check": "npm run build:test --silent && node ./.tmp/test-build/scripts/check-api-surface.js",
-    "release:check": "npm run check && npm test && npm pack --dry-run",
-    "release:pack": "npm pack",
-    "release:publish": "npm publish --access public",
-    "dev": "node ./scripts/tasks/dev.js",
-    "watch": "node ./scripts/tasks/watch.js",
-    "examples": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/serve-examples.js",
-    "view:examples": "npm run examples",
-    "docs:dev": "npm run build --silent && node ./scripts/tasks/docs-dev.js",
-    "docs:build": "npm run build --silent && node ./scripts/tasks/docs-build.js",
     "cli": "node ./dist/cli.js",
     "db": "npm run build --silent && node ./dist/cli.js",
-    "prepack": "npm run build"
+    "dev": "node ./scripts/tasks/dev.js",
+    "docs:build": "npm run build --silent && node ./scripts/tasks/docs-build.js",
+    "docs:dev": "npm run build --silent && node ./scripts/tasks/docs-dev.js",
+    "examples": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/serve-examples.js",
+    "pipeline:github:generate": "async-pipeline github generate",
+    "pipeline:sync:check": "async-pipeline sync check",
+    "pipeline:verify": "async-pipeline run verify",
+    "prepack": "npm run build",
+    "release:check": "async-pipeline run verify --force",
+    "release:pack": "npm pack",
+    "release:publish": "npm publish --access public",
+    "test": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/run-tests.js",
+    "view:examples": "npm run examples",
+    "watch": "node ./scripts/tasks/watch.js"
   },
   "bin": {
     "async-db": "./dist/cli.js"
   },
   "devDependencies": {
     "@types/node": "24.12.4",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "@async/pipeline": "^0.2.0"
   },
   "exports": {
     ".": {

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "generator": "@async/pipeline",
+  "config": "pipeline.ts",
+  "prefix": "pipeline",
+  "runners": [
+    "package"
+  ],
+  "targets": [
+    {
+      "package": "@async/db"
+    }
+  ],
+  "manifests": [
+    {
+      "path": "package.json",
+      "runner": "package",
+      "field": "scripts",
+      "commands": [
+        {
+          "name": "pipeline:verify",
+          "value": "async-pipeline run verify"
+        },
+        {
+          "name": "pipeline:github:generate",
+          "value": "async-pipeline github generate"
+        },
+        {
+          "name": "pipeline:sync:check",
+          "value": "async-pipeline sync check"
+        }
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "name": "pipeline:verify",
+      "value": "async-pipeline run verify"
+    },
+    {
+      "name": "pipeline:github:generate",
+      "value": "async-pipeline github generate"
+    },
+    {
+      "name": "pipeline:sync:check",
+      "value": "async-pipeline sync check"
+    }
+  ],
+  "hash": "sha256:a61582a0cff4963f374f9868ddb16d42a762248e749cec27c88e14bf81ccc1ae",
+  "generatedAt": "2026-06-11T20:31:09.628Z"
+}

@@ -1,0 +1,49 @@
+# Node compatibility matrix for the published library (engines >= 20).
+# Hand-maintained on purpose: the async-pipeline CLI orchestrates the verify
+# graph on Node 24 in the generated workflow; this slim matrix proves the
+# library itself still works on the older floors by running the package
+# scripts directly.
+name: Node Compat
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 20.x
+          - 22.x
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Set up pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Test
+        run: npm test
+
+      - name: Package dry run
+        run: npm pack --dry-run

@@ -1,10 +1,8 @@
-name: CI
+# Fallow PR review, preserved from the old hand-written CI when the
+# verify graph moved to the generated async-pipeline workflow.
+name: Fallow
 
 on:
-  push:
-    branches:
-      - main
-      - master
   pull_request:
   workflow_dispatch:
 
@@ -49,47 +47,3 @@ jobs:
             --no-cache \
             --format markdown \
             --fail-on-issues
-
-  test:
-    name: Node ${{ matrix.node-version }}
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version:
-          - 20.x
-          - 22.x
-          - 24.x
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Set up pnpm
-        run: corepack enable
-
-      - name: Show tool versions
-        run: |
-          node --version
-          npm --version
-          pnpm --version
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Syntax check
-        run: npm run check
-
-      - name: Test
-        run: npm test
-
-      - name: Package dry run
-        run: npm pack --dry-run
