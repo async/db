@@ -1,4 +1,7 @@
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { type IncomingMessage, type ServerResponse } from 'node:http';
+import path from 'node:path';
+import { serializeError } from './errors.js';
 import { defaultHttpFeatureRegistry } from './features/http/registry.js';
 import { runMockBehavior } from './mock.js';
 import { createDbOperationHandler } from './operations.js';
@@ -23,8 +26,10 @@ export type ServerConfig = {
     apiBase?: string;
     dataPath?: string | false | null;
     maxBodyBytes?: number;
+    maxEventClients?: number;
     trace?: ServerTraceConfig;
     expose?: Record<string, unknown>;
+    authorize?: ServerAuthorizeHook;
     [key: string]: unknown;
   };
   graphql?: {
@@ -98,6 +103,7 @@ type RequestRoutes = {
   importPath: string;
   eventsPath: string;
   logPath: string;
+  healthPath: string;
 };
 
 export type RequestHandlerOptions = RequestRoutesOptions & {
@@ -137,7 +143,28 @@ type RegisteredOperationHandler = {
   executeRequest(ref: string, body: unknown, options?: Record<string, unknown>): Promise<OperationResult>;
 };
 
-type RouteExposureKind = 'falcor' | 'graphql' | 'manifest' | 'rest' | 'schema' | 'viewer';
+type RouteExposureKind = 'falcor' | 'graphql' | 'health' | 'manifest' | 'rest' | 'schema' | 'viewer';
+
+export type ServerAuthorizeContext = {
+  request: IncomingMessage;
+  url: URL;
+  method: string;
+  /** Matched route family: rest, graphql, falcor, viewer, schema, manifest, health, events, or operation. */
+  route: string;
+};
+
+export type ServerAuthorizeResult = boolean | undefined | null | void | {
+  status?: number;
+  body?: unknown;
+};
+
+/**
+ * App-owned per-request authorization seam for the core handler. Return true
+ * (or nothing) to allow, false for a 403, or `{ status, body }` for a custom
+ * denial such as a 401 challenge. Runs only for requests the db handler will
+ * handle, so middleware chains keep working for app routes.
+ */
+export type ServerAuthorizeHook = (context: ServerAuthorizeContext) => ServerAuthorizeResult | Promise<ServerAuthorizeResult>;
 
 type RouteExposureViolation = {
   kind: RouteExposureKind;
@@ -178,16 +205,76 @@ export function createDbRequestHandler(db: ServerDb, options: RequestHandlerOpti
   };
 }
 
+const VIEWER_EVENT_HEARTBEAT_MS = 30_000;
+const DEFAULT_MAX_EVENT_CLIENTS = 100;
+
 export function createViewerEventHub(events?: RuntimeEventBus): ViewerEventHub {
   const clients = new Set<ServerResponse>();
-  const unsubscribe = events?.subscribe((payload) => {
-    for (const client of clients) {
-      writeViewerEvent(client, payload);
+  let heartbeat: NodeJS.Timeout | null = null;
+
+  function dropClient(client: ServerResponse): void {
+    clients.delete(client);
+    if (clients.size === 0 && heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = null;
     }
+  }
+
+  function writeToClient(client: ServerResponse, chunk: string): void {
+    if (client.destroyed || client.writableEnded) {
+      dropClient(client);
+      return;
+    }
+    try {
+      client.write(chunk);
+    } catch {
+      // A client that fails mid-write is gone; never let one dead socket
+      // break event delivery for the others.
+      dropClient(client);
+    }
+  }
+
+  function broadcast(payload: ViewerEventPayload): void {
+    for (const client of [...clients]) {
+      writeToClient(client, viewerEventChunk(payload));
+    }
+  }
+
+  function ensureHeartbeat(): void {
+    if (heartbeat) {
+      return;
+    }
+    // Periodic comments keep idle SSE connections alive through proxies and
+    // surface dead sockets so they get cleaned up instead of leaking.
+    heartbeat = setInterval(() => {
+      for (const client of [...clients]) {
+        writeToClient(client, ': ping\n\n');
+      }
+    }, VIEWER_EVENT_HEARTBEAT_MS);
+    heartbeat.unref?.();
+  }
+
+  const unsubscribe = events?.subscribe((payload) => {
+    broadcast(payload);
   });
 
   return {
     subscribe(request, response, db) {
+      const maxClients = Number(db.config.server?.maxEventClients ?? DEFAULT_MAX_EVENT_CLIENTS);
+      if (clients.size >= maxClients) {
+        sendJson(response, 503, {
+          error: {
+            code: 'VIEWER_EVENTS_LIMIT',
+            message: `The events endpoint already has ${clients.size} subscribers.`,
+            hint: 'Close unused viewer tabs or raise server.maxEventClients when many local subscribers are expected.',
+            details: {
+              maxEventClients: maxClients,
+            },
+          },
+        });
+        return;
+      }
+
       response.writeHead(200, {
         'content-type': 'text/event-stream; charset=utf-8',
         'cache-control': 'no-cache, no-transform',
@@ -200,8 +287,15 @@ export function createViewerEventHub(events?: RuntimeEventBus): ViewerEventHub {
         diagnostics: db.diagnostics ?? [],
       });
       clients.add(response);
+      ensureHeartbeat();
       request.on?.('close', () => {
-        clients.delete(response);
+        dropClient(response);
+      });
+      response.on?.('close', () => {
+        dropClient(response);
+      });
+      response.on?.('error', () => {
+        dropClient(response);
       });
     },
     publish(payload) {
@@ -209,14 +303,20 @@ export function createViewerEventHub(events?: RuntimeEventBus): ViewerEventHub {
         events.publish(payload);
         return;
       }
-      for (const client of clients) {
-        writeViewerEvent(client, payload);
-      }
+      broadcast(payload);
     },
     close() {
       unsubscribe?.();
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
       for (const client of clients) {
-        client.end();
+        try {
+          client.end();
+        } catch {
+          // Closing an already-broken client must not block hub shutdown.
+        }
       }
       clients.clear();
     },
@@ -235,7 +335,25 @@ async function handleRequest(
   if (request.method === 'GET' && url.pathname === routes.eventsPath) {
     trace?.markHandled(response);
     trace?.setRoute({ route: 'events', operation: 'subscribe' });
+    if (!await authorizeRequest(db, request, response, url, 'events')) {
+      return true;
+    }
     events.subscribe(request, response, db);
+    return true;
+  }
+
+  if (request.method === 'GET' && url.pathname === routes.healthPath) {
+    trace?.markHandled(response);
+    trace?.setRoute({ route: 'health', operation: 'check' });
+    const healthViolation = routeExposureViolation(db.config, url, routes);
+    if (healthViolation) {
+      sendRouteExposureViolation(response, healthViolation, routes);
+      return true;
+    }
+    if (!await authorizeRequest(db, request, response, url, 'health')) {
+      return true;
+    }
+    await handleHealthRequest(db, response);
     return true;
   }
 
@@ -245,6 +363,9 @@ async function handleRequest(
   if (operationRef) {
     trace?.markHandled(response);
     trace?.setRoute({ route: 'operation', operation: 'execute', id: operationRef });
+    if (!await authorizeRequest(db, request, response, url, 'operation')) {
+      return true;
+    }
     await handleRegisteredOperationRequest(db, request, response, operationRef, routes, trace);
     return true;
   }
@@ -262,6 +383,9 @@ async function handleRequest(
   if (httpFeatures.matches(featureContext, { phase: 'preMock' })) {
     trace?.markHandled(response);
     trace?.setRoute(featureTraceRoute(url, routes));
+    if (!await authorizeRequest(db, request, response, url, String(featureTraceRoute(url, routes).route))) {
+      return true;
+    }
     await tracePhase(trace, 'registered-http-feature', () => httpFeatures.handle(featureContext, { phase: 'preMock' }), {
       phase: 'preMock',
     });
@@ -274,6 +398,13 @@ async function handleRequest(
   const handlesRegisteredFeature = httpFeatures.matches(featureContext, { phase: 'postMock' });
   if (!restUrl && !handlesRegisteredFeature) {
     return false;
+  }
+
+  // From here the request is definitely db-handled (REST, viewer, manifest,
+  // schema, or a registered feature), so the authorize hook runs exactly once.
+  if (!await authorizeRequest(db, request, response, url, routeExposureKind(url, routes) ?? 'rest')) {
+    trace?.markHandled(response);
+    return true;
   }
 
   if (restUrl && !handlesRegisteredFeature && db.config.rest?.enabled === false) {
@@ -302,6 +433,114 @@ async function handleRequest(
   trace?.markHandled(response);
   await tracePhase(trace, 'rest-handler', () => handleRestRequest(db, request, response, restUrl, { ...routes, trace }));
   return true;
+}
+
+async function authorizeRequest(
+  db: ServerDb,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  route: string,
+): Promise<boolean> {
+  const authorize = db.config.server?.authorize;
+  if (typeof authorize !== 'function') {
+    return true;
+  }
+
+  let result: ServerAuthorizeResult;
+  try {
+    result = await authorize({
+      request,
+      url,
+      method: String(request.method ?? 'GET').toUpperCase(),
+      route,
+    });
+  } catch (error) {
+    sendJson(response, 500, serializeError(error, 'SERVER_AUTHORIZE_ERROR'));
+    return false;
+  }
+
+  if (result === true || result === undefined || result === null) {
+    return true;
+  }
+
+  if (result === false) {
+    sendJson(response, 403, {
+      error: {
+        code: 'SERVER_AUTHORIZATION_DENIED',
+        message: 'The server.authorize hook denied this request.',
+        hint: 'Attach credentials this deployment accepts, or adjust the server.authorize hook.',
+        details: {
+          route,
+          path: url.pathname,
+        },
+      },
+    });
+    return false;
+  }
+
+  const denial = result as { status?: number; body?: unknown };
+  sendJson(response, Number(denial.status ?? 403), denial.body ?? {
+    error: {
+      code: 'SERVER_AUTHORIZATION_DENIED',
+      message: 'The server.authorize hook denied this request.',
+      details: {
+        route,
+        path: url.pathname,
+      },
+    },
+  });
+  return false;
+}
+
+const HEALTH_PROBE_CACHE_MS = 5_000;
+const serverStartedAt = Date.now();
+let healthProbeCache: { at: number; writable: boolean | null } | null = null;
+
+async function handleHealthRequest(db: ServerDb, response: ServerResponse): Promise<void> {
+  const stateDir = typeof db.config.stateDir === 'string' ? db.config.stateDir : null;
+  const writable = await stateDirWritable(stateDir);
+  const status = writable === false ? 'degraded' : 'ok';
+
+  sendJson(response, status === 'ok' ? 200 : 503, {
+    status,
+    time: new Date().toISOString(),
+    uptimeMs: Date.now() - serverStartedAt,
+    schemaVersion: db.schemaVersion ?? null,
+    resources: db.resources.size,
+    diagnostics: (db.diagnostics ?? []).length,
+    state: {
+      dir: stateDir,
+      writable,
+    },
+  });
+}
+
+/**
+ * Writability probe for the state directory, cached briefly so frequent load
+ * balancer checks do not turn into a write-per-probe.
+ */
+async function stateDirWritable(stateDir: string | null): Promise<boolean | null> {
+  if (!stateDir) {
+    return null;
+  }
+  if (healthProbeCache && Date.now() - healthProbeCache.at < HEALTH_PROBE_CACHE_MS) {
+    return healthProbeCache.writable;
+  }
+
+  let writable: boolean;
+  const probePath = path.join(stateDir, `.health-probe-${process.pid}`);
+  try {
+    await mkdir(stateDir, { recursive: true });
+    await writeFile(probePath, String(Date.now()), 'utf8');
+    await rm(probePath, { force: true });
+    writable = true;
+  } catch {
+    writable = false;
+  }
+
+  healthProbeCache = { at: Date.now(), writable };
+  return writable;
 }
 
 async function handleRegisteredOperationRequest(
@@ -394,6 +633,7 @@ function resolveRequestRoutes(config: ServerConfig, options: RequestRoutesOption
     importPath: `${apiBase}/import`,
     eventsPath: `${apiBase}/events`,
     logPath: `${apiBase}/log`,
+    healthPath: `${apiBase}/health`,
   };
 }
 
@@ -426,6 +666,10 @@ function routeExposureViolation(config: ServerConfig, url: URL, routes: RequestR
 }
 
 function routeExposureKind(url: URL, routes: RequestRoutes): RouteExposureKind | null {
+  if (url.pathname === routes.healthPath) {
+    return 'health';
+  }
+
   if (routes.graphqlAliases.includes(url.pathname)) {
     return 'graphql';
   }
@@ -556,6 +800,10 @@ function routeExposureLabel(kind: RouteExposureKind): RouteExposureLabel {
       code: 'GRAPHQL',
       display: 'GraphQL',
     },
+    health: {
+      code: 'HEALTH',
+      display: 'Health',
+    },
     manifest: {
       code: 'MANIFEST',
       display: 'Manifest',
@@ -675,6 +923,10 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+function viewerEventChunk(payload: unknown): string {
+  return `event: db\ndata: ${JSON.stringify(payload)}\n\n`;
+}
+
 function writeViewerEvent(response: ServerResponse, payload: unknown): void {
-  response.write(`event: db\ndata: ${JSON.stringify(payload)}\n\n`);
+  response.write(viewerEventChunk(payload));
 }
