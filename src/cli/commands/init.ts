@@ -7,7 +7,7 @@ import { printDiagnostic } from '../output.js';
 
 type CliConfig = Record<string, unknown>;
 
-type InitTemplate = 'data-first' | 'schema-first' | 'source-file';
+type InitTemplate = 'data-first' | 'schema-first' | 'source-file' | 'content';
 
 type PlannedFile = {
   relativePath: string;
@@ -129,11 +129,11 @@ export async function runInit(config: CliConfig, args: string[]): Promise<void> 
 
 function parseTemplate(args: string[]): InitTemplate {
   const value = valueAfter(args, '--template') ?? 'data-first';
-  if (value === 'data-first' || value === 'schema-first' || value === 'source-file') {
+  if (value === 'data-first' || value === 'schema-first' || value === 'source-file' || value === 'content') {
     return value;
   }
 
-  throw new Error(`Unknown init template "${value}". Use data-first, schema-first, or source-file.`);
+  throw new Error(`Unknown init template "${value}". Use data-first, schema-first, source-file, or content.`);
 }
 
 async function planInit(options: { cwd: string; template: InitTemplate; dryRun: boolean }): Promise<InitReceipt> {
@@ -218,6 +218,25 @@ function templateFiles(
       description: 'schema-backed collection with empty seed',
       content: USERS_SCHEMA,
     }];
+  }
+
+  if (template === 'content') {
+    // Docs-site shape: the contract lives in db/, the markdown lives in /docs
+    // where writers keep it, and the collection is read-only at runtime.
+    return [
+      {
+        relativePath: 'db/docs/index.schema.js',
+        action: 'create',
+        description: 'content collection contract sourcing ../docs markdown',
+        content: CONTENT_DOCS_SCHEMA,
+      },
+      {
+        relativePath: 'docs/getting-started.md',
+        action: 'create',
+        description: 'starter markdown page with frontmatter',
+        content: CONTENT_STARTER_PAGE,
+      },
+    ];
   }
 
   // JavaScript config files need ESM module context. Existing CommonJS
@@ -333,3 +352,27 @@ async function fileExists(filePath: string): Promise<boolean> {
     throw error;
   }
 }
+
+const CONTENT_DOCS_SCHEMA = `import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  description: 'Markdown pages from the repo-level docs/ folder.',
+  source: files('../../docs/**/*.md', { read: 'frontmatter' }),
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true, description: 'Stable page id; defaults to the filename.' }),
+    title: field.string({ required: true }),
+    order: field.number({ default: 100 }),
+    body: field.string({ required: true, description: 'Raw markdown body; rendering is app-owned.' }),
+  },
+});
+`;
+
+const CONTENT_STARTER_PAGE = `---
+id: getting-started
+title: Getting Started
+order: 1
+---
+
+Write markdown here. Frontmatter fields become the JSON contract; the body is a field.
+`;

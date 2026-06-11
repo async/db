@@ -203,6 +203,30 @@ export async function reloadDb(db: RuntimeDb, options: { allowErrors?: boolean }
   return project;
 }
 
+function externalWatchRoots(db: RuntimeDb): string[] {
+  const sourceDir = path.resolve(db.config.sourceDir);
+  const roots = new Set<string>();
+  for (const resource of db.resources.values()) {
+    for (const root of (resource as { watchRoots?: string[] }).watchRoots ?? []) {
+      const resolved = path.resolve(String(root));
+      if (resolved !== sourceDir && !resolved.startsWith(`${sourceDir}${path.sep}`)) {
+        roots.add(resolved);
+      }
+    }
+  }
+  return [...roots].slice(0, 20);
+}
+
+function closeExtraWatchers(watchers: FSWatcher[]): void {
+  for (const extra of watchers.splice(0)) {
+    try {
+      extra.close();
+    } catch {
+      // Best-effort close.
+    }
+  }
+}
+
 export async function watchDbSources(db: RuntimeDb, options: DbWatchOptionsInternal = {}): Promise<DbSourceWatcher> {
   await mkdir(db.config.sourceDir, { recursive: true });
 
@@ -213,17 +237,30 @@ export async function watchDbSources(db: RuntimeDb, options: DbWatchOptionsInter
   const debounceMs = Number(options.debounceMs ?? 75);
   let watcher: FSWatcher | undefined;
 
-  try {
-    watcher = watchImpl(db.config.sourceDir, { recursive: true }, (_event, filename) => {
-      if (!enabled || shouldIgnoreSourceEvent(db, filename)) {
-        return;
-      }
+  const extraWatchers: FSWatcher[] = [];
+  const onSourceEvent = (_event: unknown, filename: unknown) => {
+    if (!enabled || shouldIgnoreSourceEvent(db, filename as never)) {
+      return;
+    }
 
-      clearTimeout(timer);
-      timer = setTimeout(async () => {
-        await reloadAndPublish(db, options.events).catch(() => undefined);
-      }, debounceMs);
-    });
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      await reloadAndPublish(db, options.events).catch(() => undefined);
+    }, debounceMs);
+  };
+
+  try {
+    watcher = watchImpl(db.config.sourceDir, { recursive: true }, onSourceEvent);
+    // Content collections may source files outside the data folder (for
+    // example files('../docs/**')). Watch those resolved roots too so doc
+    // edits hot-reload like any other source change. Best-effort per root.
+    for (const root of externalWatchRoots(db)) {
+      try {
+        extraWatchers.push(watchImpl(root, { recursive: true }, onSourceEvent));
+      } catch {
+        // A missing or unwatchable content root falls back to manual sync.
+      }
+    }
   } catch (error) {
     enabled = false;
     reportWatchUnavailable(db, options.events, error as WatchError, warn);
@@ -247,6 +284,7 @@ export async function watchDbSources(db: RuntimeDb, options: DbWatchOptionsInter
     } catch {
       // The watcher may already be closed by the runtime.
     }
+    closeExtraWatchers(extraWatchers);
     reportWatchUnavailable(db, options.events, error as WatchError, warn);
   });
 
@@ -257,6 +295,7 @@ export async function watchDbSources(db: RuntimeDb, options: DbWatchOptionsInter
     close() {
       enabled = false;
       clearTimeout(timer);
+      closeExtraWatchers(extraWatchers);
       try {
         watcher.close();
       } catch {

@@ -63,6 +63,8 @@ type SourceRecord = {
   data?: unknown;
   schema?: RawSchema;
   baseDir?: string;
+  /** Resolved content roots for files() globs; serve watches these for hot reload. */
+  watchRoots?: string[];
 };
 
 type SourceReadResult = {
@@ -184,6 +186,10 @@ export async function loadProjectSchema(config: ProjectConfig, options: { load?:
       includeSeed: loadMode !== 'schema',
     });
 
+    if (dataSource?.watchRoots?.length) {
+      (resource as { watchRoots?: string[] }).watchRoots = dataSource.watchRoots;
+    }
+
     if (loadMode !== 'schema') {
       diagnostics.push(...validateResourceSeed(resource as never, config as never));
     }
@@ -260,9 +266,24 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
   const files: string[] = [];
   const diagnostics: SchemaDiagnostic[] = [];
 
+  const watchRoots = new Set<string>();
   for (const pattern of source?.patterns ?? []) {
     const matched = await filesMatchingGlob(config, baseDir, String(pattern));
     files.push(...matched);
+    // Record the resolved glob root so serve can watch content that lives
+    // outside the data folder (for example files('../docs/**/*.md')).
+    const staticParts: string[] = [];
+    for (const part of String(pattern).split('/')) {
+      if (part.includes('*')) {
+        break;
+      }
+      staticParts.push(part);
+    }
+    // A trailing filename (no glob) belongs to the file, not the root.
+    if (staticParts.length > 0 && /\.[A-Za-z0-9]+$/.test(staticParts[staticParts.length - 1])) {
+      staticParts.pop();
+    }
+    watchRoots.add(path.resolve(baseDir, staticParts.join('/') || '.'));
   }
 
   const uniqueFiles = [...new Set(files)].sort();
@@ -297,6 +318,7 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
       hash: hash.digest('hex'),
       data: records,
       baseDir,
+      watchRoots: [...watchRoots],
     },
     diagnostics,
   };
