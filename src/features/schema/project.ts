@@ -10,6 +10,7 @@ import { validateProjectRelations } from './relations.js';
 import { validateResourceSeed } from './validation.js';
 import { normalizeSchemaLoadMode } from './locator.js';
 import { normalizeFilesSource } from './source-definitions.js';
+import { disallowedComponents, scanMdxBody, type MdxScan } from './mdx-scan.js';
 
 type SchemaDiagnostic = {
   code: string;
@@ -181,7 +182,7 @@ export async function loadProjectSchema(config: ProjectConfig, options: { load?:
       schemaPath: schemaSource?.sourceFile,
       schemaSource: schemaSource?.format,
       rawData,
-      rawSchema,
+      rawSchema: dataSource?.format === 'mdx' ? withMdxScanFields(rawSchema) : rawSchema,
       config,
       includeSeed: loadMode !== 'schema',
     });
@@ -286,6 +287,10 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
     watchRoots.add(path.resolve(baseDir, staticParts.join('/') || '.'));
   }
 
+  if (source?.components && source.read !== 'mdx') {
+    diagnostics.push(componentsIgnoredDiagnostic(schemaSource, source.read));
+  }
+
   const uniqueFiles = [...new Set(files)].sort();
   const records = [];
   const hash = createHash('sha256');
@@ -302,7 +307,13 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
     hash.update('\0');
     hash.update(text);
     try {
-      records.push(parseContentRecord(schemaSource, filePath, text, source.read));
+      if (source.read === 'mdx') {
+        const { record, scan } = mdxContentRecord(filePath, text);
+        records.push(record);
+        diagnostics.push(...mdxComponentDiagnostics(config, schemaSource, filePath, scan, source.components));
+      } else {
+        records.push(parseContentRecord(schemaSource, filePath, text, source.read));
+      }
     } catch (error) {
       diagnostics.push(contentLoadDiagnostic(config, schemaSource, filePath, error));
     }
@@ -426,6 +437,117 @@ function frontmatterRecord(filePath: string, text: string): Record<string, unkno
     ...data,
     body: body.trim(),
   };
+}
+
+function mdxContentRecord(filePath: string, text: string): { record: Record<string, unknown>; scan: MdxScan } {
+  const { data, body } = parseFrontmatter(text);
+  const scan = scanMdxBody(body);
+  return {
+    record: {
+      id: data.id ?? basenameId(filePath),
+      ...data,
+      body: body.trim(),
+      components: scan.components,
+      imports: scan.imports,
+      exports: scan.exports,
+    },
+    scan,
+  };
+}
+
+function mdxComponentDiagnostics(
+  config: ProjectConfig,
+  schemaSource: SourceRecord,
+  filePath: string,
+  scan: MdxScan,
+  allowed: readonly string[] | undefined,
+): SchemaDiagnostic[] {
+  if (!Array.isArray(allowed)) {
+    return [];
+  }
+
+  const disallowed = disallowedComponents(scan, allowed);
+  if (disallowed.length === 0) {
+    return [];
+  }
+
+  const relative = path.relative(config.cwd ?? '.', filePath);
+  const used = disallowed.map((name) => `<${name}>`).join(', ');
+  const registered = allowed.length > 0 ? allowed.join(', ') : '(none)';
+  return [{
+    code: 'CONTENT_COMPONENT_NOT_ALLOWED',
+    severity: 'error',
+    resource: schemaSource.name,
+    file: relative,
+    message: `${relative} uses ${used} but the schema's components list only allows: ${registered}.`,
+    hint: `Add the component to files(..., { components: [...] }) in ${schemaSource.file}, or remove the JSX from this doc. Components the doc imports or exports itself are allowed automatically.`,
+    details: {
+      resource: schemaSource.name,
+      path: relative,
+      components: disallowed,
+      allowed: [...allowed],
+    },
+  }];
+}
+
+function componentsIgnoredDiagnostic(schemaSource: SourceRecord, read: string): SchemaDiagnostic {
+  return {
+    code: 'CONTENT_COMPONENTS_IGNORED',
+    severity: 'warn',
+    resource: schemaSource.name,
+    file: schemaSource.file,
+    message: `${schemaSource.name} declares a components list but read is '${read}'; component checking only runs with read: 'mdx'.`,
+    hint: `Switch the files() source to read: 'mdx' to validate component usage, or drop the components list.`,
+    details: {
+      resource: schemaSource.name,
+      read,
+    },
+  };
+}
+
+const MDX_SCAN_FIELDS: Record<string, { type: string; items: { type: string }; description: string }> = {
+  components: {
+    type: 'array',
+    items: { type: 'string' },
+    description: 'Capitalized JSX tags used in the body (scanned at sync; read: mdx).',
+  },
+  imports: {
+    type: 'array',
+    items: { type: 'string' },
+    description: 'Module specifiers imported by the doc (scanned at sync; read: mdx).',
+  },
+  exports: {
+    type: 'array',
+    items: { type: 'string' },
+    description: 'Top-level names exported by the doc (scanned at sync; read: mdx).',
+  },
+};
+
+/**
+ * read: 'mdx' always emits components/imports/exports on every record, so a
+ * schema that declares fields gets those fields declared too -- keeping
+ * unknown-field warnings away and putting the scan results into generated
+ * types and the viewer's schema panel.
+ */
+function withMdxScanFields<T>(rawSchema: T): T {
+  if (!rawSchema || typeof rawSchema !== 'object') {
+    return rawSchema;
+  }
+  const schema = rawSchema as { fields?: Record<string, unknown> };
+  if (!schema.fields || typeof schema.fields !== 'object') {
+    return rawSchema;
+  }
+  const missing = Object.keys(MDX_SCAN_FIELDS).filter((name) => !(name in (schema.fields as Record<string, unknown>)));
+  if (missing.length === 0) {
+    return rawSchema;
+  }
+  return {
+    ...schema,
+    fields: {
+      ...schema.fields,
+      ...Object.fromEntries(missing.map((name) => [name, { ...MDX_SCAN_FIELDS[name] }])),
+    },
+  } as T;
 }
 
 function parseFrontmatter(text: string): { data: Record<string, unknown>; body: string } {

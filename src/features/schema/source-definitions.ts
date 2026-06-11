@@ -5,16 +5,19 @@ type FilesSourceInput = string | readonly string[] | {
   glob?: string | readonly string[];
   source?: string | readonly string[];
   read?: string;
+  components?: readonly string[];
 };
 
 export type FilesSourceDefinition = {
   kind: 'files';
   patterns: string[];
   read: string;
+  components?: string[];
 };
 
 type FilesSourceOptions = {
   read?: string;
+  components?: readonly string[];
 };
 
 export function normalizeFilesSource(
@@ -26,18 +29,25 @@ export function normalizeFilesSource(
   }
 
   if (isFilesSource(source)) {
-    return {
+    return withComponents({
       kind: 'files',
       patterns: normalizePatterns(source.patterns ?? source.pattern ?? source.glob ?? source.source),
       read: source.read ?? options.read ?? 'frontmatter',
-    };
+    }, source.components ?? options.components);
   }
 
-  return {
+  return withComponents({
     kind: 'files',
     patterns: normalizePatterns(source),
     read: options.read ?? 'frontmatter',
-  };
+  }, options.components);
+}
+
+function withComponents(definition: FilesSourceDefinition, components: readonly string[] | undefined): FilesSourceDefinition {
+  if (Array.isArray(components)) {
+    definition.components = components.map(String);
+  }
+  return definition;
 }
 
 export function isFilesSource(value: unknown): value is Extract<FilesSourceInput, { kind?: string }> {

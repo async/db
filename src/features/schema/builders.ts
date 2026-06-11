@@ -49,6 +49,7 @@ type ComputedResolver = {
 
 type FilesOptions = {
   read?: string;
+  components?: readonly string[];
 };
 
 export function collection(definition: SchemaResourceDefinition | unknown, options: SchemaResourceDefinition | undefined = undefined) {
@@ -60,11 +61,15 @@ export function document(definition: SchemaResourceDefinition | unknown, options
 }
 
 export function files(patterns: string | readonly string[], options: FilesOptions = {}) {
-  return {
+  const definition: { kind: 'files'; patterns: unknown[]; read: string; components?: string[] } = {
     kind: 'files',
     patterns: Array.isArray(patterns) ? [...patterns] : [patterns],
     read: options.read ?? 'frontmatter',
   };
+  if (Array.isArray(options.components)) {
+    definition.components = options.components.map(String);
+  }
+  return definition;
 }
 
 function makeField(type: string, extras: FieldOptions = {}): FieldBuilderDefinition {

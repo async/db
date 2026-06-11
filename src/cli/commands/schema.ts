@@ -764,7 +764,11 @@ function renderSourceExpression(source: unknown): string {
     };
   const patterns = normalized.patterns ?? [];
   const patternExpression = patterns.length === 1 ? JSON.stringify(patterns[0]) : literal(patterns);
-  return `files(${patternExpression}, ${objectLiteral({ read: normalized.read ?? 'frontmatter' })})`;
+  const options: Record<string, unknown> = { read: normalized.read ?? 'frontmatter' };
+  if (Array.isArray((normalized as { components?: unknown }).components)) {
+    options.components = (normalized as { components?: unknown[] }).components;
+  }
+  return `files(${patternExpression}, ${objectLiteral(options)})`;
 }
 
 function filesSource(source: unknown): FilesSource | null {
@@ -1315,7 +1319,7 @@ function requireSchemaResource(project: SchemaProject, name: string): SchemaReso
   return resource;
 }
 
-function schemaSourceForResource(resource: SchemaResource, options: { includeSeed?: boolean } = {}): SchemaSource {
+export function schemaSourceForResource(resource: SchemaResource, options: { includeSeed?: boolean } = {}): SchemaSource {
   const source: SchemaSource = {
     kind: resource.kind,
     fields: resource.fields,

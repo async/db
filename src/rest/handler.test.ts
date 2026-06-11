@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb } from '../index.js';
@@ -2116,3 +2116,45 @@ function builtInFormatMetadata(apiBase) {
   };
 }
 
+test('viewer schema payload carries mdx scan fields and component diagnostics', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'mdx', components: ['Callout'] }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/page.mdx'), [
+    '---',
+    'title: Page',
+    '---',
+    '<Callout>ok</Callout>',
+    '<Marquee>not registered</Marquee>',
+    '',
+  ].join('\n'), 'utf8');
+
+  const db = await openDb({ cwd, allowSourceErrors: true });
+  const response = makeResponse();
+
+  await handleRestRequest(
+    db,
+    makeRequest('GET'),
+    response,
+    new URL('http://db.local/__db/schema'),
+  );
+
+  assert.equal(response.status, 200);
+  const payload = response.json();
+  assert.equal(payload.resources.docs.fields.components.type, 'array');
+  assert.equal(payload.resources.docs.fields.components.items.type, 'string');
+  const diagnostic = (payload.diagnostics ?? []).find((entry) => entry.code === 'CONTENT_COMPONENT_NOT_ALLOWED');
+  assert.ok(diagnostic, 'expected the component diagnostic in the viewer schema payload');
+  assert.deepEqual(diagnostic.details.components, ['Marquee']);
+});

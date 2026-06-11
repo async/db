@@ -1071,3 +1071,197 @@ test('custom multi-source readers must name every returned source', async () => 
     },
   );
 });
+
+test('read mdx scans component usage into records and accepts allow-listed components', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'mdx', components: ['Callout', 'Tabs'] }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/intro.mdx'), [
+    '---',
+    'title: Intro',
+    '---',
+    "import Chart from './chart.js'",
+    '',
+    '<Callout level="info">Welcome.</Callout>',
+    '<Tabs.Item value="a" />',
+    '<Chart data={[1]} />',
+    '',
+    '```jsx',
+    '<Marquee>code samples never count</Marquee>',
+    '```',
+    '',
+  ].join('\n'), 'utf8');
+
+  const config = await loadConfig({ cwd });
+  const result = await syncDb(config);
+
+  assert.deepEqual(result.diagnostics.filter((diagnostic: any) => diagnostic.severity === 'error'), []);
+  assert.deepEqual(result.diagnostics.filter((diagnostic: any) => diagnostic.code === 'SCHEMA_UNKNOWN_FIELD'), []);
+  assert.equal(result.schema.resources.docs.fields.components.type, 'array');
+  assert.equal(result.schema.resources.docs.fields.components.items.type, 'string');
+  assert.equal(result.schema.resources.docs.fields.imports.type, 'array');
+  assert.equal(result.schema.resources.docs.fields.exports.type, 'array');
+
+  const db = await openDb({ cwd });
+  const docs = await db.collection('docs').all();
+  assert.equal(docs.length, 1);
+  assert.deepEqual(docs[0].components, ['Callout', 'Chart', 'Tabs.Item']);
+  assert.deepEqual(docs[0].imports, ['./chart.js']);
+  assert.deepEqual(docs[0].exports, []);
+  assert.match(docs[0].body, /<Callout level="info">/);
+});
+
+test('read mdx fails sync when a doc uses a component outside the allow-list', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'mdx', components: ['Callout'] }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/landing.mdx'), [
+    '---',
+    'title: Landing',
+    '---',
+    '<Callout>fine</Callout>',
+    '<Marquee speed={9}>not registered</Marquee>',
+    '',
+  ].join('\n'), 'utf8');
+
+  const config = await loadConfig({ cwd });
+
+  await assert.rejects(
+    () => syncDb(config),
+    (error: any) => {
+      const finding = (error.diagnostics ?? []).find((diagnostic: any) => diagnostic.code === 'CONTENT_COMPONENT_NOT_ALLOWED');
+      assert.ok(finding, 'expected a CONTENT_COMPONENT_NOT_ALLOWED diagnostic');
+      assert.equal(finding.severity, 'error');
+      assert.equal(finding.resource, 'docs');
+      assert.match(finding.message, /<Marquee>/);
+      assert.match(finding.message, /Callout/);
+      assert.deepEqual(finding.details.components, ['Marquee']);
+      assert.deepEqual(finding.details.allowed, ['Callout']);
+      assert.match(finding.hint, /components/);
+      return true;
+    },
+  );
+});
+
+test('read mdx without a components list is inventory-only and never fails', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'mdx' }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/page.mdx'), [
+    '---',
+    'title: Page',
+    '---',
+    '<Anything goes={true} />',
+    '',
+  ].join('\n'), 'utf8');
+
+  const config = await loadConfig({ cwd });
+  const result = await syncDb(config);
+
+  assert.deepEqual(result.diagnostics.filter((diagnostic: any) => diagnostic.severity === 'error'), []);
+  const db = await openDb({ cwd });
+  assert.deepEqual((await db.collection('docs').all())[0].components, ['Anything']);
+});
+
+test('a components list without read mdx warns that checking is off', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'frontmatter', components: ['Callout'] }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/page.mdx'), [
+    '---',
+    'title: Page',
+    '---',
+    'plain body',
+    '',
+  ].join('\n'), 'utf8');
+
+  const config = await loadConfig({ cwd });
+  const result = await syncDb(config);
+
+  const warning = result.diagnostics.find((diagnostic: any) => diagnostic.code === 'CONTENT_COMPONENTS_IGNORED');
+  assert.ok(warning, 'expected a CONTENT_COMPONENTS_IGNORED warning');
+  assert.equal(warning.severity, 'warn');
+  assert.match(warning.message, /read: 'mdx'/);
+});
+
+test('read mdx allows components the doc imports or exports itself', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'mdx', components: [] }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/self-sufficient.mdx'), [
+    '---',
+    'title: Self sufficient',
+    '---',
+    "import { Sparkline } from './local-charts.js'",
+    'export const Inline = (props) => <strong {...props} />;',
+    '',
+    '<Sparkline points={[1, 2, 3]} />',
+    '<Inline>bold</Inline>',
+    '',
+  ].join('\n'), 'utf8');
+
+  const config = await loadConfig({ cwd });
+  const result = await syncDb(config);
+
+  assert.deepEqual(result.diagnostics.filter((diagnostic: any) => diagnostic.severity === 'error'), []);
+  const db = await openDb({ cwd });
+  const [doc] = await db.collection('docs').all();
+  assert.deepEqual(doc.components, ['Inline', 'Sparkline']);
+  assert.deepEqual(doc.imports, ['./local-charts.js']);
+  assert.deepEqual(doc.exports, ['Inline']);
+});

@@ -561,3 +561,37 @@ test('doctor production mode recommends backups for JSON-backed projects', async
   assert.equal(recentResult.findings.some((candidate) => candidate.code === 'DOCTOR_JSON_BACKUP_RECOMMENDED'), false);
 });
 
+test('doctor surfaces disallowed mdx component usage as an error finding', async () => {
+  const cwd = await makeProject();
+  await mkdir(path.join(cwd, 'db/docs'), { recursive: true });
+  await writeFile(path.join(cwd, 'db/docs/index.schema.mjs'), `
+import { collection, field, files } from '@async/db/schema';
+
+export default collection({
+  source: files('./**/*.mdx', { read: 'mdx', components: ['Callout', 'CodeTabs'] }),
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    body: field.string({ required: true }),
+  },
+});
+`);
+  await writeFile(path.join(cwd, 'db/docs/page.mdx'), [
+    '---',
+    'title: Page',
+    '---',
+    '<Marquee speed={9}>renamed component, stale doc</Marquee>',
+    '',
+  ].join('\n'), 'utf8');
+
+  const config = await loadConfig({ cwd });
+  const result = await runDbDoctor(config);
+
+  const finding = result.findings.find((entry) => entry.code === 'CONTENT_COMPONENT_NOT_ALLOWED');
+  assert.ok(finding, 'expected doctor to surface the component diagnostic');
+  assert.equal(finding.severity, 'error');
+  assert.equal(finding.source, 'schema');
+  assert.equal(finding.resource, 'docs');
+  assert.deepEqual(finding.details.components, ['Marquee']);
+  assert.equal(result.summary.error >= 1, true);
+});

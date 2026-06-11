@@ -117,7 +117,13 @@ export type StandardSchemaLegacyMixedResourceDefinition<Input = unknown, Output 
 export type FilesSourceDefinition = {
   kind: 'files';
   patterns: readonly string[];
-  read?: 'frontmatter' | 'json' | 'jsonc' | 'text' | string;
+  read?: 'frontmatter' | 'mdx' | 'json' | 'jsonc' | 'text' | string;
+  /**
+   * Component allow-list for read: 'mdx'. Docs may only use these capitalized
+   * JSX tags (plus components they import or export themselves); anything else
+   * fails sync with CONTENT_COMPONENT_NOT_ALLOWED.
+   */
+  components?: readonly string[];
 };
 
 export type ComputedResolverThis = {
@@ -190,7 +196,10 @@ export function document<Input = unknown, Output = unknown>(
   definition: StandardSchemaV1<Input, Output>,
   options?: StandardSchemaResourceOptions,
 ): StandardSchemaResourceOptions & { kind: 'document'; validator: StandardSchemaV1<Input, Output> };
-export function files(patterns: string | readonly string[], options?: { read?: FilesSourceDefinition['read'] }): FilesSourceDefinition;
+export function files(patterns: string | readonly string[], options?: {
+  read?: FilesSourceDefinition['read'];
+  components?: FilesSourceDefinition['components'];
+}): FilesSourceDefinition;
 
 export const field: {
   string(options?: FieldOptions<string>): FieldBuilderDefinition;
