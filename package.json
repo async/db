@@ -84,6 +84,7 @@
     }
   },
   "files": [
+    "LICENSE",
     "dist/**/*.js",
     "dist/**/*.d.ts",
     "!dist/**/*.test.js",
