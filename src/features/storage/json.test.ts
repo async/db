@@ -1,14 +1,20 @@
 import assert from 'node:assert/strict';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdir, readFile, utimes, writeFile } from 'node:fs/promises';
+import { hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { createMemoryFs } from '../fs/index.js';
 import {
   atomicWriteJson,
+  atomicWriteJsonVersioned,
   fileStorage,
   jsonStore,
+  listJsonStateVersions,
   readJsonState,
+  recoverJsonStateDir,
+  restoreJsonStateVersion,
   s3Storage,
   statePathForResource,
   withJsonStateWrite,
@@ -157,4 +163,228 @@ test('s3Storage returns an object storage descriptor without bundling an SDK', (
     prefix: 'prod',
     encryption: { mode: 'sse-kms', keyId: 'alias/app-json-db' },
   });
+});
+
+test('withJsonStateWrite holds an on-disk lock during the operation and releases it after', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-lock-${Date.now()}-`), { recursive: true });
+  const filePath = path.join(dir, 'users.json');
+  const lockPath = `${filePath}.lock`;
+
+  await withJsonStateWrite(filePath, async () => {
+    const lock = JSON.parse(await readFile(lockPath, 'utf8'));
+    assert.equal(lock.pid, process.pid);
+    assert.equal(typeof lock.createdAt, 'number');
+  }, { crossProcessLock: true });
+
+  await assert.rejects(() => readFile(lockPath, 'utf8'), (error: any) => error.code === 'ENOENT');
+});
+
+test('withJsonStateWrite reclaims locks left behind by dead processes', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-lock-dead-${Date.now()}-`), { recursive: true });
+  const filePath = path.join(dir, 'users.json');
+  const lockPath = `${filePath}.lock`;
+  const deadChild = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+  await writeFile(lockPath, JSON.stringify({
+    pid: deadChild.pid,
+    host: hostname(),
+    createdAt: Date.now(),
+  }), 'utf8');
+
+  const result = await withJsonStateWrite(filePath, async () => 'ran', {
+    crossProcessLock: true,
+    lockTimeoutMs: 2000,
+  });
+
+  assert.equal(result, 'ran');
+  await assert.rejects(() => readFile(lockPath, 'utf8'), (error: any) => error.code === 'ENOENT');
+});
+
+test('withJsonStateWrite reclaims stale unreadable locks by age', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-lock-stale-${Date.now()}-`), { recursive: true });
+  const filePath = path.join(dir, 'users.json');
+  const lockPath = `${filePath}.lock`;
+  await writeFile(lockPath, 'not json', 'utf8');
+  const past = new Date(Date.now() - 60_000);
+  await utimes(lockPath, past, past);
+
+  const result = await withJsonStateWrite(filePath, async () => 'ran', {
+    crossProcessLock: true,
+    lockTimeoutMs: 2000,
+    lockStaleMs: 1000,
+  });
+
+  assert.equal(result, 'ran');
+});
+
+test('withJsonStateWrite fails with JSON_STATE_LOCKED while another live process holds the lock', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-lock-live-${Date.now()}-`), { recursive: true });
+  const filePath = path.join(dir, 'users.json');
+  const lockPath = `${filePath}.lock`;
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { stdio: 'ignore' });
+  try {
+    await writeFile(lockPath, JSON.stringify({
+      pid: child.pid,
+      host: hostname(),
+      createdAt: Date.now(),
+    }), 'utf8');
+
+    await assert.rejects(
+      () => withJsonStateWrite(filePath, async () => 'should not run', {
+        crossProcessLock: true,
+        lockTimeoutMs: 150,
+      }),
+      (error: any) => {
+        assert.equal(error.code, 'JSON_STATE_LOCKED');
+        assert.equal(error.status, 503);
+        assert.match(error.hint, /lock file/);
+        assert.equal(error.details.lockPath, lockPath);
+        assert.equal(error.details.holder.pid, child.pid);
+        return true;
+      },
+    );
+  } finally {
+    child.kill('SIGKILL');
+  }
+});
+
+test('atomicWriteJson works with custom file systems that omit fsync', async () => {
+  const fs = createMemoryFs({ cwd: '/' });
+  await atomicWriteJson('/state/users.json', [{ id: 'u_1' }], fs);
+
+  assert.deepEqual(JSON.parse(await fs.readFile('/state/users.json', 'utf8') as string), [{ id: 'u_1' }]);
+});
+
+test('atomicWriteJsonVersioned snapshots previous contents and prunes history', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-versions-${Date.now()}-`), { recursive: true });
+  const filePath = path.join(dir, 'flags.json');
+
+  await atomicWriteJsonVersioned(filePath, [{ id: 'a', enabled: false }]);
+  assert.deepEqual(await listJsonStateVersions(filePath), []);
+
+  for (let index = 0; index < 4; index += 1) {
+    await delay(2);
+    await atomicWriteJsonVersioned(filePath, [{ id: 'a', enabled: index % 2 === 0 }], { maxVersions: 2 });
+  }
+
+  const versions = await listJsonStateVersions(filePath);
+  assert.equal(versions.length, 2);
+  assert.equal(versions[0].at >= versions[1].at, true);
+
+  // Unchanged writes neither rewrite the file nor add version churn.
+  const before = await listJsonStateVersions(filePath);
+  const changed = await atomicWriteJsonVersioned(filePath, JSON.parse(await readFile(filePath, 'utf8')), { maxVersions: 2 });
+  assert.equal(changed, false);
+  assert.deepEqual(await listJsonStateVersions(filePath), before);
+});
+
+test('restoreJsonStateVersion rolls back and is itself undoable', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-restore-${Date.now()}-`), { recursive: true });
+  const filePath = path.join(dir, 'settings.json');
+
+  await atomicWriteJsonVersioned(filePath, { theme: 'dark' });
+  await delay(2);
+  await atomicWriteJsonVersioned(filePath, { theme: 'light' });
+
+  const restored = await restoreJsonStateVersion(filePath, 'latest');
+  assert.match(restored.file, /\.json$/);
+  assert.deepEqual(JSON.parse(await readFile(filePath, 'utf8')), { theme: 'dark' });
+
+  // The pre-restore contents were snapshotted, so restoring again can return.
+  const versions = await listJsonStateVersions(filePath);
+  assert.equal(versions.some((version) => version.file !== restored.file), true);
+
+  await assert.rejects(
+    () => restoreJsonStateVersion(filePath, 'no-such-version'),
+    (error: any) => {
+      assert.equal(error.code, 'JSON_STATE_VERSION_NOT_FOUND');
+      assert.equal(error.status, 404);
+      assert.match(error.hint, /--list/);
+      return true;
+    },
+  );
+});
+
+test('recoverJsonStateDir removes orphan temp files and dead locks only', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-recover-${Date.now()}-`), { recursive: true });
+  const oldTemp = path.join(dir, '.users.json.123.456.abc.tmp');
+  await writeFile(oldTemp, 'partial', 'utf8');
+  const past = new Date(Date.now() - 120_000);
+  await utimes(oldTemp, past, past);
+
+  const freshTemp = path.join(dir, '.users.json.789.999.def.tmp');
+  await writeFile(freshTemp, 'partial', 'utf8');
+
+  const deadChild = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+  await writeFile(path.join(dir, 'users.json.lock'), JSON.stringify({
+    pid: deadChild.pid,
+    host: hostname(),
+    createdAt: Date.now() - 120_000,
+  }), 'utf8');
+
+  const report = await recoverJsonStateDir(dir);
+  assert.deepEqual(report.removedTempFiles, ['.users.json.123.456.abc.tmp']);
+  assert.deepEqual(report.removedLocks, ['users.json.lock']);
+  await readFile(freshTemp, 'utf8');
+});
+
+test('jsonStore encryption seals state files with AES-256-GCM', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-encrypted-${Date.now()}-`), { recursive: true });
+  const config = { cwd: String(dir), stateDir: String(dir) };
+  const resource = { name: 'secrets', kind: 'document' };
+  const store = jsonStore({ encryption: { key: 'correct horse battery staple' } })({
+    config: config as never,
+    resources: [],
+    storeName: 'sealed',
+  }) as any;
+
+  await store.writeResource(resource, { apiToken: 'tok_12345' });
+
+  const raw = JSON.parse(await readFile(path.join(String(dir), 'state', 'secrets.json'), 'utf8'));
+  assert.equal(raw.__asyncDbEncrypted, 'aes-256-gcm');
+  assert.equal(JSON.stringify(raw).includes('tok_12345'), false);
+
+  assert.deepEqual(await store.readResource(resource, null), { apiToken: 'tok_12345' });
+
+  // Identical values skip the write entirely despite random IVs.
+  const cipherBefore = await readFile(path.join(String(dir), 'state', 'secrets.json'), 'utf8');
+  assert.equal(await store.writeResource(resource, { apiToken: 'tok_12345' }), false);
+  assert.equal(await readFile(path.join(String(dir), 'state', 'secrets.json'), 'utf8'), cipherBefore);
+
+  const wrongKeyStore = jsonStore({ encryption: { key: 'wrong key' } })({
+    config: config as never,
+    resources: [],
+    storeName: 'sealed',
+  }) as any;
+  await assert.rejects(
+    () => wrongKeyStore.readResource(resource, null),
+    (error: any) => {
+      assert.equal(error.code, 'JSON_ENCRYPTION_FAILED');
+      assert.match(error.hint, /key/);
+      return true;
+    },
+  );
+
+  assert.throws(
+    () => jsonStore({ encryption: {} as never })({ config: config as never, resources: [], storeName: 'sealed' }),
+    (error: any) => error.code === 'JSON_ENCRYPTION_KEY_REQUIRED',
+  );
+});
+
+test('jsonStore plaintext files migrate transparently into an encrypted store', async () => {
+  const dir = await mkdir(path.join(tmpdir(), `db-json-migrate-${Date.now()}-`), { recursive: true });
+  const config = { cwd: String(dir), stateDir: String(dir) };
+  const resource = { name: 'settings', kind: 'document' };
+  await mkdir(path.join(String(dir), 'state'), { recursive: true });
+  await writeFile(path.join(String(dir), 'state', 'settings.json'), JSON.stringify({ theme: 'dark' }), 'utf8');
+
+  const store = jsonStore({ encryption: { key: 'migration key' } })({
+    config: config as never,
+    resources: [],
+    storeName: 'sealed',
+  }) as any;
+
+  assert.deepEqual(await store.readResource(resource, null), { theme: 'dark' });
+  await store.writeResource(resource, { theme: 'light' });
+  const raw = JSON.parse(await readFile(path.join(String(dir), 'state', 'settings.json'), 'utf8'));
+  assert.equal(raw.__asyncDbEncrypted, 'aes-256-gcm');
 });

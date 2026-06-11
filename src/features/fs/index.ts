@@ -1,6 +1,8 @@
 import {
   access as nodeAccess,
+  appendFile as nodeAppendFile,
   mkdir as nodeMkdir,
+  open as nodeOpen,
   readFile as nodeReadFile,
   readdir as nodeReaddir,
   rename as nodeRename,
@@ -35,6 +37,13 @@ export type DbFileSystem = {
   access(filePath: string): Promise<void>;
   rm(filePath: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   rename(oldPath: string, newPath: string): Promise<void>;
+  /**
+   * Flush a file or directory to stable storage. Optional: in-memory and other
+   * custom file systems may omit it, and durability hooks become no-ops.
+   */
+  fsync?(filePath: string): Promise<void>;
+  /** Append to a file, creating it when missing. Optional for custom file systems. */
+  appendFile?(filePath: string, data: string | Buffer | Uint8Array, encoding?: BufferEncoding): Promise<void>;
 };
 
 type FsConfig = {
@@ -59,6 +68,15 @@ export const nodeFileSystem: DbFileSystem = {
   access: nodeAccess,
   rm: nodeRm,
   rename: nodeRename,
+  async fsync(filePath) {
+    const handle = await nodeOpen(filePath, 'r');
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+  },
+  appendFile: nodeAppendFile as DbFileSystem['appendFile'],
 };
 
 export function dbFileSystem(config?: FsConfig | null): DbFileSystem {
@@ -88,6 +106,14 @@ export function createMemoryFs(options: MemoryFileSystemOptions | MemoryFsInput 
       const absolutePath = normalizePath(cwd, filePath);
       ensureDirectory(path.dirname(absolutePath), directories);
       files.set(absolutePath, toBuffer(data, encoding));
+    },
+    async appendFile(filePath, data, encoding) {
+      const absolutePath = normalizePath(cwd, filePath);
+      ensureDirectory(path.dirname(absolutePath), directories);
+      const existing = files.get(absolutePath);
+      files.set(absolutePath, existing
+        ? Buffer.concat([existing, toBuffer(data, encoding)])
+        : toBuffer(data, encoding));
     },
     async mkdir(filePath, options = {}) {
       const absolutePath = normalizePath(cwd, filePath);

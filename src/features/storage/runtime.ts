@@ -26,6 +26,7 @@ type RuntimeAdapter = {
   hydrate?: (resources: RuntimeResource[]) => unknown | Promise<unknown>;
   readResource?: (resource: RuntimeResource, fallback: unknown) => unknown | Promise<unknown>;
   writeResource?: (resource: RuntimeResource, value: unknown) => unknown | Promise<unknown>;
+  writeResourceDelta?: (resource: RuntimeResource, value: unknown, delta: Record<string, unknown>) => unknown | Promise<unknown>;
   withResourceWrite?: <T>(resource: RuntimeResource, operation: () => T | Promise<T>) => T | Promise<T>;
   close?: () => unknown | Promise<unknown>;
 };
@@ -40,6 +41,7 @@ type CustomStore = {
   get?: (resource: RuntimeResource, fallback: unknown) => unknown | Promise<unknown>;
   read: (resource: RuntimeResource, fallback: unknown) => unknown | Promise<unknown>;
   writeResource?: (resource: RuntimeResource, value: unknown) => unknown | Promise<unknown>;
+  writeResourceDelta?: (resource: RuntimeResource, value: unknown, delta: Record<string, unknown>) => unknown | Promise<unknown>;
   set?: (resource: RuntimeResource, value: unknown) => unknown | Promise<unknown>;
   write: (resource: RuntimeResource, value: unknown) => unknown | Promise<unknown>;
   withResourceWrite?: <T>(resource: RuntimeResource, operation: () => T | Promise<T>) => T | Promise<T>;
