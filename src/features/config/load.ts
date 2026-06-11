@@ -5,6 +5,7 @@ import { dbError } from '../../errors.js';
 import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 import { resolveFrom } from '../../fs-utils.js';
 import { DEFAULT_CONFIG } from './defaults.js';
+import { applyLifecycleToConfig, readLifecycleFile } from './lifecycle.js';
 import { normalizeSchemaLoadMode, resolveSchemaLocator, type SchemaLoadMode } from '../schema/locator.js';
 
 type ConfigRecord = Record<string, any>;
@@ -85,6 +86,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Confi
   rejectUnsupportedPublicConfig(userConfig, inlineOptions);
 
   const merged = mergeConfig(userConfig, inlineOptions);
+  applyLifecycleToConfig(merged, await readLifecycleFile(cwd, fs));
   resolveConfigPaths(merged, {
     rawOptions,
     locator,

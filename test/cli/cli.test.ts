@@ -2337,3 +2337,112 @@ async function stopChild(child: any) {
     });
   });
 }
+
+test('CLI backup and restore round-trip JSON state bundles and version history', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'flags.json', JSON.stringify([{ id: 'beta', enabled: false }]));
+  await writeConfig(cwd, `export default {
+  stores: {
+    json: {
+      driver: 'json',
+      durability: 'versioned',
+    },
+  },
+};`);
+
+  const cli = path.resolve('dist/cli.js');
+  await execFileAsync(process.execPath, [cli, 'sync', '--cwd', cwd]);
+
+  const backupOut = path.join(cwd, 'backup.json');
+  const { stdout: backupStdout } = await execFileAsync(process.execPath, [cli, 'backup', '--out', backupOut, '--cwd', cwd]);
+  const backupSummary = JSON.parse(backupStdout);
+  assert.deepEqual(backupSummary.resources, ['flags']);
+
+  const bundle = JSON.parse(await readFile(backupOut, 'utf8'));
+  assert.equal(bundle.kind, 'async-db-backup');
+  assert.deepEqual(bundle.resources.flags, [{ id: 'beta', enabled: false }]);
+
+  await execFileAsync(process.execPath, [cli, 'create', 'flags', '{"id":"gamma","enabled":true}', '--cwd', cwd]);
+  const stateAfterCreate = JSON.parse(await readFile(path.join(cwd, '.db/state/flags.json'), 'utf8'));
+  assert.equal(stateAfterCreate.length, 2);
+
+  const { stdout: restoreStdout } = await execFileAsync(process.execPath, [cli, 'restore', '--from', backupOut, '--cwd', cwd]);
+  assert.equal(JSON.parse(restoreStdout).plan[0].action, 'restore');
+  const stateAfterRestore = JSON.parse(await readFile(path.join(cwd, '.db/state/flags.json'), 'utf8'));
+  assert.deepEqual(stateAfterRestore, [{ id: 'beta', enabled: false }]);
+
+  const { stdout: listStdout } = await execFileAsync(process.execPath, [cli, 'restore', 'flags', '--list', '--cwd', cwd]);
+  const versionList = JSON.parse(listStdout);
+  assert.equal(versionList.versions.length >= 1, true);
+
+  const { stdout: versionRestoreStdout } = await execFileAsync(process.execPath, [cli, 'restore', 'flags', '--cwd', cwd]);
+  assert.match(JSON.parse(versionRestoreStdout).restored, /\.json$/);
+  const stateAfterVersionRestore = JSON.parse(await readFile(path.join(cwd, '.db/state/flags.json'), 'utf8'));
+  assert.equal(stateAfterVersionRestore.length, 2);
+
+  const meta = JSON.parse(await readFile(path.join(cwd, '.db/backup-meta.json'), 'utf8'));
+  assert.equal(typeof meta.lastBackupAt, 'string');
+});
+
+test('CLI promote freezes the seed, captures schema, and guards reseeds', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  const cli = path.resolve('dist/cli.js');
+  await execFileAsync(process.execPath, [cli, 'sync', '--cwd', cwd]);
+
+  const { stdout: promoteOut } = await execFileAsync(process.execPath, [cli, 'promote', 'users', '--fsync', 'always', '--cwd', cwd]);
+  const promoted = JSON.parse(promoteOut);
+  assert.equal(promoted.phase, 'production');
+  assert.equal(promoted.store, 'json');
+  assert.equal(typeof promoted.seedHash, 'string');
+  assert.match(promoted.schemaFile, /users\.schema\.jsonc$/);
+  await readFile(path.join(cwd, 'db/users.schema.jsonc'), 'utf8');
+
+  const lifecycle = JSON.parse((await readFile(path.join(cwd, 'db.lifecycle.jsonc'), 'utf8')).split('\n').slice(1).join('\n'));
+  assert.equal(lifecycle.resources.users.phase, 'production');
+  assert.equal(lifecycle.stores.json.durability, 'wal');
+  assert.equal(lifecycle.stores.json.fsync, 'always');
+
+  // Status derives the phase from the lifecycle file.
+  const { stdout: statusOut } = await execFileAsync(process.execPath, [cli, 'status', '--json', '--cwd', cwd]);
+  const status = JSON.parse(statusOut);
+  const usersRow = status.resources.find((row) => row.resource === 'users');
+  assert.equal(usersRow.phase, 'production (json)');
+  assert.equal(usersRow.durability, 'wal');
+  assert.equal(usersRow.seedPinned, true);
+
+  // Live write after promotion, then edit the seed file: sync must preserve
+  // live state instead of resetting it, and doctor reports the drift.
+  await execFileAsync(process.execPath, [cli, 'create', 'users', '{"id":"u_2","name":"Grace"}', '--cwd', cwd]);
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_edited', name: 'Edited Seed' }]));
+  await execFileAsync(process.execPath, [cli, 'sync', '--cwd', cwd]);
+
+  const state = JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8'));
+  assert.equal(state.some((record) => record.id === 'u_2'), true);
+  assert.equal(state.some((record) => record.id === 'u_edited'), false);
+
+  const { stdout: doctorOut } = await execFileAsync(process.execPath, [cli, 'doctor', '--json', '--cwd', cwd]);
+  assert.equal(JSON.parse(doctorOut).findings.some((finding) => finding.code === 'DOCTOR_SEED_DRIFT'), true);
+
+  // Explicit reseed applies the edited seed and re-pins.
+  const { stdout: reseedOut } = await execFileAsync(process.execPath, [cli, 'reseed', 'users', '--force', '--cwd', cwd]);
+  assert.equal(JSON.parse(reseedOut).reseeded, true);
+  const reseeded = JSON.parse(await readFile(path.join(cwd, '.db/state/users.json'), 'utf8'));
+  assert.equal(reseeded.some((record) => record.id === 'u_edited'), true);
+});
+
+test('CLI doctor refuses draft resources in production mode', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'notes.json', JSON.stringify([{ id: 'n_1', text: 'draft data' }]));
+  await writeConfig(cwd, `export default {
+  stores: { default: 'sourceFile' },
+};`);
+  const cli = path.resolve('dist/cli.js');
+  await execFileAsync(process.execPath, [cli, 'sync', '--cwd', cwd]);
+
+  const { stdout } = await execFileAsync(process.execPath, [cli, 'doctor', '--production', '--json', '--cwd', cwd]).catch((error) => error);
+  const findings = JSON.parse(stdout).findings;
+  const draft = findings.find((finding) => finding.code === 'DOCTOR_DRAFT_IN_PRODUCTION');
+  assert.equal(draft.severity, 'error');
+  assert.match(draft.hint, /async-db promote notes/);
+});

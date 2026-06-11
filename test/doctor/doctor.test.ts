@@ -489,3 +489,75 @@ await db.query('users.get', { id: 'u_1' });
   assert.equal(result.usage.target.path, 'src');
   assert.equal(result.findings.some((finding) => finding.code === 'USAGE_RECOMMEND_REST_REGISTERED_ONLY'), true);
 });
+
+test('doctor production mode reports how mock behavior is handled', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'featureFlags.json', JSON.stringify([
+    { id: 'new-dashboard', enabled: true },
+  ]));
+
+  const config = await loadConfig({ cwd });
+  const localResult = await runDbDoctor(config);
+  const productionResult = await runDbDoctor({
+    ...config,
+    doctor: {
+      production: true,
+    },
+  });
+  const disabledNote = productionResult.findings.find((finding) => finding.code === 'DOCTOR_MOCK_PRODUCTION_DISABLED');
+
+  assert.equal(localResult.findings.some((finding) => finding.code === 'DOCTOR_MOCK_PRODUCTION_DISABLED'), false);
+  assert.equal(disabledNote.severity, 'info');
+  assert.match(disabledNote.message, /NODE_ENV=production/);
+  assert.match(disabledNote.hint, /mock\.delay: false/);
+
+  const forcedResult = await runDbDoctor({
+    ...config,
+    mock: {
+      delay: [30, 100],
+      production: true,
+    },
+    doctor: {
+      production: true,
+    },
+  });
+  const enabledWarning = forcedResult.findings.find((finding) => finding.code === 'DOCTOR_MOCK_PRODUCTION_ENABLED');
+
+  assert.equal(enabledWarning.severity, 'warn');
+  assert.match(enabledWarning.message, /mock\.production: true/);
+  assert.match(enabledWarning.hint, /chaos testing/);
+});
+
+test('doctor production mode recommends backups for JSON-backed projects', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'featureFlags.json', JSON.stringify([
+    { id: 'new-dashboard', enabled: true },
+  ]));
+
+  const config = await loadConfig({ cwd });
+  const localResult = await runDbDoctor(config);
+  assert.equal(localResult.findings.some((finding) => finding.code === 'DOCTOR_JSON_BACKUP_RECOMMENDED'), false);
+
+  const productionResult = await runDbDoctor({
+    ...config,
+    doctor: { production: true },
+  });
+  const finding = productionResult.findings.find((candidate) => candidate.code === 'DOCTOR_JSON_BACKUP_RECOMMENDED');
+  assert.equal(finding.severity, 'info');
+  assert.match(finding.message, /No `async-db backup`/);
+  assert.match(finding.hint, /async-db backup/);
+
+  await mkdir(path.join(cwd, '.db'), { recursive: true });
+  await writeFile(path.join(cwd, '.db/backup-meta.json'), JSON.stringify({
+    lastBackupAt: new Date().toISOString(),
+    file: 'db-backup-test.json',
+    resources: 1,
+  }), 'utf8');
+
+  const recentResult = await runDbDoctor({
+    ...config,
+    doctor: { production: true },
+  });
+  assert.equal(recentResult.findings.some((candidate) => candidate.code === 'DOCTOR_JSON_BACKUP_RECOMMENDED'), false);
+});
+

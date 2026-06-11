@@ -212,7 +212,7 @@ export function printHelp(): void {
   console.log(`async-db
 
 Usage:
-  async-db init [--template data-first|schema-first|source-file] [--dry-run] [--json]
+  async-db init [--template data-first|schema-first|source-file|content] [--dry-run] [--json]
   async-db sync
   async-db types [--watch] [--out <file>]
   async-db schema [resource]
@@ -239,6 +239,12 @@ Usage:
   async-db doctor [--strict] [--json] [--production] [--usage [target]]
   async-db check [--strict] [--json] [--production] [--usage [target]]
   async-db create <collection> <json>
+  async-db status [--json]
+  async-db promote <resource> [--store json|file|<registered>] [--fsync always|everysec|no] [--dry-run]
+  async-db reseed <resource> --force
+  async-db backup [--out <file>]
+  async-db restore <resource> [--list] [--version <id|latest>]
+  async-db restore --from <backup.json> [--resource <name>] [--dry-run]
   async-db serve [--host <host>] [--port <port>]
   async-db generate hono [--out <dir>] [--api <targets>] [--app <shape>]
 
@@ -252,12 +258,13 @@ export function printInitHelp(): void {
   console.log(`async-db init
 
 Usage:
-  async-db init [--template data-first|schema-first|source-file] [--dry-run] [--json]
+  async-db init [--template data-first|schema-first|source-file|content] [--dry-run] [--json]
 
 Templates:
   data-first     One JSON file in db/ with no config file (default)
   schema-first   Empty schema-backed collection in db/users.schema.jsonc
   source-file    Local app state saved directly to db/*.json
+  content        Markdown content collection: contract in db/, pages in docs/
 
 Options:
   --cwd <dir>       Project directory

@@ -1,5 +1,8 @@
 import { loadProjectSchema } from '../../schema.js';
 import { resourceConfigValue } from '../../names.js';
+import { dbFileSystem } from '../fs/index.js';
+import { backupMetaPath, readJsonState } from '../storage/json.js';
+import { normalizeMockDelay } from '../../shared/mock.js';
 import { duplicateIdFindings, mixedIdTypeFindings } from './duplicate-ids.js';
 import { inconsistentFieldTypeFindings } from './field-consistency.js';
 import { operationStrictModeFindings } from '../operations/readiness.js';
@@ -116,6 +119,7 @@ export async function runDbDoctor(config: DoctorConfig): Promise<DoctorResult> {
     ...doctorResourceFindings(project.resources, config),
     ...schemaGuidanceFindings(project, inferredProject),
     ...await operationStrictModeFindings(config),
+    ...await backupRecencyFindings(project.resources, config),
     ...usageFindings(usage),
   ];
 
@@ -148,6 +152,8 @@ function doctorResourceFindings(resources: DoctorResource[], config: DoctorConfi
   return [
     ...storeConfigFindings(resources, config),
     ...jsonProductionFindings(resources, config),
+    ...phaseFindings(resources, config),
+    ...mockProductionFindings(config),
     ...collections.flatMap((resource) => [
       ...duplicateIdFindings(resource),
       ...mixedIdTypeFindings(resource),
@@ -247,6 +253,163 @@ function jsonProductionFindings(resources: DoctorResource[], config: DoctorConfi
 
     return findings;
   });
+}
+
+type LifecycleConfig = {
+  resources?: Record<string, { phase?: string; store?: string; seedHash?: string | null }>;
+};
+
+/**
+ * Phase gates: draft (the file is the live database) is the only phase the
+ * production gate refuses; seed drift on promoted resources warns because
+ * sync deliberately stops auto-reseeding past the pinned hash.
+ */
+function phaseFindings(resources: DoctorResource[], config: DoctorConfig): DoctorFinding[] {
+  const lifecycle = (config as { lifecycle?: LifecycleConfig }).lifecycle;
+  const findings: DoctorFinding[] = [];
+
+  for (const resource of resources) {
+    const entry = lifecycle?.resources?.[resource.name];
+    const resourceConfig = resourceConfigValue(config.resources, resource.name);
+    const storeName = entry?.store ?? resourceConfig?.store ?? config.stores?.default ?? 'json';
+    const driver = resolveStoreDriver(storeName, config);
+
+    if (config.doctor?.production === true && driver === 'sourceFile' && !entry) {
+      findings.push({
+        code: 'DOCTOR_DRAFT_IN_PRODUCTION',
+        severity: 'error',
+        source: 'doctor',
+        resource: resource.name,
+        message: `Resource "${resource.name}" is still in draft: the db/ file is the live database.`,
+        hint: `Promote before shipping: \`async-db promote ${resource.name}\` (or \`--store file\` to keep the file canonical with production guarantees).`,
+        details: {
+          resource: resource.name,
+          phase: 'draft',
+          store: storeName,
+          production: true,
+        },
+      });
+    }
+
+    const seedDrift = Boolean(entry?.seedHash && (resource as { dataHash?: string | null }).dataHash && (resource as { dataHash?: string | null }).dataHash !== entry.seedHash);
+    if (seedDrift) {
+      findings.push({
+        code: 'DOCTOR_SEED_DRIFT',
+        severity: 'warn',
+        source: 'doctor',
+        resource: resource.name,
+        message: `Promoted resource "${resource.name}" has a seed file that changed after promotion; live state was preserved.`,
+        hint: `Seed files stop feeding production after promote. Run \`async-db reseed ${resource.name} --force\` to apply the new seed deliberately, or revert the seed edit.`,
+        details: {
+          resource: resource.name,
+          pinnedSeedHash: entry?.seedHash,
+          currentSeedHash: (resource as { dataHash?: string | null }).dataHash,
+        },
+      });
+    }
+  }
+
+  return findings;
+}
+
+const BACKUP_RECENCY_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function backupRecencyFindings(resources: DoctorResource[], config: DoctorConfig): Promise<DoctorFinding[]> {
+  if (config.doctor?.production !== true || !config.stateDir || resources.length === 0) {
+    return [];
+  }
+
+  const usesJsonStore = resources.some((resource) => {
+    const resourceConfig = resourceConfigValue(config.resources, resource.name);
+    const storeName = resourceConfig?.store ?? config.stores?.default ?? 'json';
+    return resolveStoreDriver(storeName, config) === 'json';
+  });
+  if (!usesJsonStore) {
+    return [];
+  }
+
+  const meta = await readJsonState<{ lastBackupAt?: string } | undefined>(
+    backupMetaPath(config as { stateDir: string }),
+    undefined,
+    dbFileSystem(config),
+  ).catch(() => undefined);
+  const lastBackupAt = meta?.lastBackupAt ? Date.parse(meta.lastBackupAt) : Number.NaN;
+  const age = Date.now() - lastBackupAt;
+
+  if (Number.isFinite(age) && age >= 0 && age < BACKUP_RECENCY_THRESHOLD_MS) {
+    return [];
+  }
+
+  return [{
+    code: 'DOCTOR_JSON_BACKUP_RECOMMENDED',
+    severity: 'info',
+    source: 'doctor',
+    message: Number.isFinite(lastBackupAt)
+      ? `The last \`async-db backup\` ran ${Math.round(age / 86_400_000)} day(s) ago.`
+      : 'No `async-db backup` bundle has been recorded for this project.',
+    hint: 'Run `async-db backup` (and store the bundle off-machine) before treating JSON-backed resources as production data; schedule it alongside deployments.',
+    details: {
+      lastBackupAt: meta?.lastBackupAt ?? null,
+      thresholdDays: 7,
+      production: true,
+    },
+  }];
+}
+
+function mockProductionFindings(config: DoctorConfig): DoctorFinding[] {
+  if (config.doctor?.production !== true) {
+    return [];
+  }
+
+  const mock = (config.mock ?? config.chaos) as {
+    delay?: number | [number, number] | { minMs?: number; maxMs?: number; min?: number; max?: number } | false;
+    delayMs?: number | [number, number] | { minMs?: number; maxMs?: number; min?: number; max?: number } | false;
+    errors?: number | { rate?: number; probability?: number } | false | null;
+    error?: number | { rate?: number; probability?: number } | false | null;
+    production?: boolean;
+  } | false | null | undefined;
+  if (!mock) {
+    return [];
+  }
+
+  const delay = normalizeMockDelay(mock.delay ?? mock.delayMs);
+  const errors = mock.errors ?? mock.error;
+  const errorRate = typeof errors === 'number'
+    ? errors
+    : Number((errors as { rate?: number; probability?: number } | null | undefined)?.rate
+      ?? (errors as { probability?: number } | null | undefined)?.probability
+      ?? 0);
+  if (delay.maxMs <= 0 && errorRate <= 0) {
+    return [];
+  }
+
+  if (mock.production === true) {
+    return [{
+      code: 'DOCTOR_MOCK_PRODUCTION_ENABLED',
+      severity: 'warn',
+      source: 'doctor',
+      message: 'mock.production: true keeps artificial response delays and chaos errors active under NODE_ENV=production.',
+      hint: 'Remove mock.production (or set mock.delay: false and mock.errors: false) before serving real traffic; keep it only for chaos testing environments.',
+      details: {
+        delay,
+        errorRate,
+        production: true,
+      },
+    }];
+  }
+
+  return [{
+    code: 'DOCTOR_MOCK_PRODUCTION_DISABLED',
+    severity: 'info',
+    source: 'doctor',
+    message: 'Configured mock delay/error behavior is skipped automatically when NODE_ENV=production.',
+    hint: 'Set mock.delay: false to silence this note, or mock.production: true to deliberately keep mock behavior in production.',
+    details: {
+      delay,
+      errorRate,
+      production: false,
+    },
+  }];
 }
 
 function storeConfigFindings(resources: DoctorResource[], config: DoctorConfig): DoctorFinding[] {

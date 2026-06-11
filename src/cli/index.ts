@@ -1,6 +1,8 @@
 import { loadConfig } from '../config.js';
 import { defaultGeneratorRegistry } from '../features/generate/registry.js';
 import { isHelpRequested, parseGlobalOptions } from './args.js';
+import { runBackup, runRestore } from './commands/backup.js';
+import { runPromote, runReseed, runStatus } from './commands/lifecycle.js';
 import { runCreate } from './commands/create.js';
 import { runContracts } from './commands/contracts.js';
 import { runDoctor } from './commands/doctor.js';
@@ -63,6 +65,21 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<void
       break;
     case 'create':
       await runCreate(config, args.slice(1));
+      break;
+    case 'backup':
+      await runBackup(config as never, args.slice(1));
+      break;
+    case 'restore':
+      await runRestore(config as never, args.slice(1));
+      break;
+    case 'promote':
+      await runPromote(config as never, args.slice(1));
+      break;
+    case 'status':
+      await runStatus(config as never, args.slice(1));
+      break;
+    case 'reseed':
+      await runReseed(config as never, args.slice(1));
       break;
     case 'serve':
       await runServe(config, args.slice(1));
