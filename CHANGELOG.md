@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [0.7.0](https://github.com/async-framework/async-db/releases/tag/v0.7.0) - 2026-06-11
+
+### Added
+
+- Added `durability: 'versioned'` JSON state snapshots with pruning, AES-256-GCM encryption at rest with transparent plaintext upgrade, and automatic crash recovery that quarantines corrupt state files and restores the newest snapshot.
+- Added `durability: 'wal'` write-ahead-log durability with `fsync: 'always' | 'everysec' | 'no'` policies, debounced checkpoints, and hash-bound log generations so hand-edited files supersede stale logs.
+- Added lifecycle verbs: `async-db status`, `promote`, `reseed`, `backup`, and `restore`, backed by a machine-managed `db.lifecycle.jsonc` that pins `seedHash` so sync stops auto-reseeding promoted state.
+- Added conditional reads with ETags and `If-None-Match` 304 responses across collection, document, and REST reads, plus a runtime write audit trail with actor and change metadata.
+- Added a `server.authorize` hook, a health endpoint with its own exposure policy, and viewer event hub hardening that limits subscribers and drops broken clients.
+- Added content collections with external watch roots (`files()` globs outside the data folder hot-reload under `serve`) and an `async-db init --template content` scaffold.
+- Added `read: 'mdx'` with a dependency-free component scan: records gain `components`, `imports`, and `exports` fields, and a `files(..., { components: [...] })` allow-list fails sync with `CONTENT_COMPONENT_NOT_ALLOWED` when a doc uses an unregistered JSX tag.
+- Added doctor findings for backup recency, lifecycle phase, mock production settings, and disallowed MDX component usage.
+
+### Fixed
+
+- Made watcher tests event-driven and example launchers replace stale package self-reference symlinks when a checkout moves between machines.
+
 ## [0.6.0](https://github.com/async-framework/async-db/releases/tag/v0.6.0) - 2026-06-10
 
 ### Added
