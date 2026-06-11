@@ -1,4 +1,4 @@
-import { access, mkdir, symlink } from 'node:fs/promises';
+import { access, lstat, mkdir, realpath, rm, symlink } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { serializeError } from '../src/errors.js';
@@ -128,18 +128,41 @@ async function ensureLocalPackageSelfReference(cwd, repoRoot) {
 
   const packageScopeDir = path.join(cwd, 'node_modules', '@async');
   const packagePath = path.join(packageScopeDir, 'db');
-  try {
-    await access(packagePath);
+  const resolvedRepoRoot = path.resolve(repoRoot);
+
+  if (await packageSelfReferenceIsCurrent(packagePath, resolvedRepoRoot)) {
     return;
+  }
+
+  await mkdir(packageScopeDir, { recursive: true });
+  try {
+    await rm(packagePath, { recursive: true, force: true });
   } catch {
-    await mkdir(packageScopeDir, { recursive: true });
+    // Removal is best-effort: on read-only or restricted mounts the import
+    // below will surface the real resolution problem with a clearer error.
   }
 
   try {
-    await symlink(path.resolve(repoRoot), packagePath, 'dir');
+    await symlink(resolvedRepoRoot, packagePath, 'dir');
   } catch (error) {
     if (error.code !== 'EEXIST') {
       throw error;
     }
+  }
+}
+
+async function packageSelfReferenceIsCurrent(packagePath, resolvedRepoRoot) {
+  try {
+    await lstat(packagePath);
+  } catch {
+    return false;
+  }
+
+  try {
+    return await realpath(packagePath) === await realpath(resolvedRepoRoot);
+  } catch {
+    // A symlink whose target no longer exists (for example after a checkout
+    // moves between machines or paths) must be replaced, not reused.
+    return false;
   }
 }
