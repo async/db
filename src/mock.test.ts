@@ -70,3 +70,60 @@ test('mock behavior skips the configured viewer apiBase', async () => {
     },
   });
 });
+
+test('mock behavior is skipped under NODE_ENV=production by default', async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const result = await runMockBehavior({
+      mock: {
+        delay: [0, 0],
+        errors: {
+          rate: 1,
+          status: 599,
+          message: 'forced chaos',
+        },
+      },
+    }, new URL('http://db.local/users'));
+
+    assert.equal(result, null);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previous;
+    }
+  }
+});
+
+test('mock.production keeps mock behavior active under NODE_ENV=production', async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const result = await runMockBehavior({
+      mock: {
+        delay: [0, 0],
+        production: true,
+        errors: {
+          rate: 1,
+          status: 599,
+          message: 'forced chaos',
+        },
+      },
+    }, new URL('http://db.local/users'));
+
+    assert.deepEqual(result, {
+      status: 599,
+      body: {
+        error: 'forced chaos',
+        mock: true,
+      },
+    });
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previous;
+    }
+  }
+});

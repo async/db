@@ -22,6 +22,7 @@ type MockConfig = {
   delayMs?: number | [number, number] | MockDelay | false;
   errors?: number | MockErrorConfig | false | null;
   error?: number | MockErrorConfig | false | null;
+  production?: boolean;
 };
 
 type RuntimeConfigWithMock = {
@@ -43,6 +44,10 @@ type MockErrorResponse = {
 export async function runMockBehavior(config: RuntimeConfigWithMock, url: URL | null = null): Promise<MockErrorResponse | null> {
   const mock = config.mock ?? config.chaos;
   if (!mock || shouldSkipMock(config, url)) {
+    return null;
+  }
+
+  if (mockDisabledInProduction(mock)) {
     return null;
   }
 
@@ -129,6 +134,15 @@ function clampRate(value: unknown): number {
 
 function shouldSkipMock(config: RuntimeConfigWithMock, url: URL | null): boolean {
   return url?.pathname === normalizeBasePath(config.server?.apiBase ?? '/__db');
+}
+
+/**
+ * Mock delays and chaos errors exist to exercise loading and failure states during
+ * development. Production traffic should never pay for them by default, so the whole
+ * mock behavior is skipped under NODE_ENV=production unless mock.production opts in.
+ */
+export function mockDisabledInProduction(mock: MockConfig): boolean {
+  return process.env.NODE_ENV === 'production' && mock.production !== true;
 }
 
 function normalizeBasePath(value: unknown): string {
