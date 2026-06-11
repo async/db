@@ -4,6 +4,7 @@ import path from 'node:path';
 import { parseCsvRecords } from '../csv.js';
 import { dbError, listChoices, serializeError } from '../errors.js';
 import { executeSequentialJsonBatch, readJsonBody, readRawBody, sendJson, sendText, tryJsonEndpoint } from '../features/http/json-endpoint.js';
+import { recordEtag } from '../features/runtime/etag.js';
 import { resolveResource, resourceNameCandidates } from '../names.js';
 import { makeGeneratedSchema } from '../schema.js';
 import { syncDb } from '../sync.js';
@@ -67,19 +68,23 @@ type RestResource = {
   [key: string]: unknown;
 };
 
+type RestWriteOptions = {
+  ifMatch?: string | null;
+};
+
 type RestCollection = {
   all(): unknown[] | Promise<unknown[]>;
   get(id: string): unknown | Promise<unknown>;
   create(body: unknown): unknown | Promise<unknown>;
-  patch(id: string, body: unknown): unknown | Promise<unknown>;
-  delete(id: string): boolean | Promise<boolean>;
+  patch(id: string, body: unknown, options?: RestWriteOptions): unknown | Promise<unknown>;
+  delete(id: string, options?: RestWriteOptions): boolean | Promise<boolean>;
   replaceAll(records: unknown[]): unknown[] | Promise<unknown[]>;
 };
 
 type RestDocument = {
   all(): unknown | Promise<unknown>;
-  put(body: unknown): unknown | Promise<unknown>;
-  update(body: unknown): unknown | Promise<unknown>;
+  put(body: unknown, options?: RestWriteOptions): unknown | Promise<unknown>;
+  update(body: unknown, options?: RestWriteOptions): unknown | Promise<unknown>;
 };
 
 type RestDb = {
@@ -777,6 +782,40 @@ function headerValue(request: RestRequest, name: string): unknown {
   return request.headers?.[name] ?? request.headers?.[name.toLowerCase()];
 }
 
+function requestIfMatch(request: RestRequest): string | null {
+  const value = headerValue(request, 'if-match');
+  return value === undefined || value === null ? null : String(value);
+}
+
+function setResponseEtag(response: RestResponse, etag: string): void {
+  (response as Partial<ServerResponse>).setHeader?.('etag', etag);
+}
+
+/**
+ * Conditional GET support: when the client's If-None-Match tag still matches
+ * the stored value, answer 304 with no body so pollers (feature flag clients,
+ * settings refreshers) stop re-downloading unchanged resources.
+ */
+function sendNotModifiedWhenMatched(request: RestRequest, response: RestResponse, etag: string): boolean {
+  const header = headerValue(request, 'if-none-match');
+  if (header === undefined || header === null || header === '') {
+    return false;
+  }
+
+  const tags = String(header)
+    .split(',')
+    .map((entry) => entry.trim().replace(/^W\//i, ''))
+    .filter(Boolean);
+  if (!tags.includes('*') && !tags.includes(etag)) {
+    return false;
+  }
+
+  setResponseEtag(response, etag);
+  response.writeHead(304);
+  response.end();
+  return true;
+}
+
 async function executeRestBatchItem(db: RestDb, item: unknown, options: RestRouteOptionsInput = {}): Promise<RestResult> {
   if (!item || typeof item !== 'object' || Array.isArray(item)) {
     throw dbError(
@@ -909,6 +948,9 @@ async function handleCollection(
       resource: resource.name,
       operation: 'all',
     });
+    if (sendNotModifiedWhenMatched(request, response, recordEtag(records))) {
+      return;
+    }
     const shaped = await tracePhase(trace, 'response-shaping', () => shapeCollectionRead(db as never, resource, records as never, url, { allowPagination: true }), {
       resource: resource.name,
     });
@@ -931,6 +973,13 @@ async function handleCollection(
       sendJson(response, 404, { error: 'Not found' });
       return;
     }
+    // Tag the stored record (not the shaped projection) so the value works as
+    // an If-Match precondition on later writes.
+    const etag = recordEtag(record);
+    if (sendNotModifiedWhenMatched(request, response, etag)) {
+      return;
+    }
+    setResponseEtag(response, etag);
     await sendFormattedResource(db, response, resource, body[0], format, request, url, trace);
     return;
   }
@@ -989,10 +1038,15 @@ async function handleCollection(
     const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
       maxBytes: maxBodyBytes(db),
     }));
-    const record = await tracePhase(trace, 'collection-write', () => collection.patch(id, body), {
+    const record = await tracePhase(trace, 'collection-write', () => collection.patch(id, body, {
+      ifMatch: requestIfMatch(request),
+    }), {
       resource: resource.name,
       operation: 'patch',
     });
+    if (record) {
+      setResponseEtag(response, recordEtag(record));
+    }
     sendJson(response, record ? 200 : 404, record ?? { error: 'Not found' });
     return;
   }
@@ -1014,7 +1068,9 @@ async function handleCollection(
 
   if (request.method === 'DELETE' && id) {
     setRestTraceRoute(trace, options, { resource: resource.name, operation: 'delete', id });
-    const deleted = await tracePhase(trace, 'collection-write', () => collection.delete(id), {
+    const deleted = await tracePhase(trace, 'collection-write', () => collection.delete(id, {
+      ifMatch: requestIfMatch(request),
+    }), {
       resource: resource.name,
       operation: 'delete',
     });
@@ -1325,6 +1381,11 @@ async function handleDocument(
       resource: resource.name,
       operation: 'all',
     });
+    const etag = recordEtag(data);
+    if (sendNotModifiedWhenMatched(request, response, etag)) {
+      return;
+    }
+    setResponseEtag(response, etag);
     await sendFormattedResource(db, response, resource, data, format, request, new URL(request.url ?? '/', 'http://db.local'), trace);
     return;
   }
@@ -1334,10 +1395,14 @@ async function handleDocument(
     const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
       maxBytes: maxBodyBytes(db),
     }));
-    sendJson(response, 200, await tracePhase(trace, 'document-write', () => document.put(body), {
+    const nextDocument = await tracePhase(trace, 'document-write', () => document.put(body, {
+      ifMatch: requestIfMatch(request),
+    }), {
       resource: resource.name,
       operation: 'put',
-    }));
+    });
+    setResponseEtag(response, recordEtag(nextDocument));
+    sendJson(response, 200, nextDocument);
     return;
   }
 
@@ -1346,10 +1411,14 @@ async function handleDocument(
     const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
       maxBytes: maxBodyBytes(db),
     }));
-    sendJson(response, 200, await tracePhase(trace, 'document-write', () => document.update(body), {
+    const nextDocument = await tracePhase(trace, 'document-write', () => document.update(body, {
+      ifMatch: requestIfMatch(request),
+    }), {
       resource: resource.name,
       operation: 'patch',
-    }));
+    });
+    setResponseEtag(response, recordEtag(nextDocument));
+    sendJson(response, 200, nextDocument);
     return;
   }
 

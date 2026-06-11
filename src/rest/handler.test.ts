@@ -1889,6 +1889,165 @@ test('REST handler returns 413 for oversized JSON bodies', async () => {
   assert.match(response.json().error.hint, /server\.maxBodyBytes/);
 });
 
+test('REST single-record reads expose an ETag and If-Match guards writes', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    {
+      id: 'u_1',
+      name: 'Ada Lovelace',
+    },
+  ]));
+
+  const db = await openDb({ cwd });
+  const read = makeResponse();
+  await handleRestRequest(db, makeRequest('GET'), read, new URL('http://db.local/users/u_1'));
+  assert.equal(read.status, 200);
+  const etag = read.headers['etag'];
+  assert.match(String(etag), /^".+"$/);
+
+  const staleResponse = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('PATCH', { name: 'Stale Writer' }, { 'if-match': '"not-the-current-tag"' }),
+    staleResponse,
+    new URL('http://db.local/users/u_1'),
+  );
+  assert.equal(staleResponse.status, 412);
+  assert.equal(staleResponse.json().error.code, 'DB_PRECONDITION_FAILED');
+  assert.match(staleResponse.json().error.hint, /If-Match/);
+  assert.equal(staleResponse.json().error.details.currentEtag, etag);
+
+  const freshResponse = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('PATCH', { name: 'Ada King' }, { 'if-match': etag }),
+    freshResponse,
+    new URL('http://db.local/users/u_1'),
+  );
+  assert.equal(freshResponse.status, 200);
+  assert.equal(freshResponse.json().name, 'Ada King');
+  const nextEtag = freshResponse.headers['etag'];
+  assert.match(String(nextEtag), /^".+"$/);
+  assert.notEqual(nextEtag, etag);
+
+  const staleDelete = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('DELETE', undefined, { 'if-match': etag }),
+    staleDelete,
+    new URL('http://db.local/users/u_1'),
+  );
+  assert.equal(staleDelete.status, 412);
+  assert.equal(staleDelete.json().error.code, 'DB_PRECONDITION_FAILED');
+
+  const freshDelete = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('DELETE', undefined, { 'if-match': nextEtag }),
+    freshDelete,
+    new URL('http://db.local/users/u_1'),
+  );
+  assert.equal(freshDelete.status, 204);
+});
+
+test('REST document writes honor If-Match preconditions', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({
+    theme: 'dark',
+  }));
+
+  const db = await openDb({ cwd });
+  const read = makeResponse();
+  await handleRestRequest(db, makeRequest('GET'), read, new URL('http://db.local/settings'));
+  assert.equal(read.status, 200);
+  const etag = read.headers['etag'];
+  assert.match(String(etag), /^".+"$/);
+
+  const stale = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('PUT', { theme: 'light' }, { 'if-match': '"missing"' }),
+    stale,
+    new URL('http://db.local/settings'),
+  );
+  assert.equal(stale.status, 412);
+  assert.equal(stale.json().error.code, 'DB_PRECONDITION_FAILED');
+
+  const fresh = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('PUT', { theme: 'light' }, { 'if-match': etag }),
+    fresh,
+    new URL('http://db.local/settings'),
+  );
+  assert.equal(fresh.status, 200);
+  assert.equal(fresh.json().theme, 'light');
+  assert.notEqual(fresh.headers['etag'], etag);
+
+  const patch = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('PATCH', { theme: 'dark' }, { 'if-match': fresh.headers['etag'] }),
+    patch,
+    new URL('http://db.local/settings'),
+  );
+  assert.equal(patch.status, 200);
+  assert.equal(patch.json().theme, 'dark');
+});
+
+test('REST conditional GETs answer 304 when If-None-Match still matches', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([
+    { id: 'u_1', name: 'Ada Lovelace' },
+  ]));
+  await writeFixture(cwd, 'settings.json', JSON.stringify({ theme: 'dark' }));
+
+  const db = await openDb({ cwd });
+
+  const list = makeResponse();
+  await handleRestRequest(db, makeRequest('GET'), list, new URL('http://db.local/users'));
+  assert.equal(list.status, 200);
+
+  const item = makeResponse();
+  await handleRestRequest(db, makeRequest('GET'), item, new URL('http://db.local/users/u_1'));
+  const itemEtag = item.headers['etag'];
+
+  const notModified = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('GET', undefined, { 'if-none-match': itemEtag }),
+    notModified,
+    new URL('http://db.local/users/u_1'),
+  );
+  assert.equal(notModified.status, 304);
+  assert.equal(notModified.body, '');
+  assert.equal(notModified.headers['etag'], itemEtag);
+
+  const changedAfterPatch = makeResponse();
+  await handleRestRequest(db, makeRequest('PATCH', { name: 'Ada King' }), changedAfterPatch, new URL('http://db.local/users/u_1'));
+  const refreshed = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('GET', undefined, { 'if-none-match': itemEtag }),
+    refreshed,
+    new URL('http://db.local/users/u_1'),
+  );
+  assert.equal(refreshed.status, 200);
+  assert.equal(refreshed.json().name, 'Ada King');
+
+  const documentRead = makeResponse();
+  await handleRestRequest(db, makeRequest('GET'), documentRead, new URL('http://db.local/settings'));
+  const documentEtag = documentRead.headers['etag'];
+  const documentNotModified = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('GET', undefined, { 'if-none-match': documentEtag }),
+    documentNotModified,
+    new URL('http://db.local/settings'),
+  );
+  assert.equal(documentNotModified.status, 304);
+});
+
 function makeRequest(method, body = undefined, headers = {}) {
   return {
     method,
@@ -1918,9 +2077,12 @@ function makeResponse() {
     status: null,
     headers: {},
     body: '',
+    setHeader(name, value) {
+      this.headers[String(name).toLowerCase()] = value;
+    },
     writeHead(status, headers = {}) {
       this.status = status;
-      this.headers = headers;
+      this.headers = { ...this.headers, ...headers };
     },
     end(chunk = '') {
       this.body += chunk;
@@ -1953,3 +2115,4 @@ function builtInFormatMetadata(apiBase) {
     },
   };
 }
+

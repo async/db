@@ -1203,3 +1203,74 @@ test('sourceFile store rejects non-JSON source resources with structured diagnos
     );
   }
 });
+
+test('audit option appends JSONL entries beside resource state', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'flags.json', JSON.stringify([{ id: 'beta', enabled: false }]));
+
+  const db = await openDb({
+    cwd,
+    resources: {
+      flags: { audit: true },
+    },
+  });
+
+  await db.collection('flags').create({ id: 'gamma', enabled: true });
+  await db.collection('flags').patch('gamma', { enabled: false });
+  await db.collection('flags').delete('gamma');
+  await db.close();
+
+  const auditText = await readFile(path.join(cwd, '.db/state/.audit/flags.jsonl'), 'utf8');
+  const entries = auditText.trim().split('\n').map((line) => JSON.parse(line));
+  assert.deepEqual(entries.map((entry) => entry.op), ['create', 'update', 'delete']);
+  assert.equal(entries[1].id, 'gamma');
+  assert.deepEqual(entries[1].fields, ['enabled']);
+  assert.equal(entries[1].before, undefined);
+  assert.equal(entries[1].after, undefined);
+  assert.equal(typeof entries[0].at, 'string');
+});
+
+test('audit values option records before/after snapshots', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'settings.json', JSON.stringify({ theme: 'dark' }));
+
+  const db = await openDb({
+    cwd,
+    resources: {
+      settings: { audit: { values: true } },
+    },
+  });
+
+  await db.document('settings').update({ theme: 'light' });
+  await db.close();
+
+  const auditText = await readFile(path.join(cwd, '.db/state/.audit/settings.jsonl'), 'utf8');
+  const entry = JSON.parse(auditText.trim().split('\n').at(-1));
+  assert.equal(entry.op, 'update');
+  assert.deepEqual(entry.before, { theme: 'dark' });
+  assert.deepEqual(entry.after, { theme: 'light' });
+});
+
+test('stores.json durability versioned keeps runtime write history', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'flags.json', JSON.stringify([{ id: 'beta', enabled: false }]));
+  await writeConfig(cwd, `export default {
+  stores: {
+    json: {
+      driver: 'json',
+      durability: 'versioned',
+      maxVersions: 5,
+    },
+  },
+};`);
+
+  const db = await openDb({ cwd });
+  await db.collection('flags').patch('beta', { enabled: true });
+  await db.collection('flags').patch('beta', { enabled: false });
+  await db.close();
+
+  const versionsDir = path.join(cwd, '.db/state/.versions/flags');
+  const { readdir } = await import('node:fs/promises');
+  const versionFiles = (await readdir(versionsDir)).filter((file) => file.endsWith('.json'));
+  assert.equal(versionFiles.length >= 2, true);
+});

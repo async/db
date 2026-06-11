@@ -712,6 +712,14 @@ export type DbStoreName = 'json' | 'memory' | 'static' | 'sourceFile' | string;
 
 export type DbStoreOptions = {
   driver?: DbStoreName;
+  /**
+   * JSON store durability ("current" or "versioned"). With "versioned", every
+   * state write snapshots the previous contents under `.versions/<resource>/`
+   * (pruned to maxVersions, default 10) and `async-db restore` can roll back.
+   */
+  durability?: 'current' | 'versioned' | string;
+  /** Maximum retained version snapshots per resource for the versioned JSON store. */
+  maxVersions?: number;
   [key: string]: unknown;
 };
 
@@ -781,6 +789,13 @@ export type DbPerResourceOptions = {
     name?: string;
     unique?: boolean;
   }>;
+  /**
+   * Opt-in audit trail: append one JSON line per successful runtime write to
+   * `.audit/<resource>.jsonl` beside the resource state. `true` records op,
+   * id, and changed field names; `{ values: true }` also records before/after
+   * value snapshots. Audit failures warn and never fail the data write.
+   */
+  audit?: boolean | { values?: boolean };
 };
 
 export type DbResourceChangeEvent = {
@@ -1225,6 +1240,8 @@ export type DbOptions = {
     port?: number;
     /** Maximum JSON request body size in bytes. Defaults to 1048576. */
     maxBodyBytes?: number;
+    /** Maximum concurrent viewer event-stream subscribers before new subscriptions get 503. Defaults to 100. */
+    maxEventClients?: number;
     /** Opt-in request tracing and timing for handled db HTTP requests. */
     trace?: DbTraceOptions;
     /** Optional links to custom data viewers shown in discovery and the viewer manifest. */
@@ -1240,7 +1257,23 @@ export type DbOptions = {
       viewer?: DbRouteExposure;
       schema?: DbRouteExposure;
       manifest?: DbRouteExposure;
+      /** `GET <apiBase>/health` readiness probe. Defaults to "open" so load balancers can reach it even when the viewer is locked down. */
+      health?: DbRouteExposure;
     };
+    /**
+     * App-owned per-request authorization seam. Runs once for every request
+     * the db handler will handle (REST, viewer, schema, manifest, GraphQL,
+     * Falcor, events, health, operations). Return true to allow, false for a
+     * 403 SERVER_AUTHORIZATION_DENIED, or { status, body } for a custom
+     * denial such as a 401 challenge. Requests that fall through to app
+     * routes never reach the hook.
+     */
+    authorize?: (context: {
+      request: import('node:http').IncomingMessage;
+      url: URL;
+      method: string;
+      route: string;
+    }) => boolean | undefined | null | void | { status?: number; body?: unknown } | Promise<boolean | undefined | null | void | { status?: number; body?: unknown }>;
   };
   rest?: {
     /** Enable generated REST routes. */
@@ -1279,6 +1312,12 @@ export type DbOptions = {
       status?: number;
       message?: string;
     } | null;
+    /**
+     * Keep mock delays and errors active when NODE_ENV=production.
+     * Mock behavior is skipped in production by default so the development
+     * delay never taxes real traffic. Defaults to false.
+     */
+    production?: boolean;
   };
   generate?: {
     hono?: {
@@ -1337,6 +1376,17 @@ export type DbCollectionAggregate = DbCollectionQuery & {
   metrics?: Record<string, DbCollectionAggregateMetric>;
 };
 
+export type DbWritePrecondition = {
+  /**
+   * Optimistic-concurrency precondition. When set, the write only applies if
+   * the stored value's current ETag matches; otherwise it fails with a 412
+   * DB_PRECONDITION_FAILED error. "*" requires only that the record exists.
+   * REST routes populate this from the If-Match request header, and single
+   * record GET responses expose the current tag in an ETag header.
+   */
+  ifMatch?: string | null;
+};
+
 export type DbCollection<RecordType> = {
   all(): Promise<RecordType[]>;
   get(id: string): Promise<RecordType | null>;
@@ -1346,9 +1396,9 @@ export type DbCollection<RecordType> = {
   aggregate(options: DbCollectionAggregate): Promise<Array<Record<string, unknown>>>;
   create(record: RecordType): Promise<RecordType>;
   append(record: RecordType): Promise<RecordType>;
-  update(id: string, patch: Partial<RecordType>): Promise<RecordType | null>;
-  patch(id: string, patch: Partial<RecordType>): Promise<RecordType | null>;
-  delete(id: string): Promise<boolean>;
+  update(id: string, patch: Partial<RecordType>, options?: DbWritePrecondition): Promise<RecordType | null>;
+  patch(id: string, patch: Partial<RecordType>, options?: DbWritePrecondition): Promise<RecordType | null>;
+  delete(id: string, options?: DbWritePrecondition): Promise<boolean>;
   replaceAll(records: RecordType[]): Promise<RecordType[]>;
 };
 
@@ -1358,10 +1408,16 @@ export type DbDocument<DocumentType> = {
   all(): Promise<DocumentType>;
   get(): Promise<DocumentType>;
   get(path: DbDocumentPath): Promise<unknown>;
-  put(value: DocumentType): Promise<DocumentType>;
+  put(value: DocumentType, options?: DbWritePrecondition): Promise<DocumentType>;
   set(path: DbDocumentPath, value: unknown): Promise<unknown>;
-  update(patch: Partial<DocumentType>): Promise<DocumentType>;
+  update(patch: Partial<DocumentType>, options?: DbWritePrecondition): Promise<DocumentType>;
 };
+
+/**
+ * Compute the optimistic-concurrency entity tag for a runtime record or
+ * document value. Matches the ETag header REST emits for single-record reads.
+ */
+export function recordEtag(value: unknown): string;
 
 export type DbForkSource =
   | 'main'

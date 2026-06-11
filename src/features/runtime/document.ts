@@ -1,6 +1,8 @@
 import { dbError } from '../../errors.js';
 import { createSchemaValidator } from '../../schema.js';
 import { createRuntime } from '../storage/runtime.js';
+import { recordAuditEntry } from './audit.js';
+import { assertIfMatch } from './etag.js';
 import { getPointer, setPointer, type JsonPath } from './json-pointer.js';
 
 type RuntimeConfig = {
@@ -22,6 +24,7 @@ type RuntimeAdapter = {
   statePath?: (resource: RuntimeResource) => unknown;
   readResource?: (resource: RuntimeResource, fallback: unknown) => Promise<unknown> | unknown;
   writeResource?: (resource: RuntimeResource, value: unknown) => Promise<unknown> | unknown;
+  writeResourceDelta?: (resource: RuntimeResource, value: unknown, delta: Record<string, unknown>) => Promise<unknown> | unknown;
   withResourceWrite?: <T>(resource: RuntimeResource, operation: () => T | Promise<T>) => Promise<T> | T;
 };
 
@@ -40,6 +43,15 @@ type ValidationResult = {
   ok: boolean;
   value: unknown;
   errors: Array<{ message: string; [key: string]: unknown }>;
+};
+
+export type DocumentWriteOptions = {
+  /**
+   * Optimistic-concurrency precondition. When set, the write only applies if
+   * the stored document's current ETag matches; otherwise it fails with a 412
+   * DB_PRECONDITION_FAILED error.
+   */
+  ifMatch?: string | null;
 };
 
 export class DbDocument {
@@ -64,13 +76,17 @@ export class DbDocument {
     return Array.isArray(path) || path ? getPointer(document, path) : document;
   }
 
-  async put(value: unknown): Promise<unknown> {
+  async put(value: unknown, options: DocumentWriteOptions = {}): Promise<unknown> {
     this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
+      if (options.ifMatch !== undefined && options.ifMatch !== null) {
+        assertIfMatch(await this.all(), options.ifMatch, { resource: this.resource.name });
+      }
       const document = await assertRuntimeDocument(value, this.resource, this.config, {
         source: `${this.resource.name} document body`,
       });
-      await this.adapter().writeResource?.(this.resource, document);
+      await this.write(document);
+      await this.audit('put', { after: document });
       this.emit('put');
       return document;
     });
@@ -84,16 +100,18 @@ export class DbDocument {
       const nextDocument = await assertRuntimeDocument(document, this.resource, this.config, {
         source: `${this.resource.name} document body`,
       });
-      await this.adapter().writeResource?.(this.resource, nextDocument);
+      await this.write(nextDocument);
+      await this.audit('set', { fields: [pointerLabel(path)] });
       this.emit('set', pathEventDetails(path));
       return getPointer(nextDocument, path);
     });
   }
 
-  async update(patch: Record<string, unknown>): Promise<unknown> {
+  async update(patch: Record<string, unknown>, options: DocumentWriteOptions = {}): Promise<unknown> {
     this.db.assertResourceWritable?.(this.resource.name);
     return this.adapter().withResourceWrite(this.resource, async () => {
       const document = await this.all() as Record<string, unknown>;
+      assertIfMatch(document, options.ifMatch, { resource: this.resource.name });
       const nextDocument = {
         ...document,
         ...patch,
@@ -101,7 +119,12 @@ export class DbDocument {
       const validatedDocument = await assertRuntimeDocument(nextDocument, this.resource, this.config, {
         source: `${this.resource.name} document patch body`,
       });
-      await this.adapter().writeResource?.(this.resource, validatedDocument);
+      await this.write(validatedDocument);
+      await this.audit('update', {
+        fields: Object.keys(patch ?? {}),
+        before: document,
+        after: validatedDocument,
+      });
       this.emit('update');
       return validatedDocument;
     });
@@ -109,6 +132,15 @@ export class DbDocument {
 
   adapter(): RuntimeAdapter {
     return this.db.runtime.adapterFor(this.resource);
+  }
+
+  private async write(nextDocument: unknown): Promise<void> {
+    const adapter = this.adapter();
+    if (adapter.writeResourceDelta) {
+      await adapter.writeResourceDelta(this.resource, nextDocument, { op: 'replace-all', value: nextDocument });
+      return;
+    }
+    await adapter.writeResource?.(this.resource, nextDocument);
   }
 
   emit(op: string, details: Record<string, unknown> = {}): void {
@@ -119,6 +151,20 @@ export class DbDocument {
       ...details,
     });
   }
+
+  private audit(op: string, details: { fields?: string[]; before?: unknown; after?: unknown }): Promise<void> {
+    return recordAuditEntry(this.config, this.path, {
+      at: new Date().toISOString(),
+      resource: this.resource.name,
+      kind: 'document',
+      op,
+      ...details,
+    });
+  }
+}
+
+function pointerLabel(path: JsonPath): string {
+  return typeof path === 'string' ? path : `/${path.join('/')}`;
 }
 
 function assertRuntimeDocument(

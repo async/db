@@ -2,6 +2,8 @@ import { dbError } from '../../errors.js';
 import { createSchemaValidator, validateUniqueCollectionFields } from '../../schema.js';
 import { applyDefaultsToRecord } from '../../sync.js';
 import { createRuntime } from '../storage/runtime.js';
+import { recordAuditEntry } from './audit.js';
+import { assertIfMatch } from './etag.js';
 import {
   aggregateCollectionRecords,
   applyCollectionQuery,
@@ -36,6 +38,7 @@ type RuntimeAdapter = {
   statePath?: (resource: RuntimeResource) => unknown;
   readResource?: (resource: RuntimeResource, fallback: unknown) => Promise<unknown> | unknown;
   writeResource?: (resource: RuntimeResource, value: unknown) => Promise<unknown> | unknown;
+  writeResourceDelta?: (resource: RuntimeResource, value: unknown, delta: Record<string, unknown>) => Promise<unknown> | unknown;
   withResourceWrite?: <T>(resource: RuntimeResource, operation: () => T | Promise<T>) => Promise<T> | T;
 };
 
@@ -60,6 +63,15 @@ type RuntimeDiagnostic = {
   severity?: string;
   message: string;
   [key: string]: unknown;
+};
+
+export type CollectionWriteOptions = {
+  /**
+   * Optimistic-concurrency precondition. When set, the write only applies if
+   * the stored record's current ETag matches; otherwise it fails with a 412
+   * DB_PRECONDITION_FAILED error. "*" requires only that the record exists.
+   */
+  ifMatch?: string | null;
 };
 
 export class DbCollection {
@@ -146,13 +158,14 @@ export class DbCollection {
 
       assertUniqueCollectionRecords([...records, validatedRecord], this.resource);
       const nextRecords = [...records, validatedRecord];
-      await this.adapter().writeResource?.(this.resource, nextRecords);
+      await this.write(nextRecords, { op: 'put-record', idField: this.resource.idField, record: validatedRecord });
+      await this.audit(operation, { id, after: validatedRecord });
       this.emit(operation, { id });
       return validatedRecord;
     });
   }
 
-  async update(id: unknown, patch: RuntimeRecord): Promise<RuntimeRecord | null> {
+  async update(id: unknown, patch: RuntimeRecord, options: CollectionWriteOptions = {}): Promise<RuntimeRecord | null> {
     this.db.assertResourceWritable?.(this.resource.name);
     this.assertMutable('update');
     return this.adapter().withResourceWrite(this.resource, async () => {
@@ -162,6 +175,12 @@ export class DbCollection {
         return null;
       }
       const existingId = records[index]?.[this.resource.idField];
+      // Checked inside the write queue so no concurrent write can land
+      // between the precondition and this update.
+      assertIfMatch(records[index], options.ifMatch, {
+        resource: this.resource.name,
+        id: existingId,
+      });
 
       const nextRecord = {
         ...records[index],
@@ -174,28 +193,40 @@ export class DbCollection {
         source: `${this.resource.name} patch body`,
       });
       assertUniqueCollectionRecords(nextRecords, this.resource);
-      await this.adapter().writeResource?.(this.resource, nextRecords);
+      await this.write(nextRecords, { op: 'put-record', idField: this.resource.idField, record: nextRecords[index] });
+      await this.audit('update', {
+        id: existingId,
+        fields: Object.keys(patch ?? {}),
+        before: records[index],
+        after: nextRecords[index],
+      });
       this.emit('update', { id: existingId });
       return nextRecords[index];
     });
   }
 
-  async patch(id: unknown, patch: RuntimeRecord): Promise<RuntimeRecord | null> {
-    return this.update(id, patch);
+  async patch(id: unknown, patch: RuntimeRecord, options: CollectionWriteOptions = {}): Promise<RuntimeRecord | null> {
+    return this.update(id, patch, options);
   }
 
-  async delete(id: unknown): Promise<boolean> {
+  async delete(id: unknown, options: CollectionWriteOptions = {}): Promise<boolean> {
     this.db.assertResourceWritable?.(this.resource.name);
     this.assertMutable('delete');
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
-      const nextRecords = records.filter((record) => !idMatches(record?.[this.resource.idField], id));
-      const deleted = nextRecords.length !== records.length;
-      await this.adapter().writeResource?.(this.resource, nextRecords);
-      if (deleted) {
-        this.emit('delete', { id });
+      const index = records.findIndex((record) => idMatches(record?.[this.resource.idField], id));
+      if (index === -1) {
+        return false;
       }
-      return deleted;
+      assertIfMatch(records[index], options.ifMatch, {
+        resource: this.resource.name,
+        id,
+      });
+      const nextRecords = records.filter((record) => !idMatches(record?.[this.resource.idField], id));
+      await this.write(nextRecords, { op: 'delete-record', idField: this.resource.idField, id });
+      await this.audit('delete', { id, before: records[index] });
+      this.emit('delete', { id });
+      return true;
     });
   }
 
@@ -211,7 +242,8 @@ export class DbCollection {
         }));
       }
       assertUniqueCollectionRecords(validatedRecords, this.resource);
-      await this.adapter().writeResource?.(this.resource, validatedRecords);
+      await this.write(validatedRecords, { op: 'replace-all', value: validatedRecords });
+      await this.audit('replaceAll', {});
       this.emit('replaceAll');
       return validatedRecords;
     });
@@ -221,8 +253,32 @@ export class DbCollection {
     return this.db.runtime.adapterFor(this.resource);
   }
 
+  /**
+   * Delta-aware write: WAL-backed adapters acknowledge the per-record delta
+   * (O(change) durability) and checkpoint the full value later; plain
+   * adapters write the full value immediately.
+   */
+  private async write(nextRecords: RuntimeRecord[], delta: Record<string, unknown>): Promise<void> {
+    const adapter = this.adapter();
+    if (adapter.writeResourceDelta) {
+      await adapter.writeResourceDelta(this.resource, nextRecords, delta);
+      return;
+    }
+    await adapter.writeResource?.(this.resource, nextRecords);
+  }
+
   emit(op: string, details: Record<string, unknown> = {}): void {
     this.db.runtime.emit({
+      resource: this.resource.name,
+      kind: 'collection',
+      op,
+      ...details,
+    });
+  }
+
+  private audit(op: string, details: { id?: unknown; fields?: string[]; before?: unknown; after?: unknown }): Promise<void> {
+    return recordAuditEntry(this.config, this.path, {
+      at: new Date().toISOString(),
       resource: this.resource.name,
       kind: 'collection',
       op,

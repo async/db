@@ -143,6 +143,7 @@ export type DbTypes = {
   inspectSchemaMigration,
   loadDbSchema,
   openDb,
+  recordEtag,
   type Db,
   type DbDocumentPath,
   type DbFileSystem,
@@ -158,11 +159,16 @@ import { createDbClient, type DbClient } from '@async/db/client';
 import { defineConfig, type DbConfig } from '@async/db/config';
 import {
   atomicWriteJson,
+  atomicWriteJsonVersioned,
   fileStorage,
+  jsonStateVersionsDir,
   jsonStore,
   jsonStatePathForResource,
   jsonStoreCapabilities,
+  listJsonStateVersions,
   readJsonState,
+  recoverJsonStateDir,
+  restoreJsonStateVersion,
   s3Storage,
   withJsonStateWrite,
   writeJsonState,
@@ -259,6 +265,9 @@ void dbPromise.then(async (db) => {
   const users = await db.collection('users').all();
   const first: User | undefined = users[0];
   await db.collection('users').replaceAll(users);
+  await db.collection('users').patch('u_1', {}, { ifMatch: recordEtag(first) });
+  await db.collection('users').delete('u_1', { ifMatch: '*' });
+  await db.document('settings').update({}, { ifMatch: recordEtag({}) });
   const settings = await db.document('settings').get();
   await db.document('settings').set(documentPath, 'dark');
   await db.document('settings').set('theme', 'dark');
@@ -290,6 +299,13 @@ void readJsonState(jsonStatePath, {});
 void writeJsonState(jsonStatePath, {});
 void atomicWriteJson(jsonStatePath, {});
 void withJsonStateWrite(jsonStatePath, async () => undefined);
+void withJsonStateWrite(jsonStatePath, async () => undefined, { crossProcessLock: false, lockTimeoutMs: 100, lockStaleMs: 100 });
+void atomicWriteJsonVersioned(jsonStatePath, {}, { maxVersions: 5 });
+void listJsonStateVersions(jsonStatePath);
+void restoreJsonStateVersion(jsonStatePath, 'latest');
+void recoverJsonStateDir('.db/state');
+void jsonStateVersionsDir(jsonStatePath);
+void jsonStore({ durability: 'versioned', maxVersions: 5, encryption: { key: () => 'k' } });
 void jsonStore();
 void s3Storage({
   bucket: 'app-json-db',
@@ -574,7 +590,15 @@ test('public JSON declarations expose file database helpers', async () => {
   assert.match(declarations, /export function readJsonState<T>\(filePath: string, fallback: T, fs\?: DbFileSystem\): Promise<T>;/);
   assert.match(declarations, /export function writeJsonState\(filePath: string, value: unknown, fs\?: DbFileSystem\): Promise<boolean>;/);
   assert.match(declarations, /export function atomicWriteJson\(filePath: string, value: unknown, fs\?: DbFileSystem\): Promise<boolean>;/);
-  assert.match(declarations, /export function withJsonStateWrite<T>\(filePath: string, operation: \(\) => T \| Promise<T>\): Promise<T>;/);
+  assert.match(declarations, /export function withJsonStateWrite<T>\(filePath: string, operation: \(\) => T \| Promise<T>, options\?: JsonStateWriteOptions\): Promise<T>;/);
+  assert.match(declarations, /export function restoreJsonStateVersion\(/);
+  assert.match(declarations, /export function listJsonStateVersions\(/);
+  assert.match(declarations, /export function recoverJsonStateDir\(/);
+  assert.match(declarations, /export type JsonStoreEncryptionOptions = \{/);
+  assert.match(declarations, /export type JsonStateWriteOptions = \{/);
+  assert.match(declarations, /crossProcessLock\?: boolean;/);
+  assert.match(declarations, /lockTimeoutMs\?: number;/);
+  assert.match(declarations, /lockStaleMs\?: number;/);
 });
 
 test('public declarations expose schema loader and validator API', async () => {
