@@ -6,6 +6,7 @@ import {
   HtmlPage,
   docLinkPrefixes,
 } from './components.js';
+import { rewriteLandingSourceLink } from './link-map.js';
 import { escapeHtml, renderMarkdown } from './render-md.js';
 
 /**
@@ -78,16 +79,15 @@ export function renderExamplesPage(examples) {
  */
 export function renderExamplesTeaser(example) {
   return `
-    <div class="mt-6">
-      ${CodeExplorer('landing-teaser', {
-        title: `examples/${example.id}`,
-        githubUrl: example.githubUrl,
-        files: example.files,
-        compact: true,
-      })}
-      <div class="mt-4 flex flex-wrap items-center gap-3">
-        <a class="inline-flex items-center justify-center rounded-full bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200" href="./docs/examples.html">Browse all examples</a>
-        <a class="text-sm font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800" href="${escapeHtml(example.githubUrl)}" rel="noopener">Open ${escapeHtml(example.title)} on GitHub</a>
+    <div class="example-teaser">
+      <div>
+        <p class="eyebrow">runnable example</p>
+        <h3>${escapeHtml(example.title)}</h3>
+        <p>${escapeHtml(example.intro || 'Open a complete example project with the data files, config, and commands together.')}</p>
+      </div>
+      <div class="button-row">
+        <a class="primary-link" href="./docs/examples.html">Browse examples</a>
+        <a href="${escapeHtml(example.githubUrl)}" rel="noopener">Open on GitHub</a>
       </div>
     </div>
   `;
@@ -102,5 +102,8 @@ export function renderLandingWithTeaser(landingHtml, teaserHtml) {
   // Function replacements avoid String.replace's special "$" substitution
   // patterns, which could corrupt injected example file contents.
   const withTeaser = landingHtml.replace(TEASER_PLACEHOLDER, () => teaserHtml);
-  return withTeaser.replace('</body>', () => `<script>${CODE_EXPLORER_SCRIPT}</script>\n</body>`);
+  const withPagesLinks = withTeaser.replace(/href="([^"]+)"/gu, (match, href) => (
+    `href="${escapeHtml(rewriteLandingSourceLink(href))}"`
+  ));
+  return withPagesLinks;
 }

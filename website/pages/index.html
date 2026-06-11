@@ -1,501 +1,488 @@
 <!doctype html>
-<html lang="en" class="overflow-x-hidden">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@async/db docs</title>
+    <title>@async/db</title>
     <meta
       name="description"
-      content="@async/db documentation for file-backed JSON data, generated contracts, local APIs, and production graduation."
+      content="@async/db turns local JSON files into generated contracts, local APIs, and a production graduation path."
     >
-    <script>
-      const requestedTheme = new URLSearchParams(location.search).get("theme");
-        const storedTheme = localStorage.getItem("async-db-docs-theme");
-        const themePreference = requestedTheme === "light" || requestedTheme === "dark"
-          ? requestedTheme
-          : (storedTheme === "light" || storedTheme === "dark" || storedTheme === "system" ? storedTheme : "dark");
-        const systemPrefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-        if (themePreference === "light" || (themePreference === "system" && systemPrefersLight)) {
-        document.documentElement.classList.add("light");
+    <style>
+      :root {
+        color-scheme: dark;
+        --dim-bg: #15202b;
+        --dim-bg-soft: #192734;
+        --dim-bg-raised: #1f2f3d;
+        --dim-border: #38444d;
+        --dim-border-soft: #2f3c47;
+        --dim-text: #f7f9f9;
+        --dim-text-muted: #8b98a5;
+        --dim-text-soft: #cfd9de;
+        --dim-blue: #1d9bf0;
+        --dim-blue-soft: rgba(29, 155, 240, 0.14);
+        --dim-green: #00ba7c;
+        --dim-code-bg: #0f1720;
+        --dim-code-border: #2f3c47;
+        --dim-shadow: 0 24px 80px rgba(2, 6, 23, 0.32);
       }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  </head>
-  <body class="min-h-screen w-full max-w-full overflow-x-hidden bg-[#020917] text-slate-100 antialiased selection:bg-cyan-300 selection:text-slate-950 [.light_&]:bg-slate-50 [.light_&]:text-slate-950">
-    <header class="sticky top-0 z-40 w-full max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#020917]/95 backdrop-blur [.light_&]:border-slate-200 [.light_&]:bg-white/95">
-      <div class="mx-auto flex w-full max-w-7xl min-w-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <a class="flex min-w-0 items-center gap-3 text-slate-50 [.light_&]:text-slate-950" href="./index.html" aria-label="@async/db docs home">
-          <span class="grid size-8 shrink-0 grid-cols-2 gap-1" aria-hidden="true"><span class="rounded-sm border border-cyan-300"></span><span class="rounded-sm border border-emerald-300"></span><span class="rounded-sm border border-amber-300"></span><span class="rounded-sm border border-sky-500"></span></span>
-          <span class="truncate text-base font-semibold">@async/db</span>
-        </a>
-        <nav class="hidden items-center gap-1 text-sm font-medium text-slate-300 md:flex [.light_&]:text-slate-700" aria-label="Primary">
-          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950"
-            href="./docs/getting-started.html">Docs</a>
-          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950"
-            href="./docs/examples.html">Examples</a>
-          <a class="rounded-full px-4 py-2 hover:bg-slate-800 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:hover:bg-slate-100 [.light_&]:hover:text-slate-950"
-            href="https://github.com/async-framework/async-db" rel="noopener">GitHub</a>
-        </nav>
-        <div class="relative shrink-0" data-theme-menu>
-          <button
-            class="flex items-center justify-center rounded-full border border-cyan-400/70 p-2.5 text-cyan-100 transition hover:bg-cyan-300 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-cyan-700 [.light_&]:text-cyan-900 [.light_&]:hover:bg-cyan-700 [.light_&]:hover:text-white"
-            type="button" data-theme-trigger aria-haspopup="menu" aria-expanded="false" aria-label="Color theme">
-            <span class="hidden" data-theme-icon="system"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="12" rx="2" />
-                <path d="M8 20h8m-4-4v4" />
-              </svg></span>
-            <span class="hidden" data-theme-icon="light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.3 11.3 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-              </svg></span>
-            <span class="hidden" data-theme-icon="dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true">
-                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
-              </svg></span>
-          </button>
-          <div
-            class="absolute right-0 z-50 mt-2 hidden w-36 rounded-lg border border-cyan-900/80 bg-[#071427] p-1 text-sm shadow-xl shadow-cyan-950/30 [.light_&]:border-slate-200 [.light_&]:bg-white"
-            role="menu" data-theme-options>
-            <button
-              class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-300 hover:bg-slate-800 hover:text-cyan-100 aria-checked:bg-cyan-300/10 aria-checked:text-cyan-100 [.light_&]:text-slate-700 [.light_&]:hover:bg-slate-100 [.light_&]:aria-checked:bg-cyan-50 [.light_&]:aria-checked:text-cyan-900"
-              type="button" role="menuitemradio" aria-checked="false" data-theme-choice="system"><svg viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="12" rx="2" />
-                <path d="M8 20h8m-4-4v4" />
-              </svg>System</button>
-            <button
-              class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-300 hover:bg-slate-800 hover:text-cyan-100 aria-checked:bg-cyan-300/10 aria-checked:text-cyan-100 [.light_&]:text-slate-700 [.light_&]:hover:bg-slate-100 [.light_&]:aria-checked:bg-cyan-50 [.light_&]:aria-checked:text-cyan-900"
-              type="button" role="menuitemradio" aria-checked="false" data-theme-choice="light"><svg viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.3 11.3 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-              </svg>Light</button>
-            <button
-              class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-300 hover:bg-slate-800 hover:text-cyan-100 aria-checked:bg-cyan-300/10 aria-checked:text-cyan-100 [.light_&]:text-slate-700 [.light_&]:hover:bg-slate-100 [.light_&]:aria-checked:bg-cyan-50 [.light_&]:aria-checked:text-cyan-900"
-              type="button" role="menuitemradio" aria-checked="false" data-theme-choice="dark"><svg viewBox="0 0 24 24"
-                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="size-4" aria-hidden="true">
-                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
-              </svg>Dark</button>
-          </div>
-        </div>
-      </div>
-    </header>
 
-    <main>
-      <section class="w-full max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#020917] [.light_&]:border-slate-200 [.light_&]:bg-white">
-        <div class="mx-auto grid w-full max-w-7xl min-w-0 gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:py-24">
-          <div class="flex min-w-0 max-w-full flex-col justify-center">
-            <p class="mb-5 w-fit rounded-full border border-cyan-400/50 bg-cyan-300/10 px-3 py-1 text-sm font-semibold text-cyan-100 [.light_&]:border-cyan-700/40 [.light_&]:bg-cyan-50 [.light_&]:text-cyan-900">
-              From prototype to production
-            </p>
-            <h1 class="max-w-3xl text-4xl font-black leading-[1.02] text-slate-50 text-balance sm:text-6xl [.light_&]:text-slate-950">
-              A database made of JSON files.
-            </h1>
-            <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-300 text-pretty [.light_&]:text-slate-700">
-              Start with JSON files in <code class="font-mono text-cyan-100 [.light_&]:text-cyan-900">db/</code>. @async/db infers
-              schema metadata, writes TypeScript types, and serves local REST, GraphQL, and a local data explorer while your app
-              contract takes shape.
-              </p>
-              <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-400 [.light_&]:text-slate-600">
-                This docs site uses <a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
-                  href="https://github.com/async-framework/async-db/blob/main/website/db.schema.js">@async/db content collections</a>
-                to load markdown from <code class="font-mono">docs/</code> through the allowlist in <code
-                  class="font-mono">website/db.schema.js</code>.
-            </p>
-            <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a class="inline-flex items-center justify-center rounded-full bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300"
-                href="./docs/getting-started.html">
-                Getting started
-              </a>
-              <a class="inline-flex items-center justify-center rounded-full border border-slate-600 px-5 py-3 text-sm font-bold text-slate-100 transition hover:border-cyan-300 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-slate-300 [.light_&]:text-slate-800 [.light_&]:hover:border-cyan-700 [.light_&]:hover:text-cyan-900"
-                href="./docs/advanced/overview.html">
-                Production guides
-              </a>
-            </div>
-            <div class="mt-8 w-full max-w-2xl rounded-lg border border-cyan-900/80 bg-[#071427] p-4 [.light_&]:border-slate-200 [.light_&]:bg-white" data-install-tabs>
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">install</p>
-                  <h2 class="mt-1 text-xl font-black text-slate-50 [.light_&]:text-slate-950">Start from a package install.</h2>
-                </div>
-                <div class="flex w-fit rounded-full border border-cyan-900/80 bg-slate-950/70 p-1 text-sm [.light_&]:border-slate-200 [.light_&]:bg-slate-100" role="tablist" aria-label="Install method">
-                  <button class="rounded-full border border-transparent px-3 py-1.5 font-bold text-slate-300 transition data-[active=true]:border-cyan-300 data-[active=true]:bg-cyan-300 data-[active=true]:text-slate-950 [.light_&]:text-slate-700" type="button" role="tab" data-install-tab="pnpm" data-active="true" aria-selected="true">pnpm</button>
-                  <button class="rounded-full border border-transparent px-3 py-1.5 font-bold text-slate-300 transition data-[active=true]:border-cyan-300 data-[active=true]:bg-cyan-300 data-[active=true]:text-slate-950 [.light_&]:text-slate-700" type="button" role="tab" data-install-tab="npm" data-active="false" aria-selected="false">npm</button>
-                  <button class="rounded-full border border-transparent px-3 py-1.5 font-bold text-slate-300 transition data-[active=true]:border-cyan-300 data-[active=true]:bg-cyan-300 data-[active=true]:text-slate-950 [.light_&]:text-slate-700" type="button" role="tab" data-install-tab="codex" data-active="false" aria-selected="false">Codex</button>
-                </div>
-              </div>
-              <div class="mt-4" data-install-panel="pnpm" role="tabpanel">
-                <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>pnpm add @async/db
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-height: 100%;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+          linear-gradient(180deg, #15202b 0%, #111923 100%);
+        background-size: 40px 40px, 40px 40px, auto;
+      }
+
+      body {
+        min-height: 100%;
+        margin: 0;
+        color: var(--dim-text-soft);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.65;
+      }
+
+      a {
+        color: var(--dim-blue);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+
+      .container {
+        width: min(100% - 32px, 980px);
+        margin: 48px auto 72px;
+      }
+
+      .page {
+        overflow: hidden;
+        color: var(--dim-text-soft);
+        background: rgba(25, 39, 52, 0.94);
+        border: 1px solid var(--dim-border);
+        border-radius: 16px;
+        box-shadow: var(--dim-shadow);
+      }
+
+      .topbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px clamp(24px, 4vw, 56px);
+        color: var(--dim-text-muted);
+        background: rgba(15, 23, 32, 0.72);
+        border-bottom: 1px solid var(--dim-border);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--dim-text);
+        font-weight: 800;
+      }
+
+      .mark {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4px;
+      }
+
+      .mark span {
+        border: 1px solid var(--dim-blue);
+        border-radius: 3px;
+      }
+
+      .mark span:nth-child(2) {
+        border-color: var(--dim-green);
+      }
+
+      .mark span:nth-child(3) {
+        border-color: #facc15;
+      }
+
+      .mark span:nth-child(4) {
+        border-color: #7dd3fc;
+      }
+
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .nav a {
+        color: var(--dim-text-muted);
+      }
+
+      .content {
+        padding: clamp(24px, 4vw, 56px);
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        color: var(--dim-blue);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        color: var(--dim-text);
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        max-width: 780px;
+        margin: 0 0 16px;
+        font-size: clamp(2.25rem, 5vw, 4.5rem);
+        font-weight: 850;
+      }
+
+      h2 {
+        margin: 48px 0 16px;
+        padding-top: 28px;
+        border-top: 1px solid var(--dim-border);
+        font-size: clamp(1.45rem, 3vw, 2rem);
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        color: var(--dim-text);
+        font-size: 1.08rem;
+      }
+
+      p {
+        margin: 0 0 16px;
+      }
+
+      .lead {
+        max-width: 780px;
+        color: var(--dim-text);
+        font-size: clamp(1.18rem, 2.4vw, 1.45rem);
+        line-height: 1.45;
+      }
+
+      .sublead {
+        max-width: 780px;
+        color: var(--dim-text-muted);
+        font-size: 1.05rem;
+      }
+
+      .actions,
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .actions a,
+      .button-row a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        color: var(--dim-text);
+        font-weight: 800;
+        background: rgba(15, 23, 32, 0.54);
+        border: 1px solid var(--dim-border);
+        border-radius: 10px;
+      }
+
+      .actions .primary-link,
+      .button-row .primary-link {
+        color: #06101f;
+        background: var(--dim-blue);
+        border-color: var(--dim-blue);
+      }
+
+      .panel-grid {
+        display: grid;
+        gap: 16px;
+        margin-top: 28px;
+      }
+
+      @media (min-width: 820px) {
+        .panel-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .panel,
+      .example-teaser {
+        padding: 18px 20px;
+        background: rgba(15, 23, 32, 0.48);
+        border: 1px solid var(--dim-border-soft);
+        border-radius: 12px;
+      }
+
+      .panel p,
+      .example-teaser p {
+        color: var(--dim-text-muted);
+      }
+
+      pre {
+        overflow-x: auto;
+        margin: 1rem 0 1.5rem;
+        padding: 18px 20px;
+        color: var(--dim-text-soft);
+        background: linear-gradient(180deg, #101923 0%, #0d141d 100%);
+        border: 1px solid var(--dim-border-soft);
+        border-radius: 12px;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.92em;
+      }
+
+      p code,
+      li code,
+      td code {
+        padding: 0.15em 0.38em;
+        color: var(--dim-text);
+        background: var(--dim-code-bg);
+        border: 1px solid var(--dim-code-border);
+        border-radius: 6px;
+      }
+
+      .flow {
+        display: grid;
+        gap: 12px;
+        margin: 24px 0;
+      }
+
+      @media (min-width: 760px) {
+        .flow {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      .flow-step {
+        min-height: 138px;
+        padding: 16px;
+        background: rgba(15, 23, 32, 0.48);
+        border: 1px solid var(--dim-border-soft);
+        border-radius: 12px;
+      }
+
+      .flow-step strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--dim-text);
+      }
+
+      .flow-step span {
+        color: var(--dim-text-muted);
+      }
+
+      table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 0.75rem 0.9rem;
+        border: 1px solid var(--dim-border);
+      }
+
+      th {
+        color: var(--dim-text);
+        background: rgba(15, 23, 32, 0.6);
+      }
+
+      td {
+        min-width: 180px;
+      }
+
+      ul {
+        padding-left: 1.45rem;
+      }
+
+      li + li {
+        margin-top: 0.35rem;
+      }
+
+      li::marker {
+        color: var(--dim-blue);
+      }
+
+      .footer {
+        margin-top: 48px;
+        padding-top: 24px;
+        color: var(--dim-text-muted);
+        border-top: 1px solid var(--dim-border);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <article class="page">
+        <header class="topbar">
+          <a class="brand" href="https://github.com/async-framework/async-db" rel="noopener" aria-label="@async/db on GitHub">
+            <span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            <span>@async/db</span>
+          </a>
+          <nav class="nav" aria-label="Primary">
+            <a href="../../docs/getting-started.md">Docs</a>
+            <a href="../../examples/data-first/README.md">Examples</a>
+            <a href="../../docs/package-api.md">API</a>
+            <a href="https://github.com/async-framework/async-db" rel="noopener">GitHub</a>
+          </nav>
+        </header>
+
+        <div class="content">
+          <p class="eyebrow">JSON files now, contracts when they matter</p>
+          <h1>A database made of JSON files.</h1>
+          <p class="lead">
+            Start with records in <code>db/</code>. @async/db infers useful local contracts, writes generated
+            TypeScript types, and serves REST, GraphQL, and a local data explorer while your app shape is still moving.
+          </p>
+          <p class="sublead">
+            The workflow is data-first by default. Add explicit schema only when the contract needs descriptions,
+            defaults, enums, relations, or stricter validation.
+          </p>
+
+          <div class="actions">
+            <a class="primary-link" href="../../docs/getting-started.md">Getting started</a>
+            <a href="../../docs/advanced/overview.md">Production guides</a>
+            <a href="../../docs/package-api.md">Package API</a>
+          </div>
+
+          <pre><code>pnpm add @async/db
 pnpm exec async-db init
 pnpm exec async-db serve</code></pre>
-                <p class="mt-3 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Keep <code class="font-mono">serve</code> running, then open the local data explorer at <code class="font-mono">http://127.0.0.1:7331/__db</code>.</p>
-              </div>
-              <div class="mt-4 hidden" data-install-panel="npm" role="tabpanel">
-                <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>npm install @async/db
-npx async-db init
-npx async-db serve</code></pre>
-                <p class="mt-3 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Use <code class="font-mono">npx</code> to run the local package binary after install.</p>
-              </div>
-              <div class="mt-4 hidden" data-install-panel="codex" role="tabpanel">
-                <p class="text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Ask Codex to install the package and wire up the first local data workflow:</p>
-                <pre class="mt-3 max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200"><code>Install @async/db in this repo with the current package manager.
-Add scripts for db, db:sync, and db:serve.
-Create db/users.json with one seed user.
-Run async-db sync and report the local data explorer URL.</code></pre>
-              </div>
+
+          <div class="flow" aria-label="Async DB workflow">
+            <div class="flow-step">
+              <strong>1. Seed data</strong>
+              <span>Write JSON, JSONC, or CSV files under <code>db/</code>.</span>
+            </div>
+            <div class="flow-step">
+              <strong>2. Sync contracts</strong>
+              <span>Generate schema metadata, TypeScript types, and runtime state under <code>.db/</code>.</span>
+            </div>
+            <div class="flow-step">
+              <strong>3. Serve locally</strong>
+              <span>Use REST, GraphQL, and the local data explorer while the app contract settles.</span>
             </div>
           </div>
 
-          <div class="grid min-w-0 max-w-full gap-3 overflow-hidden rounded-xl border border-cyan-900/80 bg-slate-950/60 p-3 shadow-2xl shadow-cyan-950/20 [.light_&]:border-slate-200 [.light_&]:bg-slate-100 [.light_&]:shadow-slate-200">
-            <div class="grid min-w-0 gap-3 md:grid-cols-[0.9fr_1.1fr]">
-              <div class="min-w-0 rounded-lg border border-cyan-900/80 bg-[#071427] p-4 [.light_&]:border-slate-200 [.light_&]:bg-white">
-                <div class="mb-4 flex items-center justify-between gap-3">
-                  <span class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">db/users.json</span>
-                  <span
-                    class="rounded-full border border-emerald-300/50 px-2 py-1 text-xs font-semibold text-emerald-200 [.light_&]:border-emerald-700/40 [.light_&]:text-emerald-800">JSON</span>
-                </div>
-                <pre class="max-w-full overflow-x-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-200 [.light_&]:bg-slate-950 [.light_&]:text-slate-100"><code>[
+          <h2>One File Is Enough To Start</h2>
+          <p>
+            A plain data file teaches @async/db the first useful shape. No schema is required for the first pass.
+          </p>
+
+          <div class="panel-grid">
+            <div class="panel">
+              <p class="eyebrow">db/users.json</p>
+              <pre><code>[
   {
     "id": "u_1",
     "email": "ada@example.com"
   }
 ]</code></pre>
-              </div>
-              <div class="grid min-w-0 gap-3">
-                <div class="min-w-0 rounded-lg border border-cyan-900/80 bg-[#071427] p-4 [.light_&]:border-slate-200 [.light_&]:bg-white">
-                  <div class="mb-3 flex items-center justify-between">
-                    <span class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">sync output</span>
-                    <span class="text-xs font-semibold text-slate-400 [.light_&]:text-slate-600">schema + types</span>
-                  </div>
-                  <div class="grid gap-2 text-sm">
-                    <div class="flex items-center justify-between rounded-md bg-cyan-300/10 px-3 py-2 [.light_&]:bg-cyan-50">
-                      <span class="font-mono text-slate-200 [.light_&]:text-slate-800">type User</span>
-                      <span class="font-semibold text-amber-200 [.light_&]:text-amber-800">generated</span>
-                    </div>
-                    <div class="flex items-center justify-between rounded-md bg-cyan-300/10 px-3 py-2 [.light_&]:bg-cyan-50">
-                      <span class="font-mono text-slate-200 [.light_&]:text-slate-800">id: string</span>
-                      <span class="font-semibold text-amber-200 [.light_&]:text-amber-800">field</span>
-                    </div>
-                    <div class="flex items-center justify-between rounded-md bg-cyan-300/10 px-3 py-2 [.light_&]:bg-cyan-50">
-                      <span class="font-mono text-slate-200 [.light_&]:text-slate-800">email: string</span>
-                      <span class="font-semibold text-amber-200 [.light_&]:text-amber-800">field</span>
-                    </div>
-                    <div class="flex items-center justify-between rounded-md bg-cyan-300/10 px-3 py-2 [.light_&]:bg-cyan-50">
-                      <span class="font-mono text-slate-200 [.light_&]:text-slate-800">GET /db/users.json</span>
-                      <span class="font-semibold text-emerald-200 [.light_&]:text-emerald-800">route</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="min-w-0 rounded-lg border border-cyan-900/80 bg-[#071427] p-4 [.light_&]:border-slate-200 [.light_&]:bg-white">
-                  <div class="mb-3 flex items-center justify-between">
-                    <span class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">when data grows</span>
-                    <span class="text-xs font-semibold text-slate-400 [.light_&]:text-slate-600">per resource</span>
-                  </div>
-                  <div class="flex flex-wrap gap-2 text-xs font-bold">
-                    <span class="rounded-full bg-emerald-300 px-3 py-1 text-slate-950">json</span>
-                    <span class="rounded-full bg-sky-300 px-3 py-1 text-slate-950">sqlite</span>
-                    <span class="rounded-full bg-cyan-300 px-3 py-1 text-slate-950">postgres</span>
-                    <span class="rounded-full bg-amber-300 px-3 py-1 text-slate-950">app API</span>
-                  </div>
-                </div>
-              </div>
             </div>
-            <div class="grid min-w-0 gap-3 rounded-lg border border-cyan-900/80 bg-[#06101f] p-4 text-sm text-slate-300 md:grid-cols-4 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-700">
-              <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">01 data files</p>
-                <p class="mt-2">Editable source files in <code class="font-mono">db/</code>.</p>
-              </div>
-              <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">02 generated contract</p>
-                <p class="mt-2">Schema metadata, types, and validation.</p>
-              </div>
-              <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">03 local explorer</p>
-                <p class="mt-2">REST, GraphQL, and browsing tools.</p>
-              </div>
-              <div>
-                <p class="font-mono text-cyan-200 [.light_&]:text-cyan-800">04 production path</p>
-                <p class="mt-2">Keep JSON where it fits, switch stores where it does not.</p>
-              </div>
+            <div class="panel">
+              <p class="eyebrow">generated type</p>
+              <pre><code>export type User = {
+  id: string;
+  email: string;
+};</code></pre>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section id="guides"
-        class="w-full max-w-full overflow-hidden border-b border-cyan-950/80 bg-[#06101f] py-14 [.light_&]:border-slate-200 [.light_&]:bg-slate-100">
-        <div class="mx-auto max-w-7xl min-w-0 px-5 sm:px-8">
-          <div class="max-w-3xl">
-            <h2 class="text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">Learning path
-            </h2>
-            <p class="mt-4 text-base leading-7 text-slate-300 [.light_&]:text-slate-700">Start with one JSON file, then add
-              schemas, route controls, stores, and generated files as your app needs them. Each page is generated from markdown in
-              <code class="font-mono">docs/</code>.</p>
-          </div>
-          <div class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-              href="./docs/getting-started.html">
-              <p class="text-xs font-bold uppercase tracking-wide text-cyan-300 [.light_&]:text-cyan-800">Start</p>
-              <h3 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Install and first JSON file</h3>
-              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Scaffold, sync, serve, open the local
-                data explorer, and make the first REST call.</p>
-            </a>
-            <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-              href="./docs/data-files-and-schemas.html">
-              <p class="text-xs font-bold uppercase tracking-wide text-emerald-300 [.light_&]:text-emerald-800">Build</p>
-              <h3 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Data files and config</h3>
-              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Schema sources, generated files, and
-                db.config.js.</p>
-            </a>
-            <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-              href="./docs/json-production.html">
-              <p class="text-xs font-bold uppercase tracking-wide text-amber-300 [.light_&]:text-amber-800">Production</p>
-              <h3 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Prepare for production</h3>
-              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Use JSON safely, choose stores,
-                and limit exposed routes.</p>
-            </a>
-            <a class="rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-              href="./docs/package-api.html">
-              <p class="text-xs font-bold uppercase tracking-wide text-sky-300 [.light_&]:text-sky-800">Reference</p>
-              <h3 class="mt-2 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">API and integrations</h3>
-              <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">CLI, runtime API, server routes, and
-                framework hooks.</p>
-            </a>
-          </div>
-        </div>
-      </section>
+          <h2>What Sync Writes</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Output</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>.db/schema.generated.json</code></td>
+                <td>Normalized schema metadata inferred from data files and explicit schema sources.</td>
+              </tr>
+              <tr>
+                <td><code>.db/types/index.d.ts</code></td>
+                <td>Generated TypeScript contracts for local app code and editor feedback.</td>
+              </tr>
+              <tr>
+                <td><code>.db/state/*.json</code></td>
+                <td>Writable runtime state refreshed from source hashes without rewriting source files.</td>
+              </tr>
+            </tbody>
+          </table>
 
-      <section id="advanced" class="w-full max-w-full overflow-hidden bg-[#06101f] py-14 [.light_&]:bg-slate-100">
-        <div class="mx-auto max-w-7xl min-w-0 px-5 sm:px-8">
-          <div class="grid min-w-0 gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-            <div class="min-w-0">
-              <h2 class="text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">
-                Settings for the path from local files to app-backed APIs.
-              </h2>
-              <p class="mt-4 max-w-xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
-                After your first JSON file works, use these guides for config, schema strictness, runtime stores, server exposure,
-                registered operations, mocks, and generated files.
-              </p>
-            </div>
-            <div class="grid min-w-0 gap-3 sm:grid-cols-2">
-              <a class="group rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-                href="./docs/advanced/configuration.html">
-                <span class="font-mono text-sm font-bold text-cyan-200 [.light_&]:text-cyan-800">db.config.js</span>
-                <h3 class="mt-3 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Configuration map</h3>
-                <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Folders, outputs, route bases, resource overrides, and strictness.</p>
-              </a>
-              <a class="group rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-                href="./docs/advanced/runtime-stores.html">
-                <span class="font-mono text-sm font-bold text-emerald-200 [.light_&]:text-emerald-800">stores</span>
-                <h3 class="mt-3 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Runtime stores</h3>
-                <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Default JSON state, source-file writes, SQLite, Postgres, KV, Redis, and custom stores.</p>
-              </a>
-              <a class="group rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-                href="./docs/advanced/operations.html">
-                <span class="font-mono text-sm font-bold text-amber-200 [.light_&]:text-amber-800">operation refs</span>
-                <h3 class="mt-3 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Registered operations</h3>
-                <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">Allowlisted REST or GraphQL templates, generated refs, and route lockdown.</p>
-              </a>
-              <a class="group rounded-lg border border-cyan-900/80 bg-[#0a172b] p-5 transition hover:border-cyan-300 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:hover:border-cyan-700"
-                href="./docs/advanced/generated-files.html">
-                <span class="font-mono text-sm font-bold text-sky-200 [.light_&]:text-sky-800">.db + generated</span>
-                <h3 class="mt-3 text-xl font-bold text-slate-50 [.light_&]:text-slate-950">Generated files</h3>
-                <p class="mt-2 text-sm leading-6 text-slate-300 [.light_&]:text-slate-700">What stays ignored, what can be committed, and which examples do it.</p>
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+          <h2>Local First, Then App Backed</h2>
+          <p>
+            Keep JSON-shaped routes open while prototyping. When the app-facing contract settles, graduate browser
+            traffic to registered operation refs, app-owned auth, and explicit route exposure rules.
+          </p>
 
-      <section id="production" class="w-full max-w-full overflow-hidden border-y border-cyan-950/80 bg-[#020917] py-14 [.light_&]:border-slate-200 [.light_&]:bg-white">
-        <div class="mx-auto grid max-w-7xl min-w-0 gap-6 px-5 sm:px-8 lg:grid-cols-[0.85fr_1.15fr]">
-          <div class="min-w-0">
-            <h2 class="text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">
-              Keep local routes local, then expose reviewed operations.
-            </h2>
-            <p class="mt-4 max-w-xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
-              Use JSON-shaped routes while the data shape is moving. When the app-facing contract settles, move browser traffic to
-              registered operation refs, app-owned auth, and explicit route exposure rules.
-            </p>
-            <div class="mt-6 overflow-x-auto rounded-lg border border-cyan-900/80 [.light_&]:border-slate-200">
-              <table class="min-w-full text-left text-sm">
-                <thead class="bg-[#071427] text-slate-300 [.light_&]:bg-slate-50 [.light_&]:text-slate-700">
-                  <tr>
-                    <th class="px-4 py-3 font-bold">Step</th>
-                    <th class="px-4 py-3 font-bold">Guide</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-cyan-950/80 text-slate-200 [.light_&]:divide-slate-200 [.light_&]:text-slate-800">
-                  <tr>
-                    <td class="px-4 py-3 font-mono">registered operations</td>
-                    <td class="px-4 py-3"><a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
-                        href="./docs/prototype-to-production.html">Prototype to production</a></td>
-                  </tr>
-                  <tr>
-                    <td class="px-4 py-3 font-mono">server.expose</td>
-                    <td class="px-4 py-3"><a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
-                        href="./docs/advanced/server.html">Server settings</a></td>
-                  </tr>
-                  <tr>
-                    <td class="px-4 py-3 font-mono">contracts + doctor</td>
-                    <td class="px-4 py-3"><a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
-                        href="./docs/advanced/schema.html">Schema strictness</a></td>
-                  </tr>
-                  <tr>
-                    <td class="px-4 py-3 font-mono">store graduation</td>
-                    <td class="px-4 py-3"><a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
-                        href="./docs/store-graduation.html">Mixed stores</a></td>
-                  </tr>
-                </tbody>
-              </table>
+          <div class="panel-grid">
+            <div class="panel">
+              <h3>Prototype</h3>
+              <ul>
+                <li><code>GET /db/users.json</code></li>
+                <li><code>POST /db/users</code></li>
+                <li><code>http://127.0.0.1:7331/__db</code></li>
+              </ul>
+            </div>
+            <div class="panel">
+              <h3>Production path</h3>
+              <ul>
+                <li><a href="../../docs/prototype-to-production.md">Registered operations</a></li>
+                <li><a href="../../docs/advanced/server.md">Route exposure controls</a></li>
+                <li><a href="../../docs/store-graduation.md">SQLite, Postgres, or app APIs per resource</a></li>
+              </ul>
             </div>
           </div>
-          <div class="min-w-0 rounded-lg border border-cyan-900/80 bg-[#071427] p-5 [.light_&]:border-slate-200 [.light_&]:bg-slate-50">
-            <div class="grid gap-3 text-sm">
-              <div class="grid gap-2 rounded-md bg-slate-950 p-4 font-mono text-slate-200 [.light_&]:bg-slate-950 [.light_&]:text-slate-100">
-                <span>GET /db/users.json</span>
-                <span>POST /__db/operations/GetUserProfile</span>
-                <span>server.expose.rest = "registered-only"</span>
-                <span>server.expose.viewer = "dev"</span>
-              </div>
-              <p class="leading-6 text-slate-300 [.light_&]:text-slate-700">
-                Operation refs are allowlist identifiers, not secrets. They keep route shape reviewable while normal app policy still owns authentication, authorization, limits, and monitoring.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section id="examples" class="w-full max-w-full overflow-hidden bg-[#06101f] py-14 [.light_&]:bg-slate-100">
-        <div class="mx-auto max-w-7xl min-w-0 px-5 sm:px-8">
-          <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 class="text-3xl font-black text-slate-50 [.light_&]:text-slate-950">Learn from runnable examples.</h2>
-              <p class="mt-3 max-w-2xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
-                Each example shows the real files to inspect, the command to run, and one request to try.
-              </p>
-            </div>
-            <a class="text-sm font-bold text-cyan-200 hover:text-cyan-100 focus:outline-2 focus:outline-offset-2 focus:outline-cyan-300 [.light_&]:text-cyan-800 [.light_&]:hover:text-cyan-950"
-              href="./docs/advanced/overview.html">
-              See the advanced map
-            </a>
-          </div>
+          <h2>Docs</h2>
+          <ul>
+            <li><a href="../../docs/getting-started.md">Getting started</a> - install, sync, serve, and make the first REST call.</li>
+            <li><a href="../../docs/data-files-and-schemas.md">Data files and schemas</a> - JSON, CSV, schema files, and inference.</li>
+            <li><a href="../../docs/advanced/overview.md">Advanced guide map</a> - config, stores, operations, mocks, and generated files.</li>
+            <li><a href="../../docs/package-api.md">Package API</a> - CLI, runtime APIs, server routes, and integrations.</li>
+          </ul>
+
+          <h2>Runnable Examples</h2>
           <!-- @example-explorer -->
-          </div>
-          </section>
-          
-          <section id="creator"
-            class="w-full max-w-full overflow-hidden border-t border-cyan-950/80 bg-[#020917] py-14 [.light_&]:border-slate-200 [.light_&]:bg-white">
-            <div
-              class="mx-auto flex max-w-7xl min-w-0 flex-col items-start gap-6 px-5 sm:px-8 md:flex-row md:items-center md:gap-10">
-              <img class="size-20 shrink-0 rounded-full border-2 border-cyan-300/60 [.light_&]:border-cyan-700/40"
-                src="https://github.com/PatrickJS.png?size=160" alt="PatrickJS" width="80" height="80" loading="lazy">
-              <div class="min-w-0">
-                <p class="text-xs font-bold uppercase tracking-wide text-cyan-300 [.light_&]:text-cyan-800">Who made this</p>
-                <h2 class="mt-2 text-3xl font-black text-slate-50 text-balance sm:text-4xl [.light_&]:text-slate-950">Created by
-                  PatrickJS</h2>
-                <p class="mt-4 max-w-2xl text-base leading-7 text-slate-300 [.light_&]:text-slate-700">
-                  @async/db is built and maintained by <a
-                    class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
-                    href="https://github.com/PatrickJS" rel="noopener">Patrick Stapleton (PatrickJS)</a>, a long-time open-source
-                  JavaScript engineer. It comes from years of starting frontend projects the same way: mock JSON first, real
-                  backend later. This package makes that path a first-class workflow.
-                </p>
-                <div class="mt-5 flex flex-wrap gap-3 text-sm font-semibold">
-                  <a class="rounded-full border border-cyan-800 bg-[#071427] px-4 py-2 text-slate-200 transition hover:border-cyan-300 hover:text-cyan-100 [.light_&]:border-slate-300 [.light_&]:bg-slate-50 [.light_&]:text-slate-800 [.light_&]:hover:border-cyan-700"
-                    href="https://github.com/PatrickJS" rel="noopener">GitHub</a>
-                  <a class="rounded-full border border-cyan-800 bg-[#071427] px-4 py-2 text-slate-200 transition hover:border-cyan-300 hover:text-cyan-100 [.light_&]:border-slate-300 [.light_&]:bg-slate-50 [.light_&]:text-slate-800 [.light_&]:hover:border-cyan-700"
-                    href="https://x.com/PatrickJS" rel="noopener">X</a>
-                  <a class="rounded-full border border-cyan-800 bg-[#071427] px-4 py-2 text-slate-200 transition hover:border-cyan-300 hover:text-cyan-100 [.light_&]:border-slate-300 [.light_&]:bg-slate-50 [.light_&]:text-slate-800 [.light_&]:hover:border-cyan-700"
-                    href="https://patrickjs.com" rel="noopener">patrickjs.com</a>
-                </div>
-          </div>
+
+          <p class="footer">
+            Built from <a href="../db.schema.js">website/db.schema.js</a> content collections and published from
+            <a href="https://github.com/async-framework/async-db" rel="noopener">github.com/async-framework/async-db</a>.
+          </p>
         </div>
-      </section>
+      </article>
     </main>
-
-    <footer class="border-t border-cyan-950/80 bg-[#020917] px-5 py-8 text-sm text-slate-400 sm:px-8 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-600">
-      <div class="mx-auto flex max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <p>@async/db docs. Built with <a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800"
-            href="https://github.com/async-framework/async-db/blob/main/website/db.schema.js">content collections</a>.</p>
-        <div class="flex flex-wrap gap-4">
-          <a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="./docs/getting-started.html">Getting started</a>
-          <a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="./docs/advanced/overview.html">Advanced</a>
-          <a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="./docs/advanced/operations.html">Operations</a>
-        </div>
-      </div>
-    </footer>
-
-    <script>
-        const THEME_KEY = "async-db-docs-theme";
-        function themePreference() {
-          const stored = localStorage.getItem(THEME_KEY);
-          return stored === "light" || stored === "dark" || stored === "system" ? stored : "dark";
-        }
-        function applyThemePreference() {
-          const preference = themePreference();
-          const systemLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-          const isLight = preference === "light" || (preference === "system" && systemLight);
-          document.documentElement.classList.toggle("light", isLight);
-          document.querySelectorAll("[data-theme-menu]").forEach((menu) => {
-            menu.querySelectorAll("[data-theme-icon]").forEach((icon) => {
-              icon.classList.toggle("hidden", icon.getAttribute("data-theme-icon") !== preference);
-            });
-            menu.querySelectorAll("[data-theme-choice]").forEach((choice) => {
-              choice.setAttribute("aria-checked", String(choice.getAttribute("data-theme-choice") === preference));
-            });
-        });
-      }
-        document.querySelectorAll("[data-theme-menu]").forEach((menu) => {
-          const trigger = menu.querySelector("[data-theme-trigger]");
-          const options = menu.querySelector("[data-theme-options]");
-          if (!trigger || !options) {
-            return;
-          }
-          trigger.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const open = options.classList.toggle("hidden") === false;
-            trigger.setAttribute("aria-expanded", String(open));
-          });
-          menu.querySelectorAll("[data-theme-choice]").forEach((choice) => {
-            choice.addEventListener("click", () => {
-              localStorage.setItem(THEME_KEY, choice.getAttribute("data-theme-choice"));
-              applyThemePreference();
-              options.classList.add("hidden");
-              trigger.setAttribute("aria-expanded", "false");
-            });
-          });
-        });
-        document.addEventListener("click", () => {
-          document.querySelectorAll("[data-theme-options]").forEach((options) => options.classList.add("hidden"));
-          document.querySelectorAll("[data-theme-trigger]").forEach((trigger) => trigger.setAttribute("aria-expanded", "false"));
-        });
-        window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
-          if (themePreference() === "system") {
-            applyThemePreference();
-          }
-      });
-        applyThemePreference();
-
-      document.querySelectorAll("[data-install-tabs]").forEach((group) => {
-        const tabs = group.querySelectorAll("[data-install-tab]");
-        const panels = group.querySelectorAll("[data-install-panel]");
-        tabs.forEach((tab) => {
-          tab.addEventListener("click", () => {
-            const selected = tab.getAttribute("data-install-tab");
-            tabs.forEach((candidate) => {
-              const isActive = candidate.getAttribute("data-install-tab") === selected;
-              candidate.dataset.active = String(isActive);
-              candidate.setAttribute("aria-selected", String(isActive));
-            });
-            panels.forEach((panel) => {
-              panel.classList.toggle("hidden", panel.getAttribute("data-install-panel") !== selected);
-            });
-          });
-        });
-      });
-    </script>
   </body>
 </html>

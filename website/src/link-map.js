@@ -85,6 +85,52 @@ export function rewriteMarkdownLink(href, options = {}) {
 }
 
 /**
+ * Landing-page source links are written so they work from GitHub's repository
+ * browser (`website/pages/index.html`). The built Pages artifact lives at the
+ * site root, so those source-friendly links need a small rewrite at build time.
+ *
+ * @param {string} href
+ */
+export function rewriteLandingSourceLink(href) {
+  const trimmed = String(href ?? '').trim();
+  if (!trimmed || trimmed.startsWith('#') || /^[a-z][a-z0-9+.-]*:/iu.test(trimmed)) {
+    return trimmed;
+  }
+
+  const [target, fragment = ''] = trimmed.split('#');
+  const suffix = fragment ? `#${fragment}` : '';
+  const decoded = decodeURIComponent(target);
+
+  if (decoded.startsWith('../../docs/advanced/') && decoded.endsWith('.md')) {
+    const pageId = decoded.slice('../../docs/advanced/'.length).replace(/\.md$/u, '');
+    if (ALLOWED_ADVANCED_IDS.has(pageId)) {
+      return `./docs/advanced/${pageId}.html${suffix}`;
+    }
+  }
+
+  if (decoded.startsWith('../../docs/') && decoded.endsWith('.md')) {
+    const pageId = decoded.slice('../../docs/'.length).replace(/\.md$/u, '');
+    if (ALLOWED_PAGE_IDS.has(pageId)) {
+      return `./docs/${pageId}.html${suffix}`;
+    }
+  }
+
+  if (decoded.startsWith('../../examples/')) {
+    return `./docs/examples.html${suffix}`;
+  }
+
+  if (decoded.startsWith('../../')) {
+    return `${githubBlobPath(decoded.slice('../../'.length))}${suffix}`;
+  }
+
+  if (decoded.startsWith('../')) {
+    return `${githubBlobPath(`website/${decoded.slice('../'.length)}`)}${suffix}`;
+  }
+
+  return trimmed;
+}
+
+/**
  * @param {string} html
  * @param {{ strict?: boolean }} [options]
  */
