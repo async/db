@@ -1,11 +1,12 @@
-import { definePipeline, job, sh, task, trigger } from "@async/pipeline";
+import { definePipeline, env, job, sh, task, trigger } from "@async/pipeline";
 
 export default definePipeline({
   name: "async-db",
   cache: "file:local",
   triggers: {
     pr: trigger.github({ events: ["pull_request"] }),
-    main: trigger.github({ events: ["push"], branches: ["main"] })
+    main: trigger.github({ events: ["push"], branches: ["main"] }),
+    manual: trigger.manual()
   },
   sync: {
     github: true,
@@ -47,6 +48,12 @@ export default definePipeline({
       cache: true,
       run: sh`npm test`
     }),
+    "release-doctor": task({
+      description: "Reconcile release state: the git tag, npm version, and GitHub Release must agree; repairs what is provably safe and names what is not. Gated by the verify graph so a repair can never publish unverified code.",
+      dependsOn: ["pack"],
+      cache: false,
+      run: sh`node scripts/release-doctor.mjs --repair`
+    }),
     pack: task({
       description: "Verify the publishable package contents.",
       dependsOn: ["check", "test"],
@@ -59,6 +66,20 @@ export default definePipeline({
     verify: job({
       target: "pack",
       trigger: ["pr", "main"]
+    }),
+    "release-doctor": job({
+      description: "Diagnose and repair tag/npm/GitHub-Release consistency for the current version.",
+      target: "release-doctor",
+      trigger: ["manual"],
+      github: {
+        permissions: {
+          contents: "write",
+          idToken: "write"
+        }
+      },
+      env: {
+        GH_TOKEN: env.secret("GITHUB_TOKEN")
+      }
     })
   }
 });

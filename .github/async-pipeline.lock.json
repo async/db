@@ -3,8 +3,8 @@
   "generator": "@async/pipeline",
   "config": "pipeline.ts",
   "workflow": ".github/workflows/async-pipeline.yml",
-  "hash": "sha256:eec941f0286d856c4abda23e2767c9561c7c3b95b872e3a6bf776a43f7dc7402",
-  "generatedAt": "2026-06-11T20:31:09.460Z",
+  "hash": "sha256:bd21e1b914b5096ac0e97e8f3a1ecf57c92f186fd2ff22001b3ba0cf64a654a9",
+  "generatedAt": "2026-06-11T20:40:45.403Z",
   "triggers": {
     "pull_request": {},
     "push": {
@@ -15,6 +15,28 @@
     "workflow_dispatch": {}
   },
   "jobs": [
+    {
+      "id": "release-doctor",
+      "target": [
+        "release-doctor"
+      ],
+      "trigger": [
+        "manual"
+      ],
+      "env": {
+        "GH_TOKEN": {
+          "kind": "async-pipeline.env.secret",
+          "name": "GITHUB_TOKEN"
+        }
+      },
+      "github": {
+        "permissions": {
+          "contents": "write",
+          "idToken": "write"
+        }
+      },
+      "if": "github.event_name == 'workflow_dispatch'"
+    },
     {
       "id": "verify",
       "target": [

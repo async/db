@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Added `scripts/release-doctor.mjs` and the dispatchable `release-doctor` pipeline job: verifies that the git tag, npm version, and GitHub Release agree for the current version, repairs what is provably safe (push or fetch the tag, publish from the tagged commit, create the tag when the npm tarball shasum matches a pack of HEAD, create the missing GitHub Release), and `--supersede` bumps the patch version and marks the unreconcilable release in this changelog.
+
 ## [0.7.0](https://github.com/async-framework/async-db/releases/tag/v0.7.0) - 2026-06-11
 
 ### Added
