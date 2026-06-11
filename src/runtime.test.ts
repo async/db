@@ -100,8 +100,13 @@ test('watchDbSources reloads changed source files and publishes events', async (
   const db = await openDb({ cwd, allowSourceErrors: true });
   const events = createDbRuntimeEvents();
   const published: unknown[] = [];
-  events.subscribe((event) => {
-    published.push(event);
+  const synced = new Promise<void>((resolve) => {
+    events.subscribe((event) => {
+      published.push(event);
+      if ((event as { type?: string }).type === 'synced') {
+        resolve();
+      }
+    });
   });
   const fsWatcher: any = new EventEmitter();
   fsWatcher.close = () => {};
@@ -117,7 +122,15 @@ test('watchDbSources reloads changed source files and publishes events', async (
 
   await writeFixture(cwd, 'posts.json', JSON.stringify([{ id: 'p_1', title: 'Hello' }]));
   fsWatcher.listener('change', 'posts.json');
-  await wait(25);
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('timed out waiting for the synced event after a watched source change'));
+    }, 2000);
+    void synced.then(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 
   assert.equal(watcher.enabled, true);
   assert.equal(Boolean(db.resources.get('posts')), true);
@@ -192,10 +205,4 @@ function makeResponse() {
       return this.body ? JSON.parse(this.body) : null;
     },
   };
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }

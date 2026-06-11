@@ -170,6 +170,10 @@ test('server source watch stays attached to db sources and ignores store writes'
 
   const db = await openDb({ cwd, allowSourceErrors: true });
   const published = [];
+  let publishedSignal = () => {};
+  const firstPublish = new Promise<void>((resolve) => {
+    publishedSignal = resolve;
+  });
   const fsWatcher: any = new EventEmitter();
   fsWatcher.close = () => {};
   let watchedDirectory;
@@ -177,6 +181,7 @@ test('server source watch stays attached to db sources and ignores store writes'
   const watcher = await watchSourceDir(db, {
     publish(payload) {
       published.push(payload);
+      publishedSignal();
     },
   }, {
     watch(directory, _options, listener) {
@@ -197,7 +202,15 @@ test('server source watch stays attached to db sources and ignores store writes'
     { id: 'u_3', name: 'Katherine' },
   ]));
   fsWatcher.listener('change', 'users.json');
-  await new Promise((resolve) => setTimeout(resolve, 125));
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('timed out waiting for the synced publish after a source change'));
+    }, 2000);
+    void firstPublish.then(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 
   assert.equal(published.length, 1);
   assert.equal(published[0].type, 'synced');
