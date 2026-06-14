@@ -104,8 +104,8 @@ See [Generated Files](./generated-files.md).
 Before handing off changes:
 
 ```bash
-npm run check
-npm test
+pnpm run check
+pnpm run test
 npm --cache /private/tmp/db-npm-cache pack --dry-run
 ```
 

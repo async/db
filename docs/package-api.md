@@ -7,44 +7,44 @@ This page covers the CLI, runtime API, HTTP client, and package exports.
 With a package script like `"db": "async-db"`:
 
 ```bash
-npm run db -- sync
-npm run db -- init --template data-first
-npm run db -- init --template schema-first
-npm run db -- init --template source-file
-npm run db -- types
-npm run db -- types --watch
-npm run db -- types --out ./src/generated/db.types.d.ts
-npm run db -- schema
-npm run db -- schema users
-npm run db -- schema infer users
-npm run db -- schema infer users --out db/users.schema.jsonc
-npm run db -- schema manifest --out ./src/generated/db.schema.json
-npm run db -- schema validate
-npm run db -- schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
-npm run db -- schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db --format mixed
-npm run db -- viewer manifest --out ./src/generated/db.viewer.json
-npm run db -- operations build
-npm run db -- operations build --out ./src/generated/db.operations.json --refs-out ./src/generated/db.operation-refs.json
-npm run db -- contracts check
-npm run db -- contracts refs --out ./src/generated/db.contract-refs.json
-npm run db -- usage scan ./src --production
-npm run db -- usage scan ./src --production --out ./src/generated/db.usage.json
-npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite
-npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
-npm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --target-state ./data/app.asyncdb --out ./src/generated/db.integration.json
-npm run db -- integrate inspect ./src --postgres
-npm run db -- integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public --out ./src/generated/db.integration.json
-npm run db -- integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --target-postgres-table public._async_db_resources --out ./src/generated/db.integration.json
-npm run db -- integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-sqlite.js
-npm run db -- doctor
-npm run db -- doctor --production
-npm run db -- doctor --production --usage ./src --json
-npm run db -- doctor --json
-npm run db -- check --strict --production
-npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
-npm run db -- serve
-npm run db -- generate hono
-npm run db -- generate hono --api rest,graphql --out ./server
+pnpm run db -- sync
+pnpm run db -- init --template data-first
+pnpm run db -- init --template schema-first
+pnpm run db -- init --template source-file
+pnpm run db -- types
+pnpm run db -- types --watch
+pnpm run db -- types --out ./src/generated/db.types.d.ts
+pnpm run db -- schema
+pnpm run db -- schema users
+pnpm run db -- schema infer users
+pnpm run db -- schema infer users --out db/users.schema.jsonc
+pnpm run db -- schema manifest --out ./src/generated/db.schema.json
+pnpm run db -- schema validate
+pnpm run db -- schema migrate inspect ./src --out ./src/generated/db.schema-migration.json
+pnpm run db -- schema migrate generate --plan ./src/generated/db.schema-migration.json --schema-dir ./db --format mixed
+pnpm run db -- viewer manifest --out ./src/generated/db.viewer.json
+pnpm run db -- operations build
+pnpm run db -- operations build --out ./src/generated/db.operations.json --refs-out ./src/generated/db.operation-refs.json
+pnpm run db -- contracts check
+pnpm run db -- contracts refs --out ./src/generated/db.contract-refs.json
+pnpm run db -- usage scan ./src --production
+pnpm run db -- usage scan ./src --production --out ./src/generated/db.usage.json
+pnpm run db -- integrate inspect ./src --sqlite ./data/app.sqlite
+pnpm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --out ./src/generated/db.integration.json
+pnpm run db -- integrate inspect ./src --sqlite ./data/app.sqlite --target-state ./data/app.asyncdb --out ./src/generated/db.integration.json
+pnpm run db -- integrate inspect ./src --postgres
+pnpm run db -- integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --schema public --out ./src/generated/db.integration.json
+pnpm run db -- integrate inspect ./src --postgres --postgres-url-env DATABASE_URL --target-postgres-table public._async_db_resources --out ./src/generated/db.integration.json
+pnpm run db -- integrate generate importer --plan ./src/generated/db.integration.json --out ./scripts/import-legacy-sqlite.js
+pnpm run db -- doctor
+pnpm run db -- doctor --production
+pnpm run db -- doctor --production --usage ./src --json
+pnpm run db -- doctor --json
+pnpm run db -- check --strict --production
+pnpm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
+pnpm run db -- serve
+pnpm run db -- generate hono
+pnpm run db -- generate hono --api rest,graphql --out ./server
 ```
 
 Inside npm scripts, `db` resolves to the local dependency binary. Equivalent direct commands:
@@ -84,12 +84,12 @@ resource back to a version snapshot (requires `stores.json.durability:
 'versioned'` for ongoing history) or restores from a backup bundle; both
 snapshot the current contents first so restores are undoable.
 
-With pnpm and a `"db": "async-db"` script, pass arguments directly to the script name:
+With pnpm and a `"db": "async-db"` script, pass arguments through `pnpm run`:
 
 ```bash
-pnpm db sync
-pnpm db schema validate
-pnpm db serve
+pnpm run db -- sync
+pnpm run db -- schema validate
+pnpm run db -- serve
 ```
 
 ### `async-db init`
@@ -943,7 +943,7 @@ const handler = createDbOperationHandler(db, {
 Run every repo example and open an index of their local data explorers:
 
 ```bash
-npm run examples
+pnpm run examples
 ```
 
 The examples index runs on one loopback port and starts each example runtime lazily when you open its demo or `/__db` local data explorer.
@@ -952,7 +952,7 @@ To get an HTTPS URL for the examples index inside your tailnet, opt in to
 Tailscale Serve:
 
 ```bash
-npm run examples -- --tailscale-serve
+pnpm run examples -- --tailscale-serve
 ```
 
 This runs `tailscale serve --bg <port>` after the local examples host starts.

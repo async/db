@@ -66,12 +66,12 @@ Common edit paths:
 Use these while actively editing the package:
 
 ```bash
-npm run dev          # watch src and relaunch all examples
-npm run examples     # one-shot all examples server for smoke checks
-npm run docs:dev     # live docs preview from website/
-npm run docs:build   # static docs build to website/dist/
-npm run watch        # compile dist and test-build in watch mode only
-npm run cli -- sync --cwd ./examples/basic
+pnpm run dev          # watch src and relaunch all examples
+pnpm run examples     # one-shot all examples server for smoke checks
+pnpm run docs:dev     # live docs preview from website/
+pnpm run docs:build   # static docs build to website/dist/
+pnpm run watch        # compile dist and test-build in watch mode only
+pnpm run cli -- sync --cwd ./examples/basic
 ```
 
 Keep npm task entrypoints under `scripts/tasks/`. Keep reusable helper scripts directly under `scripts/`.
@@ -79,9 +79,9 @@ Keep npm task entrypoints under `scripts/tasks/`. Keep reusable helper scripts d
 Run these before handing off changes:
 
 ```bash
-npm run check
-npm run api-surface:check
-npm test
+pnpm run check
+pnpm run api-surface:check
+pnpm run test
 npm pack --dry-run
 ```
 
@@ -91,7 +91,7 @@ Useful CLI smoke checks:
 node ./src/cli.js sync --cwd ./examples/basic
 node ./src/cli.js schema validate --cwd ./examples/basic
 node ./src/cli.js create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
-npm run examples
+pnpm run examples
 ```
 
 The local REST server binds a loopback port. In sandboxed environments this may require explicit approval:
@@ -134,7 +134,7 @@ If a smoke command writes `.db/` inside any example, remove those generated file
 - `API_SURFACE.md` is the current-state public contract ledger, not a tutorial or changelog. Update it whenever a change adds, removes, renames, or changes package exports, declaration names, CLI commands/flags/output, runtime package methods, HTTP routes, generated contract shapes, or config keys. If a public-adjacent change does not require an `API_SURFACE.md` update, be ready to explain why.
 - `docs/package-api.md` is the user-facing package API reference. Update it when a public API or CLI behavior needs discoverable usage guidance, examples, option documentation, or migration notes.
 - When a change both alters a public contract and changes how users should call it, update both files: `API_SURFACE.md` for the contract boundary and `docs/package-api.md` for the usage/reference story.
-- Preserve support for Node.js 20 and newer.
+- Preserve support for Node.js 24 and newer.
 - Treat `.schema.mjs`, `db.config.mjs`, source readers, format renderers, and schema manifest hooks as trusted project code because they execute locally.
 - Remember that `async-db serve` exposes writable local development endpoints on loopback by default, and the viewer CSV import endpoint writes into the configured `dbDir`.
 - Keep schema source support focused on `.json`, `.jsonc`, `.csv`, `.schema.json`, `.schema.jsonc`, and `.schema.mjs`.
@@ -179,12 +179,14 @@ Add tests for every behavior change that touches:
 
 ## GitHub Actions
 
-CI lives in `.github/workflows/ci.yml` and runs on Node.js 20, 22, and 24:
+CI is generated from `pipeline.ts` into `.github/workflows/async-pipeline.yml`
+and runs on Node.js 24:
 
-- `npm run check`
-- `npm test`
+- `pnpm run check`
+- `pnpm run test`
 - `npm pack --dry-run`
 
-Docs site deployment lives in `.github/workflows/docs.yml` and publishes `website/dist/` to GitHub Pages on pushes to `main`.
+Docs site deployment is generated from the `pages` job in `pipeline.ts` and
+publishes `website/dist/` to GitHub Pages on pushes to `main`.
 
 Dependabot is configured in `.github/dependabot.yml` for GitHub Actions updates.

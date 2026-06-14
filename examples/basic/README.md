@@ -16,9 +16,9 @@ Start here when you want the smallest schema-backed db workflow. It demonstrates
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/basic
-npm run db -- operations build --cwd ./examples/basic
-npm run db -- serve --cwd ./examples/basic
+pnpm run db -- sync --cwd ./examples/basic
+pnpm run db -- operations build --cwd ./examples/basic
+pnpm run db -- serve --cwd ./examples/basic
 ```
 
 Open the local data explorer:
@@ -37,8 +37,8 @@ http://127.0.0.1:7331/__db
 To review the browser-facing operation contract without volatile timestamps:
 
 ```bash
-npm run db -- operations contract --cwd ./examples/basic
-npm run db -- operations contract --cwd ./examples/basic --check
+pnpm run db -- operations contract --cwd ./examples/basic
+pnpm run db -- operations contract --cwd ./examples/basic --check
 ```
 
 ## REST Request To Try
@@ -64,7 +64,7 @@ curl -X POST http://127.0.0.1:7331/db/users \
 The equivalent CLI smoke command is:
 
 ```bash
-npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
+pnpm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
 ```
 
 ## Registered Operation To Try

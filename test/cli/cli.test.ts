@@ -65,7 +65,7 @@ test('CLI init scaffolds a data-first project and syncs', async () => {
   ]);
 
   assert.match(stdout, /Initialized data-first project/);
-  assert.match(stdout, /npm run db:serve/);
+  assert.match(stdout, /pnpm run db:serve/);
   assert.equal(stderr, '');
   assert.match(await readFile(path.join(cwd, 'db/users.json'), 'utf8'), /Ada Lovelace/);
   assert.match(await readFile(path.join(cwd, '.gitignore'), 'utf8'), /\.db\//);

@@ -15,7 +15,7 @@ test('renderMarkdown converts headings, code blocks, and tables', () => {
     'Use `async-db init` then read [Configuration](./configuration.md).',
     '',
     '```bash',
-    'npx async-db serve',
+    'pnpm exec async-db serve',
     '```',
     '',
     '| Key | Default |',
@@ -27,7 +27,7 @@ test('renderMarkdown converts headings, code blocks, and tables', () => {
   assert.match(html, /<h1 id="getting-started">Getting Started<\/h1>/);
   assert.match(html, /<code[^>]*>async-db init<\/code>/);
   assert.match(html, /href="\.\/configuration\.html"/);
-  assert.match(html, /<pre[^>]*>[\s\S]*npx async-db serve/);
+  assert.match(html, /<pre[^>]*>[\s\S]*pnpm exec async-db serve/);
   assert.match(html, /<table[\s\S]*graphql\.enabled/);
 });
 
@@ -36,7 +36,7 @@ test('rewriteMarkdownLink maps allowlisted docs and examples', () => {
   assert.equal(rewriteMarkdownLink('./generated-files.md#generated-types'), './generated-files.html#generated-types');
   assert.equal(rewriteMarkdownLink('./advanced/overview.md'), './advanced/overview.html');
   assert.equal(rewriteMarkdownLink('../configuration.md', { linkContext: 'advanced' }), '../configuration.html');
-  assert.match(rewriteMarkdownLink('../examples/basic/README.md'), /github\.com\/async-framework\/async-db\/blob\/main\/examples\/basic\/README\.md/);
+  assert.match(rewriteMarkdownLink('../examples/basic/README.md'), /github\.com\/async\/db\/blob\/main\/examples\/basic\/README\.md/);
 });
 
 test('renderMarkdown converts GitHub-style admonitions', () => {

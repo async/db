@@ -15,8 +15,8 @@ Use this when local data files need related records but you still want plain ids
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/relations
-npm run db -- serve --cwd ./examples/relations
+pnpm run db -- sync --cwd ./examples/relations
+pnpm run db -- serve --cwd ./examples/relations
 ```
 
 Open the local data explorer:

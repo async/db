@@ -15,8 +15,8 @@ Use this when you want to see how db reports local data file drift. It intention
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/diagnostics
-npm run db -- serve --cwd ./examples/diagnostics
+pnpm run db -- sync --cwd ./examples/diagnostics
+pnpm run db -- serve --cwd ./examples/diagnostics
 ```
 
 Open the local data explorer:

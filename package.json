@@ -1,37 +1,63 @@
 {
   "name": "@async/db",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "The Async data workflow package for fixtures, generated types, local APIs, runtime stores, and database-backed graduation.",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "api-surface:check": "npm run build:test --silent && node ./.tmp/test-build/scripts/check-api-surface.js",
+    "api-surface:check": "api-contract check --manifest api-contract.json && api-contract ledger --manifest api-contract.json --check API_SURFACE.md",
+    "api-surface:generate": "api-contract ledger --manifest api-contract.json --out API_SURFACE.md",
     "build": "tsc -p tsconfig.build.json && cp src/*.d.ts dist/",
     "build:test": "tsc -p tsconfig.test.json",
-    "check": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/check-syntax.js && node ./.tmp/test-build/scripts/check-api-surface.js && node ./.tmp/test-build/scripts/check-docs-module-extensions.js && node ./scripts/tasks/docs-build.js --check",
+    "check": "pnpm run build && pnpm run build:test && pnpm run api-surface:check && node ./.tmp/test-build/scripts/check-syntax.js && node ./.tmp/test-build/scripts/check-docs-module-extensions.js && node ./scripts/tasks/docs-build.js --check",
     "cli": "node ./dist/cli.js",
-    "db": "npm run build --silent && node ./dist/cli.js",
+    "db": "pnpm --silent run build && node ./dist/cli.js",
     "dev": "node ./scripts/tasks/dev.js",
-    "docs:build": "npm run build --silent && node ./scripts/tasks/docs-build.js",
-    "docs:dev": "npm run build --silent && node ./scripts/tasks/docs-dev.js",
-    "examples": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/serve-examples.js",
+    "docs:build": "pnpm --silent run build && node ./scripts/tasks/docs-build.js",
+    "docs:dev": "pnpm --silent run build && node ./scripts/tasks/docs-dev.js",
+    "examples": "pnpm run build && pnpm run build:test && node ./.tmp/test-build/scripts/serve-examples.js",
+    "pipeline:api-surface": "async-pipeline run-task api-surface",
+    "pipeline:api-surface:generate": "async-pipeline run-task api-surface-generate",
+    "pipeline:docs": "async-pipeline run-task docs",
+    "pipeline:github:check": "async-pipeline github check",
     "pipeline:github:generate": "async-pipeline github generate",
+    "pipeline:pages": "async-pipeline run pages",
+    "pipeline:preview": "async-pipeline run preview",
+    "pipeline:publish": "async-pipeline run publish",
+    "pipeline:publish-github": "async-pipeline run publish-github",
+    "pipeline:publish:github:main": "async-pipeline publish github main --package .",
+    "pipeline:publish:github:pr": "async-pipeline publish github pr --package .",
+    "pipeline:publish:github:release": "async-pipeline publish github release --package .",
+    "pipeline:publish:npm": "async-pipeline publish npm --package .",
+    "pipeline:release-doctor": "async-pipeline run release-doctor",
+    "pipeline:release:doctor": "async-pipeline release doctor --package .",
+    "pipeline:release:ensure": "async-pipeline release ensure --package .",
+    "pipeline:snapshot": "async-pipeline run snapshot",
     "pipeline:sync:check": "async-pipeline sync check",
+    "pipeline:sync:generate": "async-pipeline sync generate",
+    "pipeline:task:api-surface": "async-pipeline run-task api-surface",
+    "pipeline:task:api-surface-generate": "async-pipeline run-task api-surface-generate",
+    "pipeline:task:docs": "async-pipeline run-task docs",
+    "pipeline:task:sync-check": "async-pipeline run-task sync-check",
     "pipeline:verify": "async-pipeline run verify",
-    "prepack": "npm run build",
-    "release:check": "async-pipeline run verify --force",
+    "pipeline:verify:force": "async-pipeline run verify --force",
+    "prepack": "pnpm run build",
+    "release:check": "pnpm run pipeline:verify:force",
+    "release:doctor": "pnpm run pipeline:release-doctor",
     "release:pack": "npm pack",
-    "release:publish": "npm publish --access public",
-    "test": "npm run build && npm run build:test && node ./.tmp/test-build/scripts/run-tests.js",
-    "view:examples": "npm run examples",
+    "release:publish": "pnpm run pipeline:publish",
+    "test": "pnpm run build && pnpm run build:test && node ./.tmp/test-build/scripts/run-tests.js",
+    "verify": "pnpm run pipeline:verify",
+    "view:examples": "pnpm run examples",
     "watch": "node ./scripts/tasks/watch.js"
   },
   "bin": {
     "async-db": "./dist/cli.js"
   },
   "devDependencies": {
+    "@async/api-contract": "0.1.0",
+    "@async/pipeline": "0.4.3",
     "@types/node": "24.12.4",
-    "typescript": "6.0.3",
-    "@async/pipeline": "^0.2.0"
+    "typescript": "6.0.3"
   },
   "exports": {
     ".": {
@@ -104,6 +130,7 @@
     "docs/**/*.md",
     "!docs/goals/**",
     "API_SURFACE.md",
+    "api-contract.json",
     "db.config.example.js",
     "CHANGELOG.md",
     "README.md",
@@ -112,17 +139,17 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/async-framework/async-db"
+    "url": "https://github.com/async/db"
   },
   "bugs": {
-    "url": "https://github.com/async-framework/async-db/issues"
+    "url": "https://github.com/async/db/issues"
   },
-  "homepage": "https://github.com/async-framework/async-db#readme",
+  "homepage": "https://github.com/async/db#readme",
   "publishConfig": {
     "access": "public"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "license": "MIT"
 }

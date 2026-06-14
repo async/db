@@ -65,8 +65,8 @@ Field constraints are checked during `sync`, schema validation, package API writ
 Inspect inferred contracts before committing to explicit schema:
 
 ```bash
-npm run db -- schema infer
-npm run db -- schema infer users
+pnpm run db -- schema infer
+pnpm run db -- schema infer users
 ```
 
 ## More Formats
@@ -294,15 +294,15 @@ The [content collections example](../examples/content-collections) shows docs an
 Single-resource bundle and unbundle commands keep their existing behavior:
 
 ```bash
-npm run db -- schema bundle users --out artifacts/users.bundle.schema.json
-npm run db -- schema unbundle users
+pnpm run db -- schema bundle users --out artifacts/users.bundle.schema.json
+pnpm run db -- schema unbundle users
 ```
 
 Aggregate root schema output is schema-only and never embeds seed data:
 
 ```bash
-npm run db -- schema bundle --all
-npm run db -- schema unbundle --all --schema-dir db
+pnpm run db -- schema bundle --all
+pnpm run db -- schema unbundle --all --schema-dir db
 ```
 
 When aggregate unbundle cannot write executable schema files, choose an ESM package boundary or write JSONC schema drafts instead. The `unbundle --format jsonc` flag forces JSONC-only output.

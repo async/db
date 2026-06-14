@@ -21,7 +21,7 @@ async function readOperationRefs(url) {
     return JSON.parse(await readFile(url, 'utf8'));
   } catch (error) {
     if (error.code === 'ENOENT') {
-      throw new Error('Run `npm run db -- operations build --cwd ./examples/production-json` before running this demo.');
+      throw new Error('Run `pnpm run db -- operations build --cwd ./examples/production-json` before running this demo.');
     }
     throw error;
   }

@@ -60,7 +60,7 @@ Compile to `.schema.js`:
 {
   "scripts": {
     "db:schema:build": "tsc -p tsconfig.db-schema.json",
-    "db:sync": "npm run db:schema:build && async-db sync"
+    "db:sync": "pnpm run db:schema:build && async-db sync"
   }
 }
 ```

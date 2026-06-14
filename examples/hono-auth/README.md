@@ -16,14 +16,14 @@ Use this when your app already has a Hono server and you want db to own the CRUD
 From this example directory:
 
 ```bash
-npm install
-npm run sync
-npm run dev
+pnpm install
+pnpm run sync
+pnpm run dev
 ```
 
 ## Requests To Try
 
-Leave `npm run dev` running and run these from another terminal.
+Leave `pnpm run dev` running and run these from another terminal.
 
 Missing tokens are rejected:
 

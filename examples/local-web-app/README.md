@@ -36,8 +36,8 @@ main app file.
 From the repository root:
 
 ```bash
-npm run db -- sync --cwd ./examples/local-web-app
-npm run examples
+pnpm run db -- sync --cwd ./examples/local-web-app
+pnpm run examples
 ```
 
 Open the `local-web-app` link from the examples index. Edit either field, then
@@ -46,7 +46,7 @@ server into `db/appState.json`.
 
 ## Why Sync With `sourceFile`?
 
-`npm run db -- sync --cwd ./examples/local-web-app` still matters even though
+`pnpm run db -- sync --cwd ./examples/local-web-app` still matters even though
 the app writes directly to `db/appState.json`. Sync validates the data folder,
 infers the schema, and writes generated metadata/types for the local data explorer and tools.
 

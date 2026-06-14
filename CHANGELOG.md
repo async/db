@@ -2,9 +2,18 @@
 
 ## Unreleased
 
+## [0.8.0](https://github.com/async/db/releases/tag/v0.8.0) - 2026-06-14
+
 ### Added
 
+- Added generated `@async/pipeline` release, preview, snapshot, GitHub Pages, and API surface workflows for the Async org release standard.
+- Added `@async/api-contract` API surface checks with `api-contract.json` and `API_SURFACE.md` wired into release verification.
 - Added `scripts/release-doctor.mjs` and the dispatchable `release-doctor` pipeline job: verifies that the git tag, npm version, and GitHub Release agree for the current version, repairs what is provably safe (push or fetch the tag, publish from the tagged commit, create the tag when the npm tarball shasum matches a pack of HEAD, create the missing GitHub Release), and `--supersede` bumps the patch version and marks the unreconcilable release in this changelog.
+
+### Changed
+
+- Standardized docs, examples, and README task commands on pnpm and `pnpm run <pipeline-name>`.
+- Replaced standalone release/docs workflows with the generated `async-pipeline.yml`; the unrelated Fallow workflow remains separate.
 
 ## [0.7.0](https://github.com/async-framework/async-db/releases/tag/v0.7.0) - 2026-06-11
 
@@ -54,7 +63,7 @@
 - Added store-neutral collection query helpers with `find`, `count`, and `aggregate`, plus append-only `writePolicy` resources and `collection.append(record)`.
 - Added `@async/db/sqlite/compat` for low-level SQLite driver adapters, deterministic compound-key ids, legacy SQLite import plans, and explicit import-once migration helpers without new mandatory dependencies.
 - Added SQLite import planning through `async-db integrate inspect --target-state` and dry-run importer generation through `async-db integrate generate importer`.
-- Added `npm run api-surface:check` to fail when watched public-surface files change without an `API_SURFACE.md` update.
+- Added `pnpm run api-surface:check` to fail when watched public-surface files change without an `API_SURFACE.md` update.
 
 ### Changed
 

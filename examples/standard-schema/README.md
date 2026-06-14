@@ -9,8 +9,8 @@ Use this when a Zod, Valibot, ArkType, or local validator should own parsing and
 Run it:
 
 ```bash
-npm run db -- sync --cwd ./examples/standard-schema
-npm run db -- serve --cwd ./examples/standard-schema
+pnpm run db -- sync --cwd ./examples/standard-schema
+pnpm run db -- serve --cwd ./examples/standard-schema
 ```
 
 `db/users.schema.js` uses a small local Standard Schema-compatible validator. It lowercases email addresses during writes, exposes a Standard JSON Schema converter for field inference, and then layers Async DB metadata on top.
@@ -51,7 +51,7 @@ export default collection(UserSchema, {
 The validator can be async. Package API, REST, and GraphQL writes await it and store the returned `value`.
 
 ```bash
-npm run db -- create users '{"id":"u_2","email":" GRACE@EXAMPLE.COM ","firstName":"Grace","lastName":"Hopper"}' --cwd ./examples/standard-schema
+pnpm run db -- create users '{"id":"u_2","email":" GRACE@EXAMPLE.COM ","firstName":"Grace","lastName":"Hopper"}' --cwd ./examples/standard-schema
 ```
 
 The stored email becomes `grace@example.com`.

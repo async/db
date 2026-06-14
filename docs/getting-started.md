@@ -7,17 +7,17 @@ This guide takes a project from one JSON file to a local API, local data explore
 The fastest path is `async-db init`:
 
 ```bash
-npm install @async/db
-npx async-db init
-npx async-db serve
+pnpm add @async/db
+pnpm exec async-db init
+pnpm exec async-db serve
 ```
 
 `init` writes a starter JSON file, a `.gitignore` entry for `.db/`, optional package scripts when `package.json` exists, and runs the first sync. Templates:
 
 ```bash
-npx async-db init --template data-first
-npx async-db init --template schema-first
-npx async-db init --template source-file
+pnpm exec async-db init --template data-first
+pnpm exec async-db init --template schema-first
+pnpm exec async-db init --template source-file
 ```
 
 Use `--dry-run --json` to inspect the scaffold plan without writing files.
@@ -27,7 +27,7 @@ Use `--dry-run --json` to inspect the scaffold plan without writing files.
 Install @async/db from npm:
 
 ```bash
-npm install @async/db
+pnpm add @async/db
 ```
 
 Add package scripts for the CLI commands you want to run often:
@@ -48,7 +48,7 @@ If you need an unreleased fix, pin a reviewed GitHub commit or release tag inste
 ```json
 {
   "devDependencies": {
-    "@async/db": "github:async-framework/async-db#<reviewed-commit-sha-or-tag>"
+    "@async/db": "github:async/db#<reviewed-commit-sha-or-tag>"
   }
 }
 ```
@@ -75,7 +75,7 @@ JSON
 ## Sync
 
 ```bash
-npm run db:sync
+pnpm run db:sync
 ```
 
 Sync reads data files and writes generated runtime output:
@@ -93,7 +93,7 @@ By default, app writes update the generated JSON store under `.db/state`. Source
 In terminal 1:
 
 ```bash
-npm run db:serve
+pnpm run db:serve
 ```
 
 Open the local data explorer:
@@ -155,7 +155,7 @@ Create `db/users.schema.json`:
 Validate:
 
 ```bash
-npm run db -- schema validate
+pnpm run db -- schema validate
 ```
 
 When `db/users.schema.json` and `db/users.json` both exist, the schema defines the contract and the data file provides seed records.
@@ -165,8 +165,8 @@ When `db/users.schema.json` and `db/users.json` both exist, the schema defines t
 From this repository root:
 
 ```bash
-npm run db -- sync --cwd ./examples/basic
-npm run db -- serve --cwd ./examples/basic
+pnpm run db -- sync --cwd ./examples/basic
+pnpm run db -- serve --cwd ./examples/basic
 ```
 
 Open:

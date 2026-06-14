@@ -1,0 +1,747 @@
+{
+  "format": "api-contract.package.v1",
+  "packageName": "@async/db",
+  "catalogs": [
+    {
+      "format": "api-contract.catalog.v1",
+      "contractId": "@async/db.package",
+      "title": "Async DB Package Exports",
+      "features": [
+        {
+          "id": "export.root",
+          "title": "@async/db root runtime, schema, server, sync, operations, and helpers",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "export.schema",
+          "title": "@async/db/schema authoring helpers: collection, document, field, derived fields, and files",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/data-files-and-schemas.md"
+        },
+        {
+          "id": "export.config",
+          "title": "@async/db/config defineConfig public config helper",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "export.client",
+          "title": "@async/db/client tiny HTTP client, REST and GraphQL calls, batching, and cache helpers",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "export.json",
+          "title": "@async/db/json JSON store helpers, state utilities, WAL, versioning, recovery, and encryption",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "export.hono",
+          "title": "@async/db/hono optional Hono integration without required Hono dependency",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "export.sqlite",
+          "title": "@async/db/sqlite optional SQLite store and existing table mapping",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "export.sqlite.compat",
+          "title": "@async/db/sqlite/compat low-level SQLite driver adapters and legacy bridges",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "export.postgres",
+          "title": "@async/db/postgres optional Postgres JSONB envelope storage and existing table mapping",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "export.postgres.compat",
+          "title": "@async/db/postgres/compat low-level Postgres driver adapters and legacy bridges",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "export.kv",
+          "title": "@async/db/kv optional generic KV store adapter boundary",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "export.redis",
+          "title": "@async/db/redis optional Redis-like store adapter boundary",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "export.vite",
+          "title": "@async/db/vite optional Vite integration and browser cache options",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        }
+      ]
+    },
+    {
+      "format": "api-contract.catalog.v1",
+      "contractId": "@async/db.cli",
+      "title": "Async DB CLI",
+      "features": [
+        {
+          "id": "cli.init",
+          "title": "async-db init scaffolds data-first, schema-first, source-file, and content templates",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "project",
+          "docsUrl": "https://github.com/async/db/blob/main/README.md"
+        },
+        {
+          "id": "cli.sync",
+          "title": "async-db sync loads sources, validates schema, writes generated metadata/types, and refreshes runtime state",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "project",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "cli.types",
+          "title": "async-db types generates TypeScript declarations with watch and explicit output support",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "project",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "cli.schema",
+          "title": "async-db schema prints, infers, validates, manifests, bundles, unbundles, and migrates schemas",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "schema",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/data-files-and-schemas.md"
+        },
+        {
+          "id": "cli.operations",
+          "title": "async-db operations builds operation registries, refs, and operation contracts",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "operations",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "cli.usage",
+          "title": "async-db usage scan emits production-oriented source usage manifests",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "inspection",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "cli.integrate",
+          "title": "async-db integrate inspects SQLite and Postgres apps and generates dry-run importers",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "inspection",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "cli.viewer",
+          "title": "async-db viewer manifest renders viewer manifest contracts",
+          "releaseTag": "public",
+          "stability": "generated",
+          "group": "viewer",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "cli.doctor",
+          "title": "async-db doctor and check report schema/data drift, production readiness, and usage findings",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "diagnostics",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "cli.runtime-write",
+          "title": "async-db create writes one record through the package runtime path",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "runtime",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "cli.lifecycle",
+          "title": "async-db promote, status, reseed, backup, and restore manage local lifecycle state",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "lifecycle",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "cli.serve",
+          "title": "async-db serve starts the local writable development API and viewer",
+          "releaseTag": "public",
+          "stability": "dev-only",
+          "group": "server",
+          "docsUrl": "https://github.com/async/db/blob/main/README.md"
+        },
+        {
+          "id": "cli.generate.hono",
+          "title": "async-db generate hono creates a Hono and SQLite starter from the current contract",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "generate",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        }
+      ]
+    },
+    {
+      "format": "api-contract.catalog.v1",
+      "contractId": "@async/db.runtime",
+      "title": "Async DB Runtime And Integration APIs",
+      "features": [
+        {
+          "id": "runtime.database",
+          "title": "openDb, Db, collection/document APIs, forks, branches, snapshots, migrations, close, and ETag preconditions",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "runtime",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.lifecycle",
+          "title": "createDbRuntime, reloadDb, watchDbSources, and createDbRequestHandler for custom local servers",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "runtime",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.schema-loading",
+          "title": "loadDbSchema, validators, computed field resolvers, metadata-only loading, and schema locator support",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "schema",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/data-files-and-schemas.md"
+        },
+        {
+          "id": "runtime.schema-authoring",
+          "title": "trusted local schema helpers including collection, document, field, files, and derived fields",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "schema",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/typescript-schema-sources.md"
+        },
+        {
+          "id": "runtime.schema-migration",
+          "title": "review-first schema declaration migration reports and generated output plans",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "migration",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.http-client",
+          "title": "createDbClient direct REST/GraphQL calls, automatic batching, dedupe, and cache options",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "client",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.json-store",
+          "title": "JSON store helpers, advisory locks, atomic writes, WAL, versioning, crash recovery, encryption, and object storage descriptor",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "storage",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.content-mdx",
+          "title": "files() content resources with MDX component inventory and allow-list diagnostics",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "content",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.lifecycle-file",
+          "title": "db.lifecycle.jsonc machine-managed promotion facts merged into config.lifecycle",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "lifecycle",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.audit-trail",
+          "title": "resource audit trails for successful runtime writes with optional value capture",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "observability",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.memory-fs",
+          "title": "createMemoryFs for tests and programmatic schema/runtime loading",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "testing",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.operations",
+          "title": "operation manifests, registered handlers, refs, hashing, and readiness checks",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "operations",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.sqlite-integration",
+          "title": "SQLite inspection, Async DB-owned SQLite storage, existing table mapping, and compat adapters",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "integrations",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "runtime.postgres-integration",
+          "title": "Postgres inspection, JSONB envelope storage, existing table mapping, and compat adapters",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "integrations",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/integrations.md"
+        },
+        {
+          "id": "runtime.optional-stores",
+          "title": "SQLite, Postgres, KV, and Redis-like store adapter helper boundaries remain optional",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "integrations",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        }
+      ]
+    },
+    {
+      "format": "api-contract.catalog.v1",
+      "contractId": "@async/db.http",
+      "title": "Async DB HTTP Surface",
+      "features": [
+        {
+          "id": "http.root-discovery",
+          "title": "GET / root discovery returns HTML or JSON links by request headers",
+          "releaseTag": "public",
+          "stability": "dev-only",
+          "group": "discovery",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.rest-resources",
+          "title": "REST resources under /db support JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "rest",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.health",
+          "title": "GET <apiBase>/health reports uptime, schema, diagnostics, and state-dir writability",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "health",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.authorization",
+          "title": "server.authorize(context) gates REST, viewer, schema, manifest, GraphQL, Falcor, events, health, and operations",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "auth",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.rest-batching",
+          "title": "REST batching preserves per-item result shape and errors",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "rest",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.graphql",
+          "title": "Dependency-free GraphQL subset supports queries, mutations, aliases, variables, batching, and introspection",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "graphql",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.operations",
+          "title": "Registered operation execution and client-safe operation ref routes",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "operations",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.falcor",
+          "title": "Falcor-compatible record routes where enabled",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "falcor",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "http.viewer",
+          "title": "Built-in local viewer, server-sent events, manifest routes, and exposure settings",
+          "releaseTag": "public",
+          "stability": "dev-only",
+          "group": "viewer",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        }
+      ]
+    },
+    {
+      "format": "api-contract.catalog.v1",
+      "contractId": "@async/db.generated",
+      "title": "Async DB Generated Contracts",
+      "features": [
+        {
+          "id": "generated.types",
+          "title": ".db/types/index.d.ts and types.commitOutFile generated TypeScript declarations",
+          "releaseTag": "public",
+          "stability": "generated",
+          "group": "types",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "generated.schema",
+          "title": ".db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated schema metadata",
+          "releaseTag": "public",
+          "stability": "generated",
+          "group": "schema",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "generated.viewer-manifest",
+          "title": "viewerManifestOutFile and outputs.viewerManifest viewer contracts",
+          "releaseTag": "public",
+          "stability": "generated",
+          "group": "viewer",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "generated.operations",
+          "title": "operations.build outputs, server operation registry, and client-safe refs/contracts",
+          "releaseTag": "public",
+          "stability": "generated",
+          "group": "operations",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "generated.usage",
+          "title": "usage scan db.usageManifest source-scan artifact",
+          "releaseTag": "beta",
+          "stability": "generated",
+          "group": "inspection",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "generated.integration-report",
+          "title": "integrate inspect db.integrationReport artifacts for SQLite/Postgres adoption",
+          "releaseTag": "beta",
+          "stability": "generated",
+          "group": "inspection",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "generated.schema-migration-report",
+          "title": "schema migrate inspect db.schemaMigrationReport artifacts",
+          "releaseTag": "beta",
+          "stability": "generated",
+          "group": "migration",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        },
+        {
+          "id": "generated.state-internal",
+          "title": ".db/state and store-private metadata are internal generated runtime output",
+          "releaseTag": "internal",
+          "stability": "internal",
+          "group": "internal",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/generated-files.md"
+        }
+      ]
+    },
+    {
+      "format": "api-contract.catalog.v1",
+      "contractId": "@async/db.config",
+      "title": "Async DB Config Surface",
+      "features": [
+        {
+          "id": "config.outputs",
+          "title": "outputs generated locations for state, types, manifests, operations, and starters",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.types",
+          "title": "types generation options including output paths, committed copy, comments, readonly properties, and runtime helpers",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.schema",
+          "title": "schema validation, inference, unknown-field policy, and behavior toggles",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.server",
+          "title": "server host, port, base path, exposure, trace, watcher, viewer, events, authorize, and local behavior",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.protocols",
+          "title": "rest, graphql, and falcor protocol exposure and request/response toggles",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.operations",
+          "title": "operations registry, refs, contract output, source directory, accept-ref policy, and strict readiness",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.lifecycle",
+          "title": "db.lifecycle.jsonc merged lifecycle config and production doctor findings",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.mock",
+          "title": "mock delay and error behavior with production skips and doctor reporting",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.stores",
+          "title": "stores, JSON durability, resource schemas, sources, routes, defaults, seed, audit, and UI metadata",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        }
+      ]
+    },
+    {
+      "format": "api-contract.catalog.v1",
+      "contractId": "@async/db.boundary",
+      "title": "Async DB Internal Boundaries",
+      "features": [
+        {
+          "id": "boundary.features-internal",
+          "title": "src/features modules are internal unless re-exported and declared",
+          "releaseTag": "internal",
+          "stability": "internal",
+          "group": "source",
+          "docsUrl": "https://github.com/async/db/blob/main/API_SURFACE.md"
+        },
+        {
+          "id": "boundary.protocol-internals",
+          "title": "src/rest, src/graphql, and src/web helper modules are internal while route behavior is public",
+          "releaseTag": "internal",
+          "stability": "internal",
+          "group": "source",
+          "docsUrl": "https://github.com/async/db/blob/main/API_SURFACE.md"
+        },
+        {
+          "id": "boundary.generated-state",
+          "title": ".db state, hashes, and store-private metadata are internal and not app import surfaces",
+          "releaseTag": "internal",
+          "stability": "internal",
+          "group": "generated",
+          "docsUrl": "https://github.com/async/db/blob/main/API_SURFACE.md"
+        },
+        {
+          "id": "boundary.tests-scripts-examples",
+          "title": "test helpers, scripts, and example internals are private unless documented as runnable hooks",
+          "releaseTag": "internal",
+          "stability": "internal",
+          "group": "source",
+          "docsUrl": "https://github.com/async/db/blob/main/API_SURFACE.md"
+        },
+        {
+          "id": "boundary.trusted-local-code",
+          "title": ".schema.js, db.config.js, source readers, and manifest hooks are trusted local code and not sandboxed public APIs",
+          "releaseTag": "internal",
+          "stability": "internal",
+          "group": "execution",
+          "docsUrl": "https://github.com/async/db/blob/main/API_SURFACE.md"
+        }
+      ]
+    }
+  ],
+  "supported": [
+    {
+      "format": "api-contract.surface.v1",
+      "contractId": "@async/db.package",
+      "features": [
+        "export.client",
+        "export.config",
+        "export.hono",
+        "export.json",
+        "export.kv",
+        "export.postgres",
+        "export.postgres.compat",
+        "export.redis",
+        "export.root",
+        "export.schema",
+        "export.sqlite",
+        "export.sqlite.compat",
+        "export.vite"
+      ]
+    },
+    {
+      "format": "api-contract.surface.v1",
+      "contractId": "@async/db.cli",
+      "features": [
+        "cli.doctor",
+        "cli.generate.hono",
+        "cli.init",
+        "cli.integrate",
+        "cli.lifecycle",
+        "cli.operations",
+        "cli.runtime-write",
+        "cli.schema",
+        "cli.serve",
+        "cli.sync",
+        "cli.types",
+        "cli.usage",
+        "cli.viewer"
+      ]
+    },
+    {
+      "format": "api-contract.surface.v1",
+      "contractId": "@async/db.runtime",
+      "features": [
+        "runtime.audit-trail",
+        "runtime.content-mdx",
+        "runtime.database",
+        "runtime.http-client",
+        "runtime.json-store",
+        "runtime.lifecycle",
+        "runtime.lifecycle-file",
+        "runtime.memory-fs",
+        "runtime.operations",
+        "runtime.optional-stores",
+        "runtime.postgres-integration",
+        "runtime.schema-authoring",
+        "runtime.schema-loading",
+        "runtime.schema-migration",
+        "runtime.sqlite-integration"
+      ]
+    },
+    {
+      "format": "api-contract.surface.v1",
+      "contractId": "@async/db.http",
+      "features": [
+        "http.authorization",
+        "http.falcor",
+        "http.graphql",
+        "http.health",
+        "http.operations",
+        "http.rest-batching",
+        "http.rest-resources",
+        "http.root-discovery",
+        "http.viewer"
+      ]
+    },
+    {
+      "format": "api-contract.surface.v1",
+      "contractId": "@async/db.generated",
+      "features": [
+        "generated.integration-report",
+        "generated.operations",
+        "generated.schema",
+        "generated.schema-migration-report",
+        "generated.state-internal",
+        "generated.types",
+        "generated.usage",
+        "generated.viewer-manifest"
+      ]
+    },
+    {
+      "format": "api-contract.surface.v1",
+      "contractId": "@async/db.config",
+      "features": [
+        "config.lifecycle",
+        "config.mock",
+        "config.operations",
+        "config.outputs",
+        "config.protocols",
+        "config.schema",
+        "config.server",
+        "config.stores",
+        "config.types"
+      ]
+    },
+    {
+      "format": "api-contract.surface.v1",
+      "contractId": "@async/db.boundary",
+      "features": [
+        "boundary.features-internal",
+        "boundary.generated-state",
+        "boundary.protocol-internals",
+        "boundary.tests-scripts-examples",
+        "boundary.trusted-local-code"
+      ]
+    }
+  ]
+}

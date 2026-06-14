@@ -14,8 +14,8 @@ Use this when product, customer, or spreadsheet-like data starts as CSV. db scan
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/csv
-npm run db -- serve --cwd ./examples/csv
+pnpm run db -- sync --cwd ./examples/csv
+pnpm run db -- serve --cwd ./examples/csv
 ```
 
 Open the local data explorer:

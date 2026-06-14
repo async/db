@@ -1,177 +1,320 @@
-# API Surface Ledger
+# @async/db API Surface Ledger
 
-This file is the review anchor for public `@async/db` contracts. It is a
-current-state ledger, not a changelog or tutorial. For usage examples, see
-[docs/package-api.md](./docs/package-api.md).
+This file is the generated review ledger for semantic API contract features. It is current-state contract documentation, not a changelog or tutorial.
 
-## Review Rule
+## Async DB Package Exports
 
-When a change touches a public contract, inspect `git diff` for the matching
-surface below and update this file when the contract changes. If no update is
-needed, the review should be able to say why. `npm run api-surface:check`
-enforces the review rule by failing when watched public-surface files changed
-without an `API_SURFACE.md` diff.
+Contract: `@async/db.package`
 
-| If this changes | Inspect these diffs |
-| --- | --- |
-| Package exports, import paths, or declaration names | `package.json`, `src/index.ts`, `src/*.d.ts`, `test/package/exports.test.ts` |
-| CLI commands, flags, output, or exit behavior | `src/cli/**`, `src/cli.js`, CLI tests, `README.md`, `docs/package-api.md` |
-| Runtime package behavior | `src/features/runtime/**`, `src/db.ts`, `src/runtime.ts`, package API tests |
-| REST, GraphQL, operations, Falcor, viewer, or manifest routes | `src/rest/**`, `src/graphql/**`, `src/operations.ts`, `src/falcor/**`, `src/web/**`, `src/server.ts`, route tests |
-| Generated types, schemas, manifests, or operation refs | `src/types.ts`, `src/schema-manifest.ts`, `src/viewer-manifest.ts`, `src/features/sync/**`, sync and package tests |
-| Config keys or defaults | `src/features/config/**`, `src/config*.ts`, `db.config.example.js`, `docs/configuration.md`, config tests |
+### Exports
 
-## Package Exports
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `export.client` | @async/db/client tiny HTTP client, REST and GraphQL calls, batching, and cache helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.config` | @async/db/config defineConfig public config helper | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `export.hono` | @async/db/hono optional Hono integration without required Hono dependency | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `export.json` | @async/db/json JSON store helpers, state utilities, WAL, versioning, recovery, and encryption | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.kv` | @async/db/kv optional generic KV store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.postgres` | @async/db/postgres optional Postgres JSONB envelope storage and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `export.postgres.compat` | @async/db/postgres/compat low-level Postgres driver adapters and legacy bridges | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `export.redis` | @async/db/redis optional Redis-like store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.root` | @async/db root runtime, schema, server, sync, operations, and helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.schema` | @async/db/schema authoring helpers: collection, document, field, derived fields, and files | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
+| `export.sqlite` | @async/db/sqlite optional SQLite store and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `export.sqlite.compat` | @async/db/sqlite/compat low-level SQLite driver adapters and legacy bridges | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `export.vite` | @async/db/vite optional Vite integration and browser cache options | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 
-| Import | Runtime file | Types file | Stability | Notes |
-| --- | --- | --- | --- | --- |
-| `@async/db` | `./dist/index.js` | `./dist/index.d.ts` | stable | Root package API for runtime, schema, server, sync, generated output, operations, and helper functions. |
-| `@async/db/schema` | `./dist/schema-builders.js` | `./dist/schema.d.ts` | stable | Schema authoring helpers: `collection`, `document`, `field`, `field.derived`, and `files`. |
-| `@async/db/config` | `./dist/config-public.js` | `./dist/config.d.ts` | stable | Public config helper surface, including `defineConfig`. |
-| `@async/db/client` | `./dist/client.js` | `./dist/index.d.ts` | stable | Tiny HTTP client, REST/GraphQL calls, batching, and browser cache helpers. |
-| `@async/db/json` | `./dist/json.js` | `./dist/json.d.ts` | stable | First-party JSON store helpers and JSON state utilities. |
-| `@async/db/hono` | `./dist/hono.js` | `./dist/hono.d.ts` | preview | Optional Hono integration. Hono stays an app dependency, not a required package dependency. |
-| `@async/db/sqlite` | `./dist/sqlite.js` | `./dist/sqlite.d.ts` | preview | Optional SQLite adapter using dynamic `node:sqlite` support. |
-| `@async/db/sqlite/compat` | `./dist/sqlite-compat.js` | `./dist/sqlite-compat.d.ts` | preview | Low-level SQLite driver adapters and explicit legacy import helpers for migration bridges. |
-| `@async/db/postgres` | `./dist/postgres.js` | `./dist/postgres.d.ts` | preview | Optional Postgres adapter boundary for Async DB-owned envelope storage and existing table mapping. |
-| `@async/db/postgres/compat` | `./dist/postgres-compat.js` | `./dist/postgres-compat.d.ts` | preview | Low-level Postgres driver adapters and explicit legacy import helpers for migration bridges. |
-| `@async/db/kv` | `./dist/kv.js` | `./dist/kv.d.ts` | preview | Optional generic KV store adapter boundary. |
-| `@async/db/redis` | `./dist/redis.js` | `./dist/redis.d.ts` | preview | Optional Redis-like store adapter boundary. |
-| `@async/db/vite` | `./dist/vite.js` | `./dist/vite.d.ts` | preview | Optional Vite integration surface. |
+## Async DB CLI
 
-## CLI Surface
+Contract: `@async/db.cli`
 
-The public binary is `async-db`. Global flags include `--cwd <dir>` and
-`--config <file>` where supported by the command.
+### Diagnostics
 
-| Command | Stability | Contract |
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.doctor` | async-db doctor and check report schema/data drift, production readiness, and usage findings | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Generate
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.generate.hono` | async-db generate hono creates a Hono and SQLite starter from the current contract | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+
+### Inspection
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.integrate` | async-db integrate inspects SQLite and Postgres apps and generates dry-run importers | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `cli.usage` | async-db usage scan emits production-oriented source usage manifests | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Lifecycle
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.lifecycle` | async-db promote, status, reseed, backup, and restore manage local lifecycle state | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Operations
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.operations` | async-db operations builds operation registries, refs, and operation contracts | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Project
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.init` | async-db init scaffolds data-first, schema-first, source-file, and content templates | public | stable | active |  | [docs](https://github.com/async/db/blob/main/README.md) |
+| `cli.sync` | async-db sync loads sources, validates schema, writes generated metadata/types, and refreshes runtime state | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `cli.types` | async-db types generates TypeScript declarations with watch and explicit output support | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+### Runtime
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.runtime-write` | async-db create writes one record through the package runtime path | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Schema
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.schema` | async-db schema prints, infers, validates, manifests, bundles, unbundles, and migrates schemas | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
+
+### Server
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.serve` | async-db serve starts the local writable development API and viewer | public | dev-only | active |  | [docs](https://github.com/async/db/blob/main/README.md) |
+
+### Viewer
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cli.viewer` | async-db viewer manifest renders viewer manifest contracts | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+## Async DB Runtime And Integration APIs
+
+Contract: `@async/db.runtime`
+
+### Client
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.http-client` | createDbClient direct REST/GraphQL calls, automatic batching, dedupe, and cache options | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Content
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.content-mdx` | files() content resources with MDX component inventory and allow-list diagnostics | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Integrations
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.optional-stores` | SQLite, Postgres, KV, and Redis-like store adapter helper boundaries remain optional | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.postgres-integration` | Postgres inspection, JSONB envelope storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `runtime.sqlite-integration` | SQLite inspection, Async DB-owned SQLite storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+
+### Lifecycle
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.lifecycle-file` | db.lifecycle.jsonc machine-managed promotion facts merged into config.lifecycle | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Migration
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.schema-migration` | review-first schema declaration migration reports and generated output plans | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Observability
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.audit-trail` | resource audit trails for successful runtime writes with optional value capture | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Operations
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.operations` | operation manifests, registered handlers, refs, hashing, and readiness checks | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Runtime
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.database` | openDb, Db, collection/document APIs, forks, branches, snapshots, migrations, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.lifecycle` | createDbRuntime, reloadDb, watchDbSources, and createDbRequestHandler for custom local servers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Schema
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.schema-authoring` | trusted local schema helpers including collection, document, field, files, and derived fields | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/typescript-schema-sources.md) |
+| `runtime.schema-loading` | loadDbSchema, validators, computed field resolvers, metadata-only loading, and schema locator support | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
+
+### Storage
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.json-store` | JSON store helpers, advisory locks, atomic writes, WAL, versioning, crash recovery, encryption, and object storage descriptor | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Testing
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `runtime.memory-fs` | createMemoryFs for tests and programmatic schema/runtime loading | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+## Async DB HTTP Surface
+
+Contract: `@async/db.http`
+
+### Auth
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.authorization` | server.authorize(context) gates REST, viewer, schema, manifest, GraphQL, Falcor, events, health, and operations | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Discovery
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.root-discovery` | GET / root discovery returns HTML or JSON links by request headers | public | dev-only | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Falcor
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.falcor` | Falcor-compatible record routes where enabled | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Graphql
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.graphql` | Dependency-free GraphQL subset supports queries, mutations, aliases, variables, batching, and introspection | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Health
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.health` | GET <apiBase>/health reports uptime, schema, diagnostics, and state-dir writability | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Operations
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.operations` | Registered operation execution and client-safe operation ref routes | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Rest
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.rest-batching` | REST batching preserves per-item result shape and errors | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `http.rest-resources` | REST resources under /db support JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+### Viewer
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `http.viewer` | Built-in local viewer, server-sent events, manifest routes, and exposure settings | public | dev-only | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+
+## Async DB Generated Contracts
+
+Contract: `@async/db.generated`
+
+### Inspection
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generated.integration-report` | integrate inspect db.integrationReport artifacts for SQLite/Postgres adoption | beta | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+| `generated.usage` | usage scan db.usageManifest source-scan artifact | beta | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+### Internal
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generated.state-internal` | .db/state and store-private metadata are internal generated runtime output | internal | internal | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+### Migration
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generated.schema-migration-report` | schema migrate inspect db.schemaMigrationReport artifacts | beta | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+### Operations
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generated.operations` | operations.build outputs, server operation registry, and client-safe refs/contracts | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+### Schema
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generated.schema` | .db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated schema metadata | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+### Types
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generated.types` | .db/types/index.d.ts and types.commitOutFile generated TypeScript declarations | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+### Viewer
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generated.viewer-manifest` | viewerManifestOutFile and outputs.viewerManifest viewer contracts | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+
+## Async DB Config Surface
+
+Contract: `@async/db.config`
+
+### Config
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `config.lifecycle` | db.lifecycle.jsonc merged lifecycle config and production doctor findings | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.mock` | mock delay and error behavior with production skips and doctor reporting | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.operations` | operations registry, refs, contract output, source directory, accept-ref policy, and strict readiness | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.outputs` | outputs generated locations for state, types, manifests, operations, and starters | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.protocols` | rest, graphql, and falcor protocol exposure and request/response toggles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.schema` | schema validation, inference, unknown-field policy, and behavior toggles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.server` | server host, port, base path, exposure, trace, watcher, viewer, events, authorize, and local behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.stores` | stores, JSON durability, resource schemas, sources, routes, defaults, seed, audit, and UI metadata | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.types` | types generation options including output paths, committed copy, comments, readonly properties, and runtime helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+
+## Async DB Internal Boundaries
+
+Contract: `@async/db.boundary`
+
+### Execution
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `boundary.trusted-local-code` | .schema.js, db.config.js, source readers, and manifest hooks are trusted local code and not sandboxed public APIs | internal | internal | active |  | [docs](https://github.com/async/db/blob/main/API_SURFACE.md) |
+
+### Generated
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `boundary.generated-state` | .db state, hashes, and store-private metadata are internal and not app import surfaces | internal | internal | active |  | [docs](https://github.com/async/db/blob/main/API_SURFACE.md) |
+
+### Source
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `boundary.features-internal` | src/features modules are internal unless re-exported and declared | internal | internal | active |  | [docs](https://github.com/async/db/blob/main/API_SURFACE.md) |
+| `boundary.protocol-internals` | src/rest, src/graphql, and src/web helper modules are internal while route behavior is public | internal | internal | active |  | [docs](https://github.com/async/db/blob/main/API_SURFACE.md) |
+| `boundary.tests-scripts-examples` | test helpers, scripts, and example internals are private unless documented as runnable hooks | internal | internal | active |  | [docs](https://github.com/async/db/blob/main/API_SURFACE.md) |
+
+## Supported Surfaces
+
+| Contract | Hash | Features |
 | --- | --- | --- |
-| `async-db init [--template data-first\|schema-first\|source-file\|content] [--dry-run] [--json]` | stable | Scaffold the smallest valid local project shape (the `content` template scaffolds a db/ contract sourcing repo-level docs/ markdown), optionally patch package scripts, and run the first sync. |
-| `async-db sync` | stable | Load sources, validate/infer schema, write generated metadata/types, and refresh runtime state. |
-| `async-db types [--watch] [--out <file>]` | stable | Generate TypeScript declarations, optionally in watch mode or to an explicit path. |
-| `async-db schema [resource]` | stable | Print schema metadata for all resources or one resource. |
-| `async-db schema infer [resource] [--out <file>]` | stable | Infer schema from data files and optionally write it. |
-| `async-db schema validate` | stable | Validate schema and source data diagnostics. |
-| `async-db schema manifest [--out <file>]` | generated | Render the schema manifest contract. |
-| `async-db schema unbundle ...` / `async-db schema bundle ...` | preview | Move between aggregate schema and per-resource schema files. |
-| `async-db schema migrate inspect [target] [--format mixed\|jsonc] [--schema-dir <dir>] [--json] [--out <file>] [--check <file>]` | preview | Inspect existing Prisma, Drizzle, SQL, JSON Schema/OpenAPI, and validator declarations and emit a review-first `db.schemaMigrationReport`. |
-| `async-db schema migrate generate --plan <report.json> [--schema-dir <dir>] [--format mixed\|jsonc] [--force]` | preview | Generate Async DB `.schema.jsonc` drafts, or `.schema.js` drafts in mixed mode when executable validator behavior needs manual preservation. |
-| `async-db operations build [--out <file>] [--refs-out <file>]` | stable | Build operation registry and client-safe operation refs. |
-| `async-db operations contract [--out <file>] [--check]` | stable | Write or check the client operation contract. |
-| `async-db usage scan [target] [--json] [--out <file>] [--check <file>] [--production]` | preview | Scan app source text for @async/db usage and emit a `db.usageManifest`. |
-| `async-db integrate inspect [target] --sqlite <file> [--target-state <file>] [--json] [--out <file>] [--check <file>]` | preview | Inspect an existing SQLite app without mutating it, emit wrapper-first adoption guidance, and optionally include an explicit import-to-Async-DB-state plan. |
-| `async-db integrate inspect [target] --postgres [--postgres-url-env <env>] [--schema <schema>] [--target-postgres-table <schema.table>] [--target-state <file>] [--allow-partial] [--exact-row-counts] [--json] [--out <file>] [--check <file>]` | preview | Inspect Postgres source usage and optional read-only catalog metadata, emit wrapper-first adoption guidance, and optionally include an explicit import plan. |
-| `async-db integrate generate importer --plan <report.json> --out <file>` | preview | Generate a dry-run legacy SQLite or Postgres importer from an integration report import plan. |
-| `async-db viewer manifest [--out <file>]` | generated | Render the viewer manifest contract. |
-| `async-db doctor [--strict] [--json] [--production] [--usage [target]]` | stable | Report schema/data drift, production-readiness guidance, and opt-in usage findings. |
-| `async-db check [--strict] [--json] [--production] [--usage [target]]` | stable | CI-oriented alias for doctor/check behavior. |
-| `async-db create <collection> <json>` | stable | Create one record through the package runtime path. |
-| `async-db promote <resource> [--store json\|file\|<registered>] [--fsync always\|everysec\|no] [--dry-run]` | preview | Zero-to-production ceremony: capture inferred schema, pin the seed hash, choose the engine and WAL fsync policy, and record it all in `db.lifecycle.jsonc`. |
-| `async-db status [--json]` | preview | Derived lifecycle phase per resource (draft / production (engine)), durability, seed pin and drift state, and the next verb. |
-| `async-db reseed <resource> --force` | preview | Deliberately re-apply the seed file to live state and re-pin its hash. |
-| `async-db backup [--out <file>]` | preview | Bundle every resource's JSON state (plus content hashes) into one backup file and record backup recency for `doctor --production`. |
-| `async-db restore <resource> [--list] [--version <id\|latest>]` | preview | List or roll back a resource's version snapshots; restores snapshot the current contents first so they are undoable. |
-| `async-db restore --from <backup.json> [--resource <name>] [--dry-run]` | preview | Restore resource state from a backup bundle, snapshotting current state per resource before overwriting. |
-| `async-db serve [--host <host>] [--port <port>]` | dev-only | Start the local writable development API and viewer. |
-| `async-db generate hono [--out <dir>] [--api <targets>] [--app <shape>]` | preview | Generate a Hono/SQLite starter from the current contract. |
-
-## Runtime And Integration APIs
-
-| Surface | Stability | Public contract |
-| --- | --- | --- |
-| Runtime database | stable | `openDb`, `Db`, collection APIs including `find`, `count`, `aggregate`, and `append`, document APIs, forks, branches, snapshots, migrations, and `close`. Collection `update`/`patch`/`delete` and document `put`/`update` accept an optional `{ ifMatch }` precondition that fails with 412 `DB_PRECONDITION_FAILED` when the stored value's ETag no longer matches; `recordEtag(value)` computes the matching tag. |
-| Runtime lifecycle | stable | `createDbRuntime`, `reloadDb`, `watchDbSources`, and `createDbRequestHandler` for custom local servers. |
-| Schema loading | stable | `loadDbSchema`, validators, computed field resolvers, metadata-only loading, and schema locator support. |
-| Schema authoring | stable | `@async/db/schema` helpers for collection/document/field/files authoring in trusted local schema files, including `field.derived(...)` for database- or externally-owned read-only values that Async DB documents but does not compute. |
-| Schema declaration migration | preview | `inspectSchemaMigration`, `DbSchemaMigrationReport`, `DbSchemaMigrationResource`, `DbSchemaMigrationField`, `DbSchemaMigrationSuggestion`, and `DbSchemaMigrationOutputPlan` support review-first conversion from existing schema declarations into Async DB schema drafts. |
-| HTTP client | stable | `createDbClient`, direct REST/GraphQL calls, automatic batching, dedupe, and cache options. |
-| JSON store | stable | `jsonStore`, `fileStorage`, JSON state helpers, capabilities, and atomic/write-lock helpers exported from `@async/db/json`. Atomic writes fsync file contents (and best-effort the directory) before publishing. `withJsonStateWrite` accepts `JsonStateWriteOptions` and guards writes with an on-disk advisory lock by default on the real filesystem; a held lock fails with 503 `JSON_STATE_LOCKED` after `lockTimeoutMs`. |
-| JSON WAL durability | preview | `durability: 'wal'` (on `stores.json`, `stores.sourceFile`, or `jsonStore()` options) acknowledges writes through a hidden per-resource JSONL write-ahead log with `fsync: 'always' \| 'everysec' \| 'no'`, then checkpoints the pretty canonical file (debounced `checkpointMs`, default 250ms; forced at `maxWalEntries`). Reads and boot replay the log tail; log generations are hash-bound to their checkpoint so hand-edited files supersede stale logs. WAL + encryption is rejected (`JSON_WAL_ENCRYPTION_UNSUPPORTED`). Adapters expose optional `writeResourceDelta(resource, value, delta)` for O(change) acknowledgment. |
-| Content watch roots | preview | `files()` resources record resolved glob roots (`watchRoots`); `serve` watches roots outside the data folder so external markdown/content edits hot-reload. `status` shows static-store resources as `content (files)` with no promotion nudge. |
-| MDX component contract | preview | `files(patterns, { read: 'mdx', components: [...] })` parses frontmatter like `read: 'frontmatter'` plus a dependency-free body scan that emits `components`, `imports`, and `exports` string-array fields on every record (auto-declared on schemas that declare fields). With a `components` allow-list, a doc using an unregistered capitalized JSX tag fails sync with `CONTENT_COMPONENT_NOT_ALLOWED` (doc-local imports/exports are allowed automatically; allowing `Tabs` permits `Tabs.Item`). Without the list the scan is inventory-only. A `components` list on a non-mdx read warns `CONTENT_COMPONENTS_IGNORED`. Async DB never imports an MDX compiler. |
-| Lifecycle file | preview | `db.lifecycle.jsonc` is machine-managed (promote/reseed), committed, merged by `loadConfig` under user config, and exposed as `config.lifecycle`. Pinned `seedHash` stops sync from auto-reseeding live state past promotion. |
-| JSON versioned durability | preview | `durability: 'versioned'` (on `jsonStore()` options or `stores.json` config) snapshots previous state into `.versions/<resource>/` per write, pruned to `maxVersions` (default 10). `atomicWriteJsonVersioned`, `listJsonStateVersions`, `restoreJsonStateVersion`, `jsonStateVersionsDir`, and `DEFAULT_MAX_JSON_STATE_VERSIONS` are exported from `@async/db/json`; unknown versions fail with `JSON_STATE_VERSION_NOT_FOUND`. |
-| JSON crash recovery | preview | `recoverJsonStateDir` (also run automatically at hydrate) removes orphaned atomic-write temp files and dead-owner locks. Corrupt state files are quarantined to `<file>.corrupt-<ts>` and the newest version snapshot is restored when one exists; recovery emits `ASYNC_DB_STATE_RECOVERY` process warnings instead of failing boot. |
-| JSON encryption at rest | preview | `jsonStore({ encryption: { key } })` seals state files with AES-256-GCM (32-byte key or SHA-256-derived passphrase). Plaintext files read transparently and seal on next write; wrong keys fail with `JSON_ENCRYPTION_FAILED`, missing keys with `JSON_ENCRYPTION_KEY_REQUIRED`. |
-| JSON object storage | experimental | `s3Storage` is a declarative descriptor only; the built-in runtime has no S3 backend yet and selecting it fails with `JSON_STORAGE_BACKEND_UNAVAILABLE`. |
-| Audit trail | preview | `resources.<name>.audit: true \| { values: true }` appends one JSON line per successful runtime write to `.audit/<resource>.jsonl` beside the resource state (op, id, changed fields; values opt-in). Audit failures warn (`ASYNC_DB_AUDIT_FAILED`) and never fail the data write. |
-| Memory filesystem | stable | `createMemoryFs` for tests and programmatic schema/runtime loading. |
-| Operations | stable | Operation manifests, registered operation handlers, refs, hashing, and readiness checks. |
-| SQLite inspection | preview | `inspectSqliteIntegration`, `DbSqliteIntegrationReport`, report suggestions, adoption paths, driver hints, and optional import plans for wrapper-first SQLite adoption or explicit import planning. |
-| Postgres inspection | preview | `inspectPostgresIntegration`, `DbPostgresIntegrationReport`, catalog/source modes, report suggestions, adoption paths, driver hints, redacted URL env reporting, and optional import plans for wrapper-first Postgres adoption or explicit import planning. |
-| Hono integration | preview | Optional route registration and lifecycle hooks exported from `@async/db/hono`. |
-| Vite integration | preview | Optional Vite plugin/config surface exported from `@async/db/vite`. |
-| SQLite integration | preview | `sqliteStore` is Async DB-owned SQLite storage; `openSqliteDb({ tables })` maps resources to existing tables, supports read-only/no-migrate mode, table/column mappings, injected handles, and compound object-key reads/writes. |
-| SQLite compat | preview | `adaptSqliteDatabase`, `openCompatSqlite`, `openLegacySqlite`, `compoundKeyId`, `defineSqliteImportPlan`, and `runSqliteImportPlan` bridge low-level `node:sqlite`, `better-sqlite3`, `sqlite3`, and `sqlite` handles without making raw SQL the app-facing API. Async DB suppresses only the optional `node:sqlite` experimental warning while loading that driver so CLI reports keep stdout/stderr stable on Node.js 22. |
-| Postgres integration | preview | `postgresStore` is Async DB-owned JSONB envelope storage; `openPostgresDb({ tables })` maps resources to existing relational tables, supports read-only/no-migrate mode, table/column mappings, injected clients, append-only tables, and compound object-key reads/writes. |
-| Postgres compat | preview | `adaptPostgresClient`, `openCompatPostgres`, `openLegacyPostgres`, `compoundKeyId`, `definePostgresImportPlan`, and `runPostgresImportPlan` bridge low-level `pg`, `postgres`, Neon, Vercel Postgres, and `pg-promise` clients without making raw SQL the app-facing API. Driver packages remain optional app dependencies. |
-| Optional stores | preview | SQLite, Postgres, KV, and Redis-like store adapter helpers remain optional integration surfaces. |
-
-## HTTP Surface
-
-| Surface | Stability | Public contract |
-| --- | --- | --- |
-| Root discovery | dev-only | `GET /` returns HTML or JSON discovery links depending on request headers. |
-| REST resources | stable | Resource routes under `/db` by default, with JSON collection/document reads and writes. Single-record GET/PATCH and document GET/PUT/PATCH responses carry an `ETag` header; item-level PATCH/DELETE and document PUT/PATCH honor `If-Match` and answer 412 `DB_PRECONDITION_FAILED` on mismatch. Bulk routes ignore `If-Match`. Collection list, single-record, and document GETs honor `If-None-Match` and answer 304 when the stored value is unchanged. |
-| Health probe | preview | `GET <apiBase>/health` returns 200 `{ status: "ok", ... }` with uptime, schema version, resource/diagnostic counts, and a cached state-dir writability probe; 503 `degraded` when the state dir is not writable. Controlled by `server.expose.health` (default open, independent of viewer exposure) and exempt from mock behavior. |
-| Authorization hook | preview | `server.authorize(context)` runs once per db-handled request (REST, viewer, schema, manifest, GraphQL, Falcor, events, health, operations) with `{ request, url, method, route }`. `false` answers 403 `SERVER_AUTHORIZATION_DENIED`; `{ status, body }` sends a custom denial; hook errors answer 500 `SERVER_AUTHORIZE_ERROR`. Requests that fall through to app routes never reach the hook. |
-| REST batching | stable | Client-facing batch requests preserve per-item result shape and errors. |
-| GraphQL | stable | Dependency-free GraphQL subset for queries, mutations, aliases, variables, batching, and introspection. |
-| Operations routes | stable | Registered operation execution and client-safe operation ref boundaries. |
-| Falcor records | preview | Falcor-compatible record route support where enabled. |
-| Viewer app | dev-only | Built-in local viewer under `/__db` by default. |
-| Viewer events | dev-only | `GET /__db/events` server-sent events stream with a 30s keep-alive comment ping; subscriptions beyond `server.maxEventClients` (default 100) answer 503 `VIEWER_EVENTS_LIMIT`. |
-| Viewer manifest | generated | `/__db/manifest.json`, `/__db/manifest.html`, `/__db/manifest.md`, and negotiated `/__db/manifest`. |
-| Server exposure settings | stable | Config decides which REST/GraphQL/operations/viewer surfaces are exposed, including registered-only modes. |
-
-`async-db serve` is a local development server. Production-facing apps should put
-traffic behind app-owned auth, authorization, limits, observability, and
-registered operations or app routes.
-
-## Generated Contracts
-
-| Output | Stability | Contract |
-| --- | --- | --- |
-| `.db/types/index.d.ts` | generated | Default generated TypeScript declarations; normally gitignored. |
-| `types.commitOutFile` output | generated | Optional committed generated type copy for app/CI imports. |
-| `.db/schema.generated.json` | generated | Generated schema metadata used by tooling and runtime workflows. |
-| `schemaOutFile` / `outputs.schemaManifest` | generated | Optional committed schema manifest. |
-| `viewerManifestOutFile` / `outputs.viewerManifest` | generated | Optional committed viewer manifest for custom viewers/tools. |
-| `operations.build` outputs | generated | Server operation registry and client-safe refs/contracts. |
-| `usage scan` output | generated | Optional `db.usageManifest` source-scan artifact for endpoint exposure review. |
-| `integrate inspect` output | generated | Optional `db.integrationReport` artifact for SQLite/Postgres wrapper-first adoption guidance and explicit import plans. |
-| `schema migrate inspect` output | generated | Optional `db.schemaMigrationReport` artifact for review-first schema declaration conversion into Async DB schema drafts. |
-| `.db/state/**` | internal | Runtime mirror state; generated and normally uncommitted. |
-
-Generated files are public only through their documented output contracts. The
-contents of `.db/state/**`, source hashes, runtime paths, and store-private
-metadata are not public API.
-
-## Config Surface
-
-| Config group | Stability | Public contract |
-| --- | --- | --- |
-| `outputs` | stable | Preferred generated output locations for state, types, manifests, operations, and generated starter code. |
-| `types` | stable | Generated TypeScript options such as output paths, committed copy, comments, readonly properties, and runtime helper exports. |
-| `schema` | stable | Schema validation/inference options, unknown-field policy, and schema behavior toggles. |
-| `server` | stable | Host/port/base path, route exposure (including `expose.health`), trace, watcher, viewer, `maxEventClients`, `authorize` hook, and local server behavior. |
-| `rest`, `graphql`, `falcor` | stable | Protocol exposure and request/response behavior toggles. REST is enabled by default; GraphQL and Falcor are opt-in (`enabled: false` by default). |
-| `operations` | stable | Registered operation registry, refs, contract output, source directory, accept-ref policy, and opt-in strict readiness. |
-| `lifecycle` (via `db.lifecycle.jsonc`) | preview | Machine-managed promotion facts: per-resource phase/store/seedHash and store durability defaults. Doctor adds `DOCTOR_DRAFT_IN_PRODUCTION` (error) and `DOCTOR_SEED_DRIFT` (warn). |
-| `mock` | stable | Local mock delay/error behavior. Skipped automatically under `NODE_ENV=production` unless `mock.production: true` opts in; `doctor --production` reports both states. |
-| `stores` | preview | Store factory configuration and optional adapter selection. |
-| `resources` / `collections` | stable | Per-resource schema, source, store, route, validation, defaults, relation, append-only `writePolicy`, opt-in `audit`, and UI metadata. |
-| `stores.json` durability | preview | `durability: 'versioned'` and `maxVersions` switch the default JSON store to snapshot-keeping writes. |
-| `defaults` / `seed` | stable | Default application and seed/hydration behavior. |
-
-## Internal Boundaries
-
-| Boundary | Stability | Rule |
-| --- | --- | --- |
-| `src/features/**` modules | internal | Implementation detail unless re-exported from a package export and covered by declarations/docs. |
-| `src/rest/**`, `src/graphql/**`, `src/web/**` internals | internal | Route behavior is public; helper module paths and internal function names are not. |
-| `.db/state/**` | internal | Runtime mirror output; do not commit or treat as an app import surface. |
-| `.db/**` except documented generated files | internal | Generated runtime workspace; only documented generated contracts are public. |
-| Source hashes and state metadata | internal | Used for refresh and runtime bookkeeping, not app contracts. |
-| Test helpers, scripts, and examples internals | internal | Runnable examples and documented hooks are public; private helper paths are not. |
-| Trusted local code execution | internal | `.schema.js`, `db.config.js`, source readers, and manifest hooks execute locally and are not sandboxed public API. |
+| `@async/db.boundary` | `sha256:d15e9a2f8062afd31a383024b68f09a99544a8093733c239c385204e8a00275c` | `boundary.features-internal`, `boundary.generated-state`, `boundary.protocol-internals`, `boundary.tests-scripts-examples`, `boundary.trusted-local-code` |
+| `@async/db.cli` | `sha256:58832a8d2bf2b682a914de1a1f38a4ec65071d8e89dbdb3e546dc75d3ea44b15` | `cli.doctor`, `cli.generate.hono`, `cli.init`, `cli.integrate`, `cli.lifecycle`, `cli.operations`, `cli.runtime-write`, `cli.schema`, `cli.serve`, `cli.sync`, `cli.types`, `cli.usage`, `cli.viewer` |
+| `@async/db.config` | `sha256:b5d6553f8fbe3409bfcb2e52f44c6fccdc7e7aa2e0fb3da8bebe56a1860fe440` | `config.lifecycle`, `config.mock`, `config.operations`, `config.outputs`, `config.protocols`, `config.schema`, `config.server`, `config.stores`, `config.types` |
+| `@async/db.generated` | `sha256:015f1b90667f6527b41870a7f9487af6a10f074ce990ede07cd7acde2a289f9a` | `generated.integration-report`, `generated.operations`, `generated.schema`, `generated.schema-migration-report`, `generated.state-internal`, `generated.types`, `generated.usage`, `generated.viewer-manifest` |
+| `@async/db.http` | `sha256:192b1b35fdaa7ff929fcf299721310166c5b90d7922abb19141fa936cf60fc01` | `http.authorization`, `http.falcor`, `http.graphql`, `http.health`, `http.operations`, `http.rest-batching`, `http.rest-resources`, `http.root-discovery`, `http.viewer` |
+| `@async/db.package` | `sha256:54cd8150fa7b177adca39c5b68daf03e2faed64058f962297996c6531ef04938` | `export.client`, `export.config`, `export.hono`, `export.json`, `export.kv`, `export.postgres`, `export.postgres.compat`, `export.redis`, `export.root`, `export.schema`, `export.sqlite`, `export.sqlite.compat`, `export.vite` |
+| `@async/db.runtime` | `sha256:66a3bd5dfc31b35530e4849a931744107e60e38865fc829311385df8ec15b3d9` | `runtime.audit-trail`, `runtime.content-mdx`, `runtime.database`, `runtime.http-client`, `runtime.json-store`, `runtime.lifecycle`, `runtime.lifecycle-file`, `runtime.memory-fs`, `runtime.operations`, `runtime.optional-stores`, `runtime.postgres-integration`, `runtime.schema-authoring`, `runtime.schema-loading`, `runtime.schema-migration`, `runtime.sqlite-integration` |

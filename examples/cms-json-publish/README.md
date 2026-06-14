@@ -9,7 +9,7 @@ Use this when an app needs CMS draft/publish behavior on top of generic `@async/
 Run it from the repository root:
 
 ```bash
-npm run db -- sync --cwd ./examples/cms-json-publish
+pnpm run db -- sync --cwd ./examples/cms-json-publish
 node ./examples/cms-json-publish/src/cms.js
 ```
 

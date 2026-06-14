@@ -2,11 +2,12 @@
 
 This page documents the verification and package checks that keep docs, examples, and generated-file policy honest.
 
-## Supported Node Versions
+## Supported Node Version
 
-The package supports Node.js 20 and newer.
+The package supports Node.js 24 and newer.
 
-CI runs on Node.js 20, 22, and 24 through `.github/workflows/ci.yml`.
+CI runs on Node.js 24 through the `@async/pipeline` generated workflow at
+`.github/workflows/async-pipeline.yml`.
 
 Generated Hono/SQLite standalone apps may require newer Node versions because SQLite output uses `node:sqlite`.
 
@@ -15,7 +16,7 @@ Generated Hono/SQLite standalone apps may require newer Node versions because SQ
 Run these before handing off changes:
 
 ```bash
-npm run release:check
+pnpm run release:check
 ```
 
 If the default npm cache has ownership or permission issues on this machine, use a temp cache for the pack check:
@@ -24,43 +25,44 @@ If the default npm cache has ownership or permission issues on this machine, use
 npm --cache /private/tmp/async-db-npm-cache pack --dry-run
 ```
 
-`release:check` expands to:
+`release:check` delegates to the pipeline verify graph:
 
 ```bash
-npm run check
-npm test
-npm pack --dry-run
+async-pipeline run verify --force
 ```
+
+The generated `verify` job runs the package checks, tests, docs build, API
+surface checks, sync drift checks, and package dry run through `pipeline.ts`.
 
 ## Useful Smoke Commands
 
 Use the dev loop while editing package code:
 
 ```bash
-npm run dev          # watch src and relaunch all examples
-npm run examples     # one-shot all examples server for smoke checks
-npm run watch        # compile dist and test-build in watch mode only
-npm run cli -- sync --cwd ./examples/basic
+pnpm run dev          # watch src and relaunch all examples
+pnpm run examples     # one-shot all examples server for smoke checks
+pnpm run watch        # compile dist and test-build in watch mode only
+pnpm run cli -- sync --cwd ./examples/basic
 ```
 
-Use `npm run dev` for active package work. Use `npm run examples` for CI-like example smoke checks.
+Use `pnpm run dev` for active package work. Use `pnpm run examples` for CI-like example smoke checks.
 Npm task entrypoints live under `scripts/tasks/`; reusable helper scripts live directly under `scripts/`.
 
 ```bash
-npm run db -- sync --cwd ./examples/basic
-npm run db -- schema validate --cwd ./examples/basic
-npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
-npm run examples
+pnpm run db -- sync --cwd ./examples/basic
+pnpm run db -- schema validate --cwd ./examples/basic
+pnpm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
+pnpm run examples
 ```
 
-Use `npm run examples -- --tailscale-serve` only for local tailnet previews.
+Use `pnpm run examples -- --tailscale-serve` only for local tailnet previews.
 The default examples command remains loopback-only and does not configure
 Tailscale.
 
 The local REST server binds a loopback port. In sandboxed environments this may require explicit approval:
 
 ```bash
-npm run db -- serve --cwd ./examples/basic
+pnpm run db -- serve --cwd ./examples/basic
 ```
 
 ## Package Files Allowlist
@@ -83,6 +85,7 @@ examples/*/src/**
 docs/**/*.md
 !docs/goals/**
 API_SURFACE.md
+api-contract.json
 db.config.example.js
 CHANGELOG.md
 README.md
@@ -132,21 +135,23 @@ The first check confirms the README stayed compact. The second highlights same-p
 
 ## Release Automation
 
-Release pull requests and npm publication are handled by `.github/workflows/release.yml`.
+Release verification, GitHub Packages previews/snapshots, npm publication, and
+GitHub Pages deployment are owned by `pipeline.ts` and generated into
+`.github/workflows/async-pipeline.yml`.
 
-- The Release Please job is opt-in behind the repository variable `RELEASE_PLEASE_CREATE_PR=true`. Keep it disabled when the organization blocks GitHub Actions from creating pull requests.
-- When enabled, Release Please opens or updates a release PR with the next version, `package.json`, `.release-please-manifest.json`, and `CHANGELOG.md`.
-- The tag path runs when a `v*.*.*` tag is pushed, or when the workflow is dispatched with an existing tag.
-- The tag path validates that `package.json` matches the tag, runs `npm run release:check`, packs the package, publishes `@async/db` to npm when that exact version is not already present, creates the GitHub release if needed, and uploads the tarball.
-- Rerunning a partially completed tag release is safe: if npm already has the package version, the workflow skips `npm publish` and still reconciles the GitHub release asset.
+- Pull requests run `verify`, `pages`, and `preview`.
+- Pushes to `main` run `verify`, `pages`, and `snapshot`.
+- GitHub Release events run `verify` and `publish`.
+- Manual dispatch lets maintainers choose `pages`, `publish-github`, `publish`, or `release-doctor`.
+- Rerunning a partially completed publish is safe: the pipeline lifecycle commands skip already-published immutable versions where supported and `release-doctor` reconciles release state.
 
 The release workflow uses npm Trusted Publishing through GitHub Actions OIDC. Before the first automated publish, configure npm for:
 
 ```txt
 package: @async/db
-owner/repo: async-framework/async-db
-workflow: release.yml
-environment: none
+owner/repo: async/db
+workflow: async-pipeline.yml
+environment: npm-publish
 allowed action: npm publish
 ```
 
@@ -155,55 +160,55 @@ commands may fail with `E400` because npm now requires an explicit allowed
 action:
 
 ```bash
-npx --yes npm@latest trust github @async/db \
-  --file release.yml \
-  --repo async-framework/async-db \
+pnpm dlx npm@latest trust github @async/db \
+  --file async-pipeline.yml \
+  --repo async/db \
   --allow-publish
-npx --yes npm@latest trust list @async/db
+pnpm dlx npm@latest trust list @async/db
 ```
 
-Keep the package public through `publishConfig.access: "public"` and the workflow publish command:
+Keep the package public through `publishConfig.access: "public"` and the
+pipeline npm publish command:
 
 ```bash
-npm publish --access public
+pnpm run pipeline:publish:npm
 ```
 
-The publish steps intentionally unset any inherited `NODE_AUTH_TOKEN`; npm
-Trusted Publishing should use the GitHub OIDC identity directly. Keep
-`package.json` `repository.url` exactly aligned with
-`https://github.com/async-framework/async-db`, because npm validates trusted
+The generated publish job maps `NPM_TOKEN` to `NODE_AUTH_TOKEN` and requires
+GitHub OIDC provenance. Keep `package.json` `repository.url` exactly aligned with
+`https://github.com/async/db`, because npm validates trusted
 publishing against the GitHub repository identity.
 
-If Trusted Publishing is not configured yet, the release workflow can create the release PR and GitHub release, but npm publish will fail until npm trusts this repository and workflow.
+If Trusted Publishing is not configured yet, the generated publish job can build
+and verify the package, but npm publish will fail until npm trusts this
+repository and workflow.
 
-If Trusted Publishing is not configured and the npm publish step fails, publish manually from an npm account with `@async` scope write access, then rerun the tag workflow to reconcile the GitHub release:
+If Trusted Publishing is not configured and the npm publish step fails, fix the
+`npm-publish` environment or `NPM_TOKEN` setup and rerun the generated GitHub
+Actions publish job. Do not publish `@async/db` from the local machine.
+
+## Actions Release
+
+For a manual patch release, update `package.json`, `.release-please-manifest.json`,
+and `CHANGELOG.md`, then merge to `main` and run the generated `Async Pipeline`
+workflow with the `publish` job selected:
 
 ```bash
-npm login --scope=@async --registry=https://registry.npmjs.org --auth-type=web
-npm run release:check
-npm pack
-npm publish --access public async-db-<version>.tgz
+pnpm run release:check
 ```
 
-## Tag Release
-
-For a manual patch release, update `package.json`, `.release-please-manifest.json`, and `CHANGELOG.md`, then merge to `main` and tag the release commit:
-
-```bash
-git tag v<version>
-git push origin v<version>
-```
-
+The generated publish job creates or verifies the `v<version>` tag and GitHub
+Release before publishing GitHub Packages and npm.
 Use `NPM_CONFIG_USERCONFIG=/dev/null npm view @async/db version` when checking public npm visibility from this machine, because local npm user config may set conservative install cutoffs.
 
 ## Manual Release Checks
 
-Use local scripts for preflight and emergency manual publish work:
+Use local scripts for preflight only:
 
 ```bash
-npm run release:check
-npm run release:pack
-npm run release:publish
+pnpm run release:check
+pnpm run release:pack
 ```
 
-Prefer the GitHub workflow for normal releases so npm provenance is tied to the release commit.
+Run `pnpm run release:publish` only inside the generated GitHub Actions workflow
+path. Normal releases must keep npm provenance tied to the release commit.
