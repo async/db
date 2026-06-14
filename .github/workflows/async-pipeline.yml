@@ -70,7 +70,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: "./website/dist"
+          path: ".async/pages"
 
   pages-deploy:
     name: pages-deploy

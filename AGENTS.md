@@ -187,6 +187,6 @@ and runs on Node.js 24:
 - `npm pack --dry-run`
 
 Docs site deployment is generated from the `pages` job in `pipeline.ts` and
-publishes `website/dist/` to GitHub Pages on pushes to `main`.
+publishes `.async/pages/` to GitHub Pages on pushes to `main`.
 
 Dependabot is configured in `.github/dependabot.yml` for GitHub Actions updates.
