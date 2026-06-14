@@ -43,6 +43,7 @@ jobs:
           set -o pipefail
           git diff --unified=0 "$FALLOW_BASE"...HEAD | npm exec --yes --package "fallow@${FALLOW_VERSION}" -- fallow audit \
             --diff-file - \
+            --base "$FALLOW_BASE" \
             --gate new-only \
             --no-cache \
             --format markdown \
