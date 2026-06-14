@@ -401,7 +401,7 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.equal(packageJson.scripts['release:publish'], 'pnpm run pipeline:publish');
   assert.equal(packageJson.scripts.verify, 'pnpm run pipeline:verify');
   assert.equal(packageJson.scripts.prepack, 'pnpm run build');
-  assert.equal(packageJson.devDependencies['@async/pipeline'], '0.4.3');
+  assert.equal(packageJson.devDependencies['@async/pipeline'], '0.4.4');
   assert.equal(packageJson.devDependencies['@async/api-contract'], '0.1.0');
   assert.equal(packageJson.engines.node, '>=24');
 });

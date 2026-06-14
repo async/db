@@ -56,7 +56,7 @@
   },
   "devDependencies": {
     "@async/api-contract": "0.1.0",
-    "@async/pipeline": "0.4.3",
+    "@async/pipeline": "0.4.4",
     "@types/node": "24.12.4",
     "typescript": "6.0.3"
   },
