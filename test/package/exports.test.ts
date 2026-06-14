@@ -461,7 +461,7 @@ test('generated async-pipeline workflow owns release, preview, snapshot, and Pag
   assert.match(workflow, /release:/);
   assert.match(workflow, /name: pages/);
   assert.match(workflow, /name: pages-deploy/);
-  assert.match(workflow, /path: "\.\/website\/dist"/);
+  assert.match(workflow, /path: "\.async\/pages"/);
   assert.match(workflow, /name: preview/);
   assert.match(workflow, /name: snapshot/);
   assert.match(workflow, /name: publish-github/);
@@ -496,6 +496,7 @@ test('generated async-pipeline workflow owns release, preview, snapshot, and Pag
   assert(lock.jobs.some((job: { id: string }) => job.id === 'publish'));
   assert(lock.jobs.some((job: { id: string }) => job.id === 'release-doctor'));
   assert(taskLock.commands.some((command: { name: string }) => command.name === 'pipeline:release:ensure'));
+  assert(taskLock.commands.some((command: { name: string }) => command.name === 'pipeline:task:docs.site'));
   assert.deepEqual(releaseConfig.packages['.'], {
     'release-type': 'node',
     'package-name': '@async/db',

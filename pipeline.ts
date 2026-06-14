@@ -19,11 +19,11 @@ export default definePipeline({
       runners: ["package"],
       targets: [{ package: "@async/db" }],
       jobs: ["pages", "preview", "publish", "publish-github", "release-doctor", "snapshot", "verify"],
-      tasks: ["api-surface", "api-surface-generate", "docs", "sync-check"],
+      tasks: ["api-surface", "api-surface-generate", "docs.site", "sync-check"],
       scripts: {
         "api-surface": "run-task api-surface",
         "api-surface:generate": "run-task api-surface-generate",
-        "docs": "run-task docs",
+        "docs": "run-task docs.site",
         "github:check": "github check",
         "sync:check": "sync check",
         "verify:force": "run verify --force",
@@ -102,12 +102,12 @@ export default definePipeline({
       cache: true,
       run: sh`pnpm run test`
     }),
-    docs: task({
-      description: "Build the static docs site that GitHub Pages uploads from website/dist.",
-      inputs: ["docs/**/*.md", "website/**/*", "scripts/tasks/docs-build.js", "package.json", "pnpm-lock.yaml"],
-      outputs: ["website/dist/**"],
+    "docs.site": task({
+      description: "Build the standardized GitHub Pages documentation site.",
+      inputs: ["README.md", "docs/**/*.md", "scripts/build-pages.js"],
+      outputs: [".async/pages/**"],
       cache: false,
-      run: sh`pnpm run docs:build`
+      run: sh`node scripts/build-pages.js`
     }),
     "release-doctor": task({
       description: "Reconcile release state across npm, GitHub Packages, and GitHub Releases after package verification.",
@@ -117,7 +117,7 @@ export default definePipeline({
     }),
     pack: task({
       description: "Verify the publishable package contents.",
-      dependsOn: ["check", "test", "docs", "api-surface", "sync-check"],
+      dependsOn: ["check", "test", "docs.site", "api-surface", "sync-check"],
       inputs: ["production"],
       cache: false,
       run: sh`npm pack --dry-run`
@@ -167,11 +167,11 @@ export default definePipeline({
       trigger: ["pr", "main", "release"]
     }),
     pages: job({
-      target: "docs",
+      target: "docs.site",
       trigger: ["pr", "main", "manual"],
       github: {
         pages: {
-          build: { kind: "static", path: "./website/dist" }
+          build: { kind: "static", path: ".async/pages" }
         }
       }
     }),
