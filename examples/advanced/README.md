@@ -16,8 +16,8 @@ Use this after the basics when you want to see several features working together
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/advanced
-npm run db -- serve --cwd ./examples/advanced
+pnpm run db -- sync --cwd ./examples/advanced
+pnpm run db -- serve --cwd ./examples/advanced
 ```
 
 Open the local data explorer:

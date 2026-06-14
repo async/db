@@ -989,7 +989,7 @@ on `falcor`, `falcor-router`, or `falcor-express` at runtime.
 The repo should include an npm task that starts every example database and serves an index page of viewer links:
 
 ```bash
-npm run examples
+pnpm run examples
 ```
 
 The index page should list each example and link to:

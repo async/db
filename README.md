@@ -15,9 +15,9 @@ Use it to:
 ## 30-Second Start
 
 ```bash
-npm install @async/db
-npx async-db init
-npx async-db serve
+pnpm add @async/db
+pnpm exec async-db init
+pnpm exec async-db serve
 ```
 
 Open the local data explorer at `http://127.0.0.1:7331/__db` and call `GET /db/users.json`.
@@ -27,7 +27,7 @@ No config file is required. `init` writes a starter JSON file, `.gitignore` entr
 ```bash
 mkdir -p db
 printf '%s\n' '[{"id":"u_1","name":"Ada Lovelace","email":"ada@example.com"}]' > db/users.json
-npx async-db serve
+pnpm exec async-db serve
 ```
 
 `serve` syncs on startup and watches `db/` for changes.
@@ -45,7 +45,7 @@ npx async-db serve
 ## Install
 
 ```bash
-npm install @async/db
+pnpm add @async/db
 ```
 
 Add package scripts for the CLI commands you run often:
@@ -83,13 +83,13 @@ JSON
 Sync generated metadata, types, and runtime state:
 
 ```bash
-npm run db:sync
+pnpm run db:sync
 ```
 
 Start the local server:
 
 ```bash
-npm run db:serve
+pnpm run db:serve
 ```
 
 Open the local data explorer at `http://127.0.0.1:7331/__db`.
@@ -143,9 +143,9 @@ See [docs/getting-started.md](./docs/getting-started.md) for the expanded walkth
 Data-first JSON files are enough until the shape matters:
 
 ```bash
-npm run db -- schema infer users
-npm run db -- schema infer users --out db/users.schema.jsonc
-npm run db -- schema validate
+pnpm run db -- schema infer users
+pnpm run db -- schema infer users --out db/users.schema.jsonc
+pnpm run db -- schema validate
 ```
 
 Add `db/users.schema.json`, `db/users.schema.jsonc`, or `db/users.schema.js` when you need stricter behavior, defaults, relations, or Standard Schema validators.
@@ -155,15 +155,15 @@ See [docs/concepts.md](./docs/concepts.md) and [docs/data-files-and-schemas.md](
 ## Common Commands
 
 ```bash
-npm run db -- sync
-npm run db -- types
-npm run db -- schema validate
-npm run db -- doctor
-npm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
-npm run db -- serve
-npm run db -- init --template data-first
-npm run db -- init --template schema-first
-npm run db -- init --template source-file
+pnpm run db -- sync
+pnpm run db -- types
+pnpm run db -- schema validate
+pnpm run db -- doctor
+pnpm run db -- create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}'
+pnpm run db -- serve
+pnpm run db -- init --template data-first
+pnpm run db -- init --template schema-first
+pnpm run db -- init --template source-file
 ```
 
 See [docs/package-api.md](./docs/package-api.md) for CLI and package export details.
@@ -193,11 +193,11 @@ The built-in JSON store is production-appropriate only for file-suitable resourc
 
 ## Examples
 
-Run `npm run examples` to open the grouped examples index, or sync and serve one example directly:
+Run `pnpm run examples` to open the grouped examples index, or sync and serve one example directly:
 
 ```bash
-npm run db -- sync --cwd ./examples/basic
-npm run db -- serve --cwd ./examples/basic
+pnpm run db -- sync --cwd ./examples/basic
+pnpm run db -- serve --cwd ./examples/basic
 ```
 
 ### Start here

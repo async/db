@@ -1,4 +1,4 @@
-export const GITHUB_REPO = 'https://github.com/async-framework/async-db';
+export const GITHUB_REPO = 'https://github.com/async/db';
 
 export const TIER_ORDER = ['start', 'build', 'production', 'reference', 'advanced'];
 

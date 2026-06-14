@@ -82,8 +82,8 @@ The schema file is authoritative. The data file provides seed records. If a sche
 Useful commands:
 
 ```bash
-npm run db -- schema unbundle users
-npm run db -- schema bundle users --out artifacts/users.bundle.schema.json
+pnpm run db -- schema unbundle users
+pnpm run db -- schema bundle users --out artifacts/users.bundle.schema.json
 ```
 
 Keep bundled schema-plus-seed artifacts outside `db/` unless you intentionally use `--force`.
@@ -133,9 +133,9 @@ Diagnostics are part of the workflow:
 Commands:
 
 ```bash
-npm run db -- doctor
-npm run db -- doctor --json
-npm run db -- check --strict
+pnpm run db -- doctor
+pnpm run db -- doctor --json
+pnpm run db -- check --strict
 ```
 
 See [Data Files And Schemas](./data-files-and-schemas.md) for authoring details and [Server And Local Data Explorer](./server-and-viewer.md) for how diagnostics appear while serving.

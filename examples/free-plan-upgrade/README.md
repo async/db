@@ -9,7 +9,7 @@ Use this when one tenant resource outgrows JSON and must move to another store w
 Run it from the repository root:
 
 ```bash
-npm run db -- sync --cwd ./examples/free-plan-upgrade
+pnpm run db -- sync --cwd ./examples/free-plan-upgrade
 node ./examples/free-plan-upgrade/src/upgrade-tenant-to-paid.js
 ```
 

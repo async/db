@@ -158,7 +158,7 @@ if (mode === "supersede") {
   if (oldHeading) {
     changelog = changelog.replace(oldHeading, `${oldHeading}\n\n> Release problem: this version's tag and npm artifact could not be reconciled; superseded by ${next}.`);
   }
-  changelog = changelog.replace("## Unreleased", `## Unreleased\n\n## [${next}](https://github.com/async-framework/async-db/releases/tag/v${next}) - ${date}\n\n### Fixed\n\n- Supersedes ${version}, whose published artifact and git tag could not be reconciled (see the note on that release).`);
+  changelog = changelog.replace("## Unreleased", `## Unreleased\n\n## [${next}](https://github.com/async/db/releases/tag/v${next}) - ${date}\n\n### Fixed\n\n- Supersedes ${version}, whose published artifact and git tag could not be reconciled (see the note on that release).`);
   writeFileSync("CHANGELOG.md", changelog);
 
   console.log(`\nSuperseded ${version} -> ${next}:`);

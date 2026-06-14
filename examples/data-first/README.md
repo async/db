@@ -15,8 +15,8 @@ Use this when you have JSON data before you have a contract. db infers collectio
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/data-first
-npm run db -- serve --cwd ./examples/data-first
+pnpm run db -- sync --cwd ./examples/data-first
+pnpm run db -- serve --cwd ./examples/data-first
 ```
 
 Open the local data explorer:

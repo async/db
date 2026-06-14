@@ -263,7 +263,7 @@ function templateFiles(
 
 function buildFollowUp(template: InitTemplate): string[] {
   const lines = [
-    'npm run db:serve',
+    'pnpm run db:serve',
     'open http://127.0.0.1:7331/__db',
     'curl http://127.0.0.1:7331/db/users.json',
   ];
@@ -273,7 +273,7 @@ function buildFollowUp(template: InitTemplate): string[] {
   }
 
   if (template === 'schema-first') {
-    lines.splice(2, 0, 'npm run db -- create users \'{"id":"u_1","name":"Ada Lovelace","email":"ada@example.com"}\'');
+    lines.splice(2, 0, 'pnpm run db -- create users \'{"id":"u_1","name":"Ada Lovelace","email":"ada@example.com"}\'');
   }
 
   return lines;

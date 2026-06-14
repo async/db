@@ -1,6 +1,6 @@
 # Contributing
 
-This guide is for people working on the `async-framework/async-db` repository itself. For package usage, start with [README.md](./README.md) or [docs/getting-started.md](./docs/getting-started.md).
+This guide is for people working on the `async/db` repository itself. For package usage, start with [README.md](./README.md) or [docs/getting-started.md](./docs/getting-started.md).
 
 ## Project Basics
 
@@ -8,19 +8,19 @@ This guide is for people working on the `async-framework/async-db` repository it
 
 - Package name: `@async/db`
 - CLI binary: `async-db`
-- Repository: `async-framework/async-db`
-- Node.js support: Node.js 20 and newer
+- Repository: `async/db`
+- Node.js support: Node.js 24 and newer
 - Local server default: `127.0.0.1:7331`
 - Main generated runtime folder: `.db/`
 
-The repository currently has no package dependencies, so a fresh checkout can run the npm scripts without an install step. If dependencies are added later, commit the package lockfile with the dependency change.
+Install dependencies with pnpm before running package scripts. Commit `pnpm-lock.yaml` with dependency changes.
 
 ## Local Development
 
 Open the repo and verify the toolchain:
 
 ```bash
-cd /Users/patrickjs/code/async-framework/async-db
+cd /Users/patrickjs/code/async/db
 node --version
 npm --version
 ```
@@ -28,17 +28,15 @@ npm --version
 Use the project scripts:
 
 ```bash
-npm run check
-npm test
-npm run release:check
+pnpm run check
+pnpm run test
+pnpm run release:check
 ```
 
-`release:check` expands to:
+`release:check` delegates to the pipeline verify graph:
 
 ```bash
-npm run check
-npm test
-npm pack --dry-run
+async-pipeline run verify --force
 ```
 
 If the default npm cache has local ownership or permission issues, run the pack check with a temp cache:
@@ -57,14 +55,14 @@ Run these from the repository root:
 node ./src/cli.js sync --cwd ./examples/basic
 node ./src/cli.js schema validate --cwd ./examples/basic
 node ./src/cli.js create users '{"id":"u_2","name":"Grace Hopper","email":"grace@example.com"}' --cwd ./examples/basic
-npm run examples
+pnpm run examples
 ```
 
 To share the examples index with HTTPS inside your tailnet, opt in to
 Tailscale Serve:
 
 ```bash
-npm run examples -- --tailscale-serve
+pnpm run examples -- --tailscale-serve
 ```
 
 The package still serves plain HTTP on `127.0.0.1`; Tailscale owns the HTTPS
@@ -99,13 +97,13 @@ Do not commit generated `.db/state` runtime data. If a smoke command writes `.db
 - Keep changes scoped to the request; do not refactor adjacent behavior during docs or release work.
 - Use Conventional Commits, for example `docs: add contributor guide`.
 - Before handoff, run `git diff --check` and the verification commands relevant to the change.
-- CI runs on Node.js 20, 22, and 24 through `.github/workflows/ci.yml`.
+- CI is generated from `pipeline.ts` into `.github/workflows/async-pipeline.yml` and runs on Node.js 24.
 
 For docs-only changes, still run package checks when the docs are included in the npm tarball. Root `CONTRIBUTING.md` is not listed in `package.json.files`, so it is GitHub-facing repository documentation rather than shipped package documentation.
 
 ## Release Runbook
 
-Normal releases use Release Please, GitHub Releases, and npm Trusted Publishing. The release workflow is `.github/workflows/release.yml`; release details also live in [docs/ci-and-release.md](./docs/ci-and-release.md).
+Normal releases use the `@async/pipeline` generated workflow, GitHub Releases, GitHub Packages mirrors, and npm Trusted Publishing. Release details also live in [docs/ci-and-release.md](./docs/ci-and-release.md).
 
 ### Prerequisites
 
@@ -113,9 +111,9 @@ Before publishing from GitHub Actions, configure npm Trusted Publishing for:
 
 ```txt
 package: @async/db
-owner/repo: async-framework/async-db
-workflow: release.yml
-environment: none
+owner/repo: async/db
+workflow: async-pipeline.yml
+environment: npm-publish
 ```
 
 Keep `publishConfig.access` set to `public` in `package.json`. Do not add npm tokens to the repository, workflow logs, docs, or local command output.
@@ -127,7 +125,7 @@ Run these before tagging the first release or merging future release PRs:
 ```bash
 git status --short
 git diff --check
-npm run release:check
+pnpm run release:check
 npm --cache /private/tmp/jsondb-npm-cache pack --dry-run
 ```
 
@@ -149,14 +147,17 @@ Expected values:
 
 The first public package version is already recorded as `0.1.0` in `package.json`, `CHANGELOG.md`, and `.release-please-manifest.json`.
 
-After npm Trusted Publishing is configured and preflight passes:
+After npm Trusted Publishing is configured and preflight passes, merge the
+release-prep branch to `main` and run the generated `Async Pipeline` workflow
+with the `publish` job selected:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+pnpm run release:check
 ```
 
-The tag publish path validates that `v0.1.0` matches `package.json`, runs `npm run release:check`, packs the tarball, publishes `@async/db`, creates the GitHub release if needed, and uploads the tarball as a release asset.
+The generated publish path validates through `pipeline.ts`, creates or verifies
+the release tag and GitHub Release, mirrors the stable package to GitHub
+Packages, publishes `@async/db` to npm with provenance, and runs release doctor.
 
 If the tag already exists locally, inspect it before pushing:
 
@@ -166,21 +167,22 @@ git show --stat v0.1.0
 
 ### Future Releases
 
-After `0.1.0`, pushes to `main` run Release Please. Release Please opens or updates a release PR that owns:
+After `0.1.0`, prepare release PRs manually or with the release tooling selected by maintainers. Release PRs own:
 
 - `package.json` version bumps
 - `.release-please-manifest.json`
 - `CHANGELOG.md`
-- GitHub Release creation after the release PR is merged
+- generated `Async Pipeline` publish execution after the release PR is merged
 
-When Release Please creates a GitHub release, the workflow checks out the release commit, runs `npm run release:check`, publishes the packed tarball to npm, and uploads the tarball to the GitHub release.
+When the generated `publish` job runs, it creates or verifies the matching GitHub
+Release before package publishing.
 
 ### Post-Publish Checks
 
 After a release workflow completes, verify GitHub and npm:
 
 ```bash
-gh release view v0.1.0 --repo async-framework/async-db
+gh release view v0.1.0 --repo async/db
 npm view @async/db version
 npm view @async/db repository.url
 npm view @async/db bin
@@ -188,17 +190,20 @@ npm view @async/db bin
 
 For future releases, replace `v0.1.0` with the released tag.
 
-### Emergency Manual Publish
+### Emergency Publish Recovery
 
-Prefer the GitHub workflow so npm provenance is tied to the release commit. Use manual publish only for an emergency after the same preflight passes and the release commit is checked out:
+Prefer the GitHub workflow so npm provenance is tied to the release commit. For
+publish failures, fix the GitHub Actions environment, npm Trusted Publishing, or
+`NPM_TOKEN` setup, then rerun the generated `publish` job. Local commands are
+preflight-only:
 
 ```bash
-npm run release:check
-npm run release:pack
-npm run release:publish
+pnpm run release:check
+pnpm run release:pack
 ```
 
-Manual publish requires local npm credentials or an approved npm auth flow. Do not print tokens or `.npmrc` contents while debugging.
+Do not publish `@async/db` from the local machine. Do not print tokens or
+`.npmrc` contents while debugging.
 
 ## Safety Notes
 

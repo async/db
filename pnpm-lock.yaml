@@ -8,6 +8,12 @@ importers:
 
   .:
     devDependencies:
+      '@async/api-contract':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@async/pipeline':
+        specifier: 0.4.3
+        version: 0.4.3
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
@@ -16,6 +22,16 @@ importers:
         version: 6.0.3
 
 packages:
+
+  '@async/api-contract@0.1.0':
+    resolution: {integrity: sha512-kyeqE/Smmwwadwh7Zvs0LZoXuIh7k+6G5rqdyWIjY6vHLZQ1emp9EpL/20m6DtmjauTJxMNn/R7FQACUwfBeUw==}
+    engines: {node: '>=24'}
+    hasBin: true
+
+  '@async/pipeline@0.4.3':
+    resolution: {integrity: sha512-aY/4Tv+GEcXupS2nVsjeCsgBqT1OmuXjpznkfDIDuwYdlBGwjmXsPzERJLNZ3PAeTi4hNhRi+gDA/2ADkAc6gA==}
+    engines: {node: '>=24'}
+    hasBin: true
 
   '@types/node@24.12.4':
     resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
@@ -29,6 +45,10 @@ packages:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
 snapshots:
+
+  '@async/api-contract@0.1.0': {}
+
+  '@async/pipeline@0.4.3': {}
 
   '@types/node@24.12.4':
     dependencies:

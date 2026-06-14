@@ -16,8 +16,8 @@ Use this when you know the local contract before you have real records. It defin
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/schema-first
-npm run db -- serve --cwd ./examples/schema-first
+pnpm run db -- sync --cwd ./examples/schema-first
+pnpm run db -- serve --cwd ./examples/schema-first
 ```
 
 Open the local data explorer:

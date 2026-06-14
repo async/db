@@ -17,8 +17,8 @@ Use this when you want to see several ways to model computed fields with `.schem
 From the repository root:
 
 ```bash
-npm run db -- sync --cwd ./examples/computed-fields
-npm run db -- serve --cwd ./examples/computed-fields
+pnpm run db -- sync --cwd ./examples/computed-fields
+pnpm run db -- serve --cwd ./examples/computed-fields
 ```
 
 Open the local data explorer:

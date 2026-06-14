@@ -116,7 +116,7 @@ export default defineConfig({
 `async-db sync` writes the manifest when `outputs.schemaManifest` is set. You can also generate it directly:
 
 ```bash
-npm run db -- schema manifest --out ./src/generated/db.schema.json
+pnpm run db -- schema manifest --out ./src/generated/db.schema.json
 ```
 
 The manifest includes normalized resource and field metadata such as `type`, `required`, `nullable`, `default`, `values`, nested `fields`, array `items`, relations, and generated UI defaults. The manifest file is metadata output only. Schema field defaults still drive configured runtime behavior such as create-time defaults and safe additive store hydration.
@@ -140,7 +140,7 @@ export default defineConfig({
 `async-db sync` writes the viewer manifest when `outputs.viewerManifest` is set. You can also generate it directly:
 
 ```bash
-npm run db -- viewer manifest --out ./src/generated/db.viewer.json
+pnpm run db -- viewer manifest --out ./src/generated/db.viewer.json
 ```
 
 The viewer manifest includes field metadata, UI hints, relation hints, diagnostics, capabilities, configured viewer links, and API links such as `/__db/manifest`, `/__db/manifest.json`, `/__db/manifest.html`, `/__db/manifest.md`, `/__db/batch`, `/graphql`, and scoped REST resource routes under `/__db/rest`. It does not include seed records, source paths, source hashes, runtime state paths, or GraphQL SDL. Fetch actual records from REST or GraphQL.
@@ -166,8 +166,8 @@ export default defineConfig({
 Build both files with:
 
 ```bash
-npm run db -- operations build
-npm run db -- contracts refs
+pnpm run db -- operations build
+pnpm run db -- contracts refs
 ```
 
 `db.operations.json` contains full templates and should stay server-side.
@@ -178,7 +178,7 @@ bodies, or server registry internals.
 For CI, use the deterministic contract view:
 
 ```bash
-npm run db -- operations contract --check
+pnpm run db -- operations contract --check
 ```
 
 The check compares the current generated client contract with

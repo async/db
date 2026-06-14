@@ -18,9 +18,9 @@ Use this when an app has small production control-plane data that should stay in
 From the repository root, use the repo-internal CLI path:
 
 ```bash
-npm run db -- sync --cwd ./examples/production-json
-npm run db -- operations build --cwd ./examples/production-json
-npm run db -- serve --cwd ./examples/production-json
+pnpm run db -- sync --cwd ./examples/production-json
+pnpm run db -- operations build --cwd ./examples/production-json
+pnpm run db -- serve --cwd ./examples/production-json
 ```
 
 In another terminal:
@@ -38,8 +38,8 @@ ASYNC_DB_URL=http://127.0.0.1:7331 node ./examples/production-json/src/client-de
 To review the browser-facing operation contract without volatile timestamps:
 
 ```bash
-npm run db -- operations contract --cwd ./examples/production-json
-npm run db -- operations contract --cwd ./examples/production-json --check
+pnpm run db -- operations contract --cwd ./examples/production-json
+pnpm run db -- operations contract --cwd ./examples/production-json --check
 ```
 
 ## Operation Requests To Try

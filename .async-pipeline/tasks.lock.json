@@ -18,34 +18,210 @@
       "field": "scripts",
       "commands": [
         {
+          "name": "pipeline:pages",
+          "value": "async-pipeline run pages"
+        },
+        {
+          "name": "pipeline:preview",
+          "value": "async-pipeline run preview"
+        },
+        {
+          "name": "pipeline:publish",
+          "value": "async-pipeline run publish"
+        },
+        {
+          "name": "pipeline:publish-github",
+          "value": "async-pipeline run publish-github"
+        },
+        {
+          "name": "pipeline:release-doctor",
+          "value": "async-pipeline run release-doctor"
+        },
+        {
+          "name": "pipeline:snapshot",
+          "value": "async-pipeline run snapshot"
+        },
+        {
           "name": "pipeline:verify",
           "value": "async-pipeline run verify"
+        },
+        {
+          "name": "pipeline:task:api-surface",
+          "value": "async-pipeline run-task api-surface"
+        },
+        {
+          "name": "pipeline:task:api-surface-generate",
+          "value": "async-pipeline run-task api-surface-generate"
+        },
+        {
+          "name": "pipeline:task:docs",
+          "value": "async-pipeline run-task docs"
+        },
+        {
+          "name": "pipeline:task:sync-check",
+          "value": "async-pipeline run-task sync-check"
+        },
+        {
+          "name": "pipeline:api-surface",
+          "value": "async-pipeline run-task api-surface"
+        },
+        {
+          "name": "pipeline:api-surface:generate",
+          "value": "async-pipeline run-task api-surface-generate"
+        },
+        {
+          "name": "pipeline:docs",
+          "value": "async-pipeline run-task docs"
+        },
+        {
+          "name": "pipeline:github:check",
+          "value": "async-pipeline github check"
         },
         {
           "name": "pipeline:github:generate",
           "value": "async-pipeline github generate"
         },
         {
+          "name": "pipeline:publish:github:main",
+          "value": "async-pipeline publish github main --package ."
+        },
+        {
+          "name": "pipeline:publish:github:pr",
+          "value": "async-pipeline publish github pr --package ."
+        },
+        {
+          "name": "pipeline:publish:github:release",
+          "value": "async-pipeline publish github release --package ."
+        },
+        {
+          "name": "pipeline:publish:npm",
+          "value": "async-pipeline publish npm --package ."
+        },
+        {
+          "name": "pipeline:release:doctor",
+          "value": "async-pipeline release doctor --package ."
+        },
+        {
+          "name": "pipeline:release:ensure",
+          "value": "async-pipeline release ensure --package ."
+        },
+        {
           "name": "pipeline:sync:check",
           "value": "async-pipeline sync check"
+        },
+        {
+          "name": "pipeline:sync:generate",
+          "value": "async-pipeline sync generate"
+        },
+        {
+          "name": "pipeline:verify:force",
+          "value": "async-pipeline run verify --force"
         }
       ]
     }
   ],
   "commands": [
     {
+      "name": "pipeline:pages",
+      "value": "async-pipeline run pages"
+    },
+    {
+      "name": "pipeline:preview",
+      "value": "async-pipeline run preview"
+    },
+    {
+      "name": "pipeline:publish",
+      "value": "async-pipeline run publish"
+    },
+    {
+      "name": "pipeline:publish-github",
+      "value": "async-pipeline run publish-github"
+    },
+    {
+      "name": "pipeline:release-doctor",
+      "value": "async-pipeline run release-doctor"
+    },
+    {
+      "name": "pipeline:snapshot",
+      "value": "async-pipeline run snapshot"
+    },
+    {
       "name": "pipeline:verify",
       "value": "async-pipeline run verify"
+    },
+    {
+      "name": "pipeline:task:api-surface",
+      "value": "async-pipeline run-task api-surface"
+    },
+    {
+      "name": "pipeline:task:api-surface-generate",
+      "value": "async-pipeline run-task api-surface-generate"
+    },
+    {
+      "name": "pipeline:task:docs",
+      "value": "async-pipeline run-task docs"
+    },
+    {
+      "name": "pipeline:task:sync-check",
+      "value": "async-pipeline run-task sync-check"
+    },
+    {
+      "name": "pipeline:api-surface",
+      "value": "async-pipeline run-task api-surface"
+    },
+    {
+      "name": "pipeline:api-surface:generate",
+      "value": "async-pipeline run-task api-surface-generate"
+    },
+    {
+      "name": "pipeline:docs",
+      "value": "async-pipeline run-task docs"
+    },
+    {
+      "name": "pipeline:github:check",
+      "value": "async-pipeline github check"
     },
     {
       "name": "pipeline:github:generate",
       "value": "async-pipeline github generate"
     },
     {
+      "name": "pipeline:publish:github:main",
+      "value": "async-pipeline publish github main --package ."
+    },
+    {
+      "name": "pipeline:publish:github:pr",
+      "value": "async-pipeline publish github pr --package ."
+    },
+    {
+      "name": "pipeline:publish:github:release",
+      "value": "async-pipeline publish github release --package ."
+    },
+    {
+      "name": "pipeline:publish:npm",
+      "value": "async-pipeline publish npm --package ."
+    },
+    {
+      "name": "pipeline:release:doctor",
+      "value": "async-pipeline release doctor --package ."
+    },
+    {
+      "name": "pipeline:release:ensure",
+      "value": "async-pipeline release ensure --package ."
+    },
+    {
       "name": "pipeline:sync:check",
       "value": "async-pipeline sync check"
+    },
+    {
+      "name": "pipeline:sync:generate",
+      "value": "async-pipeline sync generate"
+    },
+    {
+      "name": "pipeline:verify:force",
+      "value": "async-pipeline run verify --force"
     }
   ],
-  "hash": "sha256:a61582a0cff4963f374f9868ddb16d42a762248e749cec27c88e14bf81ccc1ae",
-  "generatedAt": "2026-06-11T20:31:09.628Z"
+  "hash": "sha256:1c159852638b60608aa39ebb8f1a5841bde1ef8010cabfe7e8c81eac3635f7f3",
+  "generatedAt": "2026-06-14T10:42:58.847Z"
 }

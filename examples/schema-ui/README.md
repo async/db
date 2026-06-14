@@ -16,7 +16,7 @@ The demo composes **SSR CMS routes ahead of the stock db handler**, so the same 
 - [src/schema-ui-ssr-handler.js](./src/schema-ui-ssr-handler.js): SSR routing layer (middleware-style); hands off other paths to db.
 - [src/start-schema-ui-server.js](./src/start-schema-ui-server.js): wires SSR handler + `createDbRuntime()` so db routes, sync, watching, events, and cleanup share one lifecycle.
 - [serve.js](./serve.js): CLI entry; same stack as the examples launcher hook.
-- [serve-example.js](./serve-example.js): **`npm run examples`** hook — exports `createExampleRuntime` so `scripts/example-launcher.js` can mount this example without hard-coding it.
+- [serve-example.js](./serve-example.js): **`pnpm run examples`** hook — exports `createExampleRuntime` so `scripts/example-launcher.js` can mount this example without hard-coding it.
 - [src/generated/db.schema.json](./src/generated/db.schema.json): committed manifest input after sync.
 
 ## Run It
@@ -32,7 +32,7 @@ Open **http://127.0.0.1:7342/** for the CMS home with links into each collection
 ### From the repo examples index
 
 ```bash
-npm run examples
+pnpm run examples
 ```
 
 Pick **Schema UI** on the index page; it uses **`serve-example.js`** automatically and starts only after you open it (see `scripts/example-launcher.js`).
@@ -61,7 +61,7 @@ node ./examples/schema-ui/serve.js --no-sync
 ### Print Static Templates To A File
 
 ```bash
-npm run db -- sync --cwd ./examples/schema-ui
+pnpm run db -- sync --cwd ./examples/schema-ui
 node ./examples/schema-ui/src/render-admin.js > /tmp/db-schema-ui.html
 ```
 
@@ -73,7 +73,7 @@ The standalone **`render-admin.js`** output still demonstrates placeholder-drive
 
 ## REST Request To Try
 
-With **`serve.js`** or **`npm run examples`** (same stack), REST is already on the demo port:
+With **`serve.js`** or **`pnpm run examples`** (same stack), REST is already on the demo port:
 
 ```bash
 curl 'http://127.0.0.1:7342/db/pages.json?expand=author&select=id,title,status,author.name'
@@ -82,7 +82,7 @@ curl 'http://127.0.0.1:7342/db/pages.json?expand=author&select=id,title,status,a
 Or run the CLI server alone:
 
 ```bash
-npm run db -- serve --cwd ./examples/schema-ui
+pnpm run db -- serve --cwd ./examples/schema-ui
 curl 'http://127.0.0.1:7331/db/pages.json?expand=author&select=id,title,status,author.name'
 ```
 

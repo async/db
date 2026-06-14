@@ -433,7 +433,7 @@ export function HtmlPage(page) {
     <main>${page.main}</main>
     <footer class="border-t border-cyan-950/80 bg-[#020917] px-5 py-8 text-sm text-slate-400 sm:px-8 [.light_&]:border-slate-200 [.light_&]:bg-white [.light_&]:text-slate-600">
       <div class="mx-auto flex max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <p>@async/db docs. Built with <a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800" href="https://github.com/async-framework/async-db/blob/main/website/db.schema.js">content collections</a>.</p>
+        <p>@async/db docs. Built with <a class="font-semibold text-cyan-200 hover:text-cyan-100 [.light_&]:text-cyan-800" href="https://github.com/async/db/blob/main/website/db.schema.js">content collections</a>.</p>
         <div class="flex flex-wrap gap-4">
           <a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="${escapeHtml(page.homePrefix)}index.html">Home</a>
           <a class="hover:text-cyan-200 [.light_&]:hover:text-cyan-800" href="${escapeHtml(page.homePrefix)}docs/getting-started.html">Getting started</a>

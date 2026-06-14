@@ -30,8 +30,8 @@ ${project.resources.map((resource) => `- ${resource.name} (${resource.kind})`).j
 ## Commands
 
 \`\`\`bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 \`\`\`
 
 The initial migration is in \`migrations/0001_initial.sql\`. Destructive schema changes should be reviewed manually.

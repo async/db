@@ -6,11 +6,11 @@ The root [README](../README.md) is the mini guide; these pages hold the task and
 
 ## Docs Site
 
-- Preview locally: `npm run docs:dev` then open `http://127.0.0.1:7340/`
+- Preview locally: `pnpm run docs:dev` then open `http://127.0.0.1:7340/`
 - Docs area: `http://127.0.0.1:7340/docs/getting-started.html`
 - Examples browser: `http://127.0.0.1:7340/docs/examples.html` — every `examples/*` project in an IDE-style file viewer, ordered by complexity. Page content comes from each example's `example.json` (title, level, order) and the first paragraph of its README `## What This Teaches` section.
-- Build static HTML: `npm run docs:build` writes to `website/dist/`
-- CI publishes `website/dist/` to GitHub Pages via `.github/workflows/docs.yml`
+- Build static HTML: `pnpm run docs:build` writes to `website/dist/`
+- The `pages` job in `pipeline.ts` publishes `website/dist/` to GitHub Pages through the generated `.github/workflows/async-pipeline.yml`
 - New markdown files in `docs/` do **not** auto-publish. Register the path in `website/db.schema.js` and add registry metadata there.
 - Advanced pages live in `docs/advanced/*.md` and publish through the separate `advanced` collection in the same schema file.
 
