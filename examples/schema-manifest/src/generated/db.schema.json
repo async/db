@@ -73,7 +73,12 @@
         }
       },
       "description": "Projects used to demonstrate generated form metadata.",
-      "idField": "id"
+      "idField": "id",
+      "identity": {
+        "fields": [
+          "id"
+        ]
+      }
     },
     "users": {
       "kind": "collection",
@@ -123,7 +128,12 @@
         }
       },
       "description": "People who can own local projects.",
-      "idField": "id"
+      "idField": "id",
+      "identity": {
+        "fields": [
+          "id"
+        ]
+      }
     }
   },
   "documents": {}

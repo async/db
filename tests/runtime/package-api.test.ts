@@ -81,6 +81,35 @@ test('openDb hydrates runtime data from a loaded metadata-only schema', async ()
   ]);
 });
 
+test('openDb proxies resources while preserving callable controls', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', role: 'admin' }]));
+  await writeFixture(cwd, 'settings.json', JSON.stringify({ theme: 'dark' }));
+  await writeFixture(cwd, 'collection.json', JSON.stringify([{ id: 'c_1', label: 'resource' }]));
+  await writeFixture(cwd, 'document.json', JSON.stringify({ label: 'document-resource' }));
+  await writeFixture(cwd, 'resourceNames.json', JSON.stringify([{ id: 'r_1', label: 'resource-names' }]));
+  await writeFixture(cwd, 'close.json', JSON.stringify({ enabled: true }));
+  await writeFixture(cwd, 'forks.json', JSON.stringify([{ id: 'f_1', label: 'forks-resource' }]));
+
+  const db = await openDb({ cwd });
+
+  assert.deepEqual(await db.users.find({ where: { role: 'admin' } }), [{ id: 'u_1', role: 'admin' }]);
+  assert.equal(await db.settings.get('theme'), 'dark');
+  assert.deepEqual(await db.collection('users').all(), [{ id: 'u_1', role: 'admin' }]);
+  assert.deepEqual(await db.collection.find({ where: { label: 'resource' } }), [{ id: 'c_1', label: 'resource' }]);
+  assert.equal(await db.document('settings').get('theme'), 'dark');
+  assert.equal(await db.document.get('label'), 'document-resource');
+  assert.deepEqual(await db.resourceNames.find(), [{ id: 'r_1', label: 'resource-names' }]);
+  assert.equal(await db.close.get('enabled'), true);
+  assert.equal(typeof db.resourceNames, 'function');
+  assert.equal(typeof db.close, 'function');
+  assert.equal(typeof db.forks.list, 'function');
+  assert.deepEqual(await db._.collection('forks').all(), [{ id: 'f_1', label: 'forks-resource' }]);
+  assert.equal(await db._.document('settings').get('theme'), 'dark');
+  assert.deepEqual(db._.resourceNames().sort(), ['close', 'collection', 'document', 'forks', 'resourceNames', 'settings', 'users']);
+  await db.close();
+});
+
 test('defaults can be disabled on package API create', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {

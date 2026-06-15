@@ -143,7 +143,7 @@ Contract: `@async/db.runtime`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.database` | openDb, Db, collection/document APIs, scalar/object identity keys, append-only resources, forks, branches, snapshots, migrations, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.database` | openDb, Db, resource-property proxies, db._ controls, collection/document APIs, identity keys, append-only resources, lifecycle, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `runtime.lifecycle` | createDbRuntime, reloadDb, watchDbSources, and createDbRequestHandler for custom local servers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Schema
@@ -257,7 +257,7 @@ Contract: `@async/db.generated`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `generated.types` | .db/types/index.d.ts and types.commitOutFile generated TypeScript declarations | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+| `generated.types` | .db/types/index.d.ts and types.commitOutFile generated TypeScript declarations with resource proxies and identity key maps | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
 
 ### Viewer
 

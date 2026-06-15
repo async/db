@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@async/json':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.4.0
+        version: 0.4.0
     devDependencies:
       '@async/api-contract':
         specifier: 0.1.0
@@ -32,8 +32,8 @@ packages:
     engines: {node: '>=24'}
     hasBin: true
 
-  '@async/json@0.2.0':
-    resolution: {integrity: sha512-tQ9BiWJm4gjomIRToy0XzXf0C6b77GOrI4AF2B3waYdUbSVFUUoC2KMZIz0Ns1vchHFSM4XT11a9MAp5aJuisg==}
+  '@async/json@0.4.0':
+    resolution: {integrity: sha512-gDC5mgusfR1GFZbpzOOHeFqlymB7IM+jRIBfkP9O87azKaMKhNZZ5b/gi64oBRm+tAkFcK2AgllLCn9C3xR9Vw==}
     engines: {node: '>=24'}
 
   '@async/pipeline@0.4.4':
@@ -56,7 +56,7 @@ snapshots:
 
   '@async/api-contract@0.1.0': {}
 
-  '@async/json@0.2.0': {}
+  '@async/json@0.4.0': {}
 
   '@async/pipeline@0.4.4': {}
 

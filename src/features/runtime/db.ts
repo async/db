@@ -152,7 +152,125 @@ export async function openDb(options: OpenDbOptions | string = {}): Promise<Db> 
     await db.runtime.hydrate();
   }
 
-  return db;
+  return createDbProxy(db);
+}
+
+const CALLABLE_DB_CONTROLS = new Set(['branch', 'close', 'collection', 'document', 'fork', 'operation', 'query', 'resourceNames']);
+const FUNCTION_OWN_PROPERTIES = new Set(['apply', 'bind', 'call', 'length', 'name', 'prototype', 'toString']);
+
+function createDbProxy(db: Db): Db {
+  const callableControls = new Map<string, unknown>();
+  return new Proxy(db, {
+    get(target, property, receiver) {
+      if (typeof property !== 'string') {
+        return Reflect.get(target, property, receiver);
+      }
+      if (property === '_') {
+        return dbControls(target);
+      }
+      if (CALLABLE_DB_CONTROLS.has(property)) {
+        if (!callableControls.has(property)) {
+          const control = Reflect.get(target, property, receiver);
+          callableControls.set(property, createCallableDbControl(
+            typeof control === 'function' ? control.bind(target) : control,
+            () => resourceHandle(target, property),
+          ));
+        }
+        return callableControls.get(property);
+      }
+      if (Reflect.has(target, property)) {
+        return Reflect.get(target, property, receiver);
+      }
+      return resourceHandle(target, property) ?? Reflect.get(target, property, receiver);
+    },
+    has(target, property) {
+      return typeof property === 'string' && (property === '_' || resourceHandle(target, property))
+        ? true
+        : Reflect.has(target, property);
+    },
+  });
+}
+
+function dbControls(db: Db): Record<string, unknown> {
+  return {
+    get events() {
+      return db.events;
+    },
+    get resources() {
+      return db.resources;
+    },
+    get forks() {
+      return db.forks;
+    },
+    get branches() {
+      return db.branches;
+    },
+    get snapshots() {
+      return db.snapshots;
+    },
+    get migrations() {
+      return db.migrations;
+    },
+    get routing() {
+      return db.routing;
+    },
+    branch: db.branch.bind(db),
+    close: db.close.bind(db),
+    collection: db.collection.bind(db),
+    document: db.document.bind(db),
+    fork: db.fork.bind(db),
+    operation: db.operation.bind(db),
+    query: db.query.bind(db),
+    resourceNames: db.resourceNames.bind(db),
+  };
+}
+
+function createCallableDbControl(
+  control: unknown,
+  resource: () => DbCollection | DbDocument | null,
+): unknown {
+  if (typeof control !== 'function') {
+    return control;
+  }
+  return new Proxy(control, {
+    apply(target, thisArg, args) {
+      return Reflect.apply(target, thisArg, args);
+    },
+    get(target, property, receiver) {
+      if (property === 'then') {
+        return undefined;
+      }
+      const handle = resource();
+      if (typeof property === 'string' && handle && property in handle && !FUNCTION_OWN_PROPERTIES.has(property)) {
+        const value = handle[property as keyof typeof handle];
+        return typeof value === 'function' ? value.bind(handle) : value;
+      }
+      return Reflect.get(target, property, receiver);
+    },
+    has(target, property) {
+      const handle = resource();
+      return typeof property === 'string' && handle && property in handle
+        ? true
+        : Reflect.has(target, property);
+    },
+  });
+}
+
+function resourceHandle(db: Db, name: string): DbCollection | DbDocument | null {
+  if (name === '_') {
+    return null;
+  }
+  const { resource } = resolveResource(db.resources, name);
+  if (!resource) {
+    return null;
+  }
+  if (resource.kind === 'collection') {
+    return new DbCollection(db, resource);
+  }
+  if (resource.kind === 'document') {
+    return new DbDocument(db, resource);
+  }
+  return null;
 }
 
 function loadedSchemaFromOptions(options: OpenDbOptions): LoadedDbSchema | null {
@@ -420,7 +538,7 @@ export class Db {
   private scopedDb(scope: DbScope): Db {
     const config = scopedConfig(this.config, scope);
     const next = new Db(config, [...this.resources.values()], this.diagnostics, scope);
-    return next;
+    return createDbProxy(next);
   }
 
   private async createFork(name: string, options: ForkCreateOptions = {}): Promise<Db> {

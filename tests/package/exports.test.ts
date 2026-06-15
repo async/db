@@ -127,13 +127,25 @@ export type Settings = {
   theme?: string;
 };
 
+export type CollectionResource = {
+  id: string;
+  label: string;
+};
+
+export type DbCollectionKeys = {
+  users: NonNullable<User["id"]>;
+  collection: NonNullable<CollectionResource["id"]>;
+};
+
 export type DbTypes = {
   collections: {
     users: User;
+    collection: CollectionResource;
   };
   documents: {
     settings: Settings;
   };
+  collectionKeys: DbCollectionKeys;
 };
 `, 'utf8');
   await writeFile(path.join(cwd, 'src/check-package.ts'), `import {
@@ -274,6 +286,15 @@ void dbPromise.then(async (db) => {
   await db.collection('users').delete('u_1', { ifMatch: '*' });
   await db.document('settings').update({}, { ifMatch: recordEtag({}) });
   const settings = await db.document('settings').get();
+  const proxiedUsers = await db.users.find({ where: { email: { contains: '@' } }, orderBy: 'name' });
+  const proxiedSettings = await db.settings.get();
+  const collectionResource = await db.collection.find({ where: { label: 'resource' } });
+  await db._.collection('users').get('u_1');
+  await db._.document('settings').get();
+  // @ts-expect-error unknown query fields should be rejected for typed resources
+  await db.users.find({ where: { missing: true } });
+  // @ts-expect-error document resources do not expose collection query methods
+  await db.settings.find();
   await db.document('settings').set(documentPath, 'dark');
   await db.document('settings').set('theme', 'dark');
   const requestHandler = createDbRequestHandler(db);
@@ -286,7 +307,7 @@ void dbPromise.then(async (db) => {
   void requestHandler;
   void operationHandler;
   void branchList;
-  return { first, settings };
+  return { collectionResource, first, proxiedSettings, proxiedUsers, settings };
 });
 
 const client: DbClient = createDbClient({

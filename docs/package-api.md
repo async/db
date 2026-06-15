@@ -127,7 +127,7 @@ const db = await openDb({
   },
 });
 
-const users = db.collection('users');
+const users = db.users;
 
 await users.create({
   id: 'u_2',
@@ -147,6 +147,29 @@ const recentAdmins = await users.find({
 const userCount = await users.count({ where: { active: true } });
 
 await db.close();
+```
+
+Resource names are exposed as properties when you use generated `DbTypes` with
+`openDb<DbTypes>()`. Explicit lookup remains available through callable controls
+and through the reserved `db._` namespace:
+
+```ts
+await db.users.find({ where: { role: 'admin' } });
+await db.settings.get();
+await db.collection('users').all();
+await db._.collection('users').all();
+await db._.document('settings').get();
+```
+
+Callable controls are also resource namespaces when a resource has the same
+name:
+
+```ts
+await db.collection('users').all(); // control call
+await db.collection.find(); // resource named "collection"
+await db.resourceNames(); // control call
+await db.resourceNames.find(); // resource named "resourceNames"
+await db._.close(); // explicit control namespace
 ```
 
 ### In-Memory Filesystem

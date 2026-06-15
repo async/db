@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { writeText } from './fs-utils.js';
 import { dbFileSystem, type DbFileSystem } from './features/fs/index.js';
+import { identityForResource } from './features/identity.js';
 import { pascalCase } from './names.js';
 import { loadProjectSchema } from './schema.js';
 
@@ -145,9 +146,16 @@ export function renderTypes(resources: SchemaResource[], config: GeneratedTypesC
   }
   lines.push('};', '');
 
+  lines.push('export type DbCollectionKeys = {');
+  for (const resource of collectionResources) {
+    lines.push(`  ${propertyName(resource.name)}: ${collectionKeyType(resource)};`);
+  }
+  lines.push('};', '');
+
   lines.push('export type DbTypes = {');
   lines.push('  collections: DbCollections;');
   lines.push('  documents: DbDocuments;');
+  lines.push('  collectionKeys: DbCollectionKeys;');
   lines.push('};');
 
   if (config.types?.exportRuntimeHelpers !== false) {
@@ -439,6 +447,21 @@ function variantAliasName(resource: SchemaResource, fieldName: string): string {
 
 function literalType(value: unknown): string {
   return JSON.stringify(value) as string;
+}
+
+function collectionKeyType(resource: SchemaResource): string {
+  const identity = identityForResource(resource);
+  if (identity.fields.length === 1) {
+    return resourceFieldKeyType(resource, identity.fields[0] ?? '');
+  }
+  const fields = identity.fields.map((field) => `${propertyName(field)}: ${resourceFieldKeyType(resource, field)};`);
+  return `{ ${fields.join(' ')} }`;
+}
+
+function resourceFieldKeyType(resource: SchemaResource, field: string): string {
+  return resource.fields?.[field]
+    ? `NonNullable<${resource.typeName}[${JSON.stringify(field)}]>`
+    : 'unknown';
 }
 
 function propertyName(value: string): string {

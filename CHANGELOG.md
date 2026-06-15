@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [0.11.0](https://github.com/async/db/releases/tag/v0.11.0) - 2026-06-15
+
+### Added
+
+- Added typed resource-property access on `openDb<DbTypes>()` handles, callable
+  control/resource collision handling, and `db._` as the explicit control
+  namespace.
+- Added generated `DbCollectionKeys` maps so collection identity fields type
+  package API key arguments.
+
 ## [0.10.0](https://github.com/async/db/releases/tag/v0.10.0) - 2026-06-15
 
 ### Added

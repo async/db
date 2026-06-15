@@ -3,6 +3,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 export type DbTypeMap = {
   collections: Record<string, unknown>;
   documents: Record<string, unknown>;
+  collectionKeys?: Record<string, unknown>;
 };
 
 export type DbFileSystemDirent = {
@@ -1347,27 +1348,31 @@ export type DbOpenOptions = Omit<DbOptions, 'schema'> & {
   schema?: DbSchemaConfig | DbLoadedSchema;
 };
 
-export type DbCollectionWhereOperator = {
-  eq?: unknown;
-  ne?: unknown;
-  in?: unknown[];
-  gt?: unknown;
-  gte?: unknown;
-  lt?: unknown;
-  lte?: unknown;
-  contains?: unknown;
+export type DbKey = string | number | boolean | Record<string, unknown>;
+
+export type DbCollectionWhereOperator<Value = unknown> = {
+  eq?: Value;
+  ne?: Value;
+  in?: Value[];
+  gt?: Value;
+  gte?: Value;
+  lt?: Value;
+  lte?: Value;
+  contains?: Value;
 };
 
-export type DbCollectionWhere = Record<string, unknown | DbCollectionWhereOperator>;
+export type DbCollectionWhere<RecordType = Record<string, unknown>> = {
+  [Field in keyof RecordType & string]?: RecordType[Field] | DbCollectionWhereOperator<RecordType[Field]>;
+};
 
-export type DbCollectionOrderBy =
-  | string
-  | { field: string; direction?: 'asc' | 'desc' }
-  | Array<string | { field: string; direction?: 'asc' | 'desc' }>;
+export type DbCollectionOrderBy<RecordType = Record<string, unknown>> =
+  | (keyof RecordType & string)
+  | { field: keyof RecordType & string; direction?: 'asc' | 'desc' }
+  | Array<(keyof RecordType & string) | { field: keyof RecordType & string; direction?: 'asc' | 'desc' }>;
 
-export type DbCollectionQuery = {
-  where?: DbCollectionWhere;
-  orderBy?: DbCollectionOrderBy;
+export type DbCollectionQuery<RecordType = Record<string, unknown>> = {
+  where?: DbCollectionWhere<RecordType>;
+  orderBy?: DbCollectionOrderBy<RecordType>;
   limit?: number;
   offset?: number;
 };
@@ -1379,7 +1384,7 @@ export type DbCollectionAggregateMetric =
     field?: string;
   };
 
-export type DbCollectionAggregate = DbCollectionQuery & {
+export type DbCollectionAggregate<RecordType = Record<string, unknown>> = DbCollectionQuery<RecordType> & {
   groupBy?: string | string[];
   metrics?: Record<string, DbCollectionAggregateMetric>;
 };
@@ -1395,18 +1400,18 @@ export type DbWritePrecondition = {
   ifMatch?: string | null;
 };
 
-export type DbCollection<RecordType> = {
+export type DbCollection<RecordType, KeyType = DbKey> = {
   all(): Promise<RecordType[]>;
-  get(id: string): Promise<RecordType | null>;
-  exists(id: string): Promise<boolean>;
-  find(options?: DbCollectionQuery): Promise<RecordType[]>;
-  count(options?: DbCollectionQuery): Promise<number>;
-  aggregate(options: DbCollectionAggregate): Promise<Array<Record<string, unknown>>>;
+  get(id: KeyType): Promise<RecordType | null>;
+  exists(id: KeyType): Promise<boolean>;
+  find(options?: DbCollectionQuery<RecordType>): Promise<RecordType[]>;
+  count(options?: DbCollectionQuery<RecordType>): Promise<number>;
+  aggregate(options: DbCollectionAggregate<RecordType>): Promise<Array<Record<string, unknown>>>;
   create(record: RecordType): Promise<RecordType>;
   append(record: RecordType): Promise<RecordType>;
-  update(id: string, patch: Partial<RecordType>, options?: DbWritePrecondition): Promise<RecordType | null>;
-  patch(id: string, patch: Partial<RecordType>, options?: DbWritePrecondition): Promise<RecordType | null>;
-  delete(id: string, options?: DbWritePrecondition): Promise<boolean>;
+  update(id: KeyType, patch: Partial<RecordType>, options?: DbWritePrecondition): Promise<RecordType | null>;
+  patch(id: KeyType, patch: Partial<RecordType>, options?: DbWritePrecondition): Promise<RecordType | null>;
+  delete(id: KeyType, options?: DbWritePrecondition): Promise<boolean>;
   replaceAll(records: RecordType[]): Promise<RecordType[]>;
 };
 
@@ -1492,6 +1497,24 @@ export type DbResourceRegistry = Map<string, unknown> & {
   migrate(resource: string, options: DbResourceMigrateOptions): Promise<void>;
 };
 
+export type DbKnownStringKeys<T> = string extends keyof T ? never : keyof T & string;
+
+export type DbCollectionKey<Types extends DbTypeMap, Name extends string> =
+  Types extends { collectionKeys: infer Keys }
+    ? Name extends keyof Keys
+      ? Keys[Name]
+      : DbKey
+    : DbKey;
+
+export type DbResourceForName<Types extends DbTypeMap, Name extends string> =
+  Name extends DbKnownStringKeys<Types['collections']>
+    ? DbCollection<Types['collections'][Name], DbCollectionKey<Types, Name>>
+    : Name extends DbKnownStringKeys<Types['documents']>
+      ? DbDocument<Types['documents'][Name]>
+      : {};
+
+export type DbCallableControl<TControl extends (...args: never[]) => unknown, TResource> = TControl & TResource;
+
 export type DbForkManager<Types extends DbTypeMap = DbTypeMap> = {
   create(name: string, options?: DbForkCreateOptions): Promise<Db<Types>>;
   open(name: string): Promise<Db<Types>>;
@@ -1508,7 +1531,7 @@ export type DbBranchManager<Types extends DbTypeMap = DbTypeMap> = {
   delete(name: string): Promise<boolean>;
 };
 
-export type Db<Types extends DbTypeMap = DbTypeMap> = {
+export type DbBase<Types extends DbTypeMap = DbTypeMap> = {
   events: DbRuntimeEvents;
   resources: DbResourceRegistry;
   forks: DbForkManager<Types>;
@@ -1527,13 +1550,44 @@ export type Db<Types extends DbTypeMap = DbTypeMap> = {
   };
   fork(name: string): Db<Types>;
   branch(name: string): Db<Types>;
-  collection<Name extends keyof Types['collections'] & string>(name: Name): DbCollection<Types['collections'][Name]>;
+  collection<Name extends keyof Types['collections'] & string>(
+    name: Name,
+  ): DbCollection<Types['collections'][Name], DbCollectionKey<Types, Name>>;
   document<Name extends keyof Types['documents'] & string>(name: Name): DbDocument<Types['documents'][Name]>;
   operation(ref: string, variables?: Record<string, unknown>, options?: DbOperationExecutionOptions): Promise<unknown>;
   query(ref: string, variables?: Record<string, unknown>, options?: DbOperationExecutionOptions): Promise<unknown>;
   resourceNames(): string[];
   close(): Promise<void>;
 };
+
+export type DbControls<Types extends DbTypeMap = DbTypeMap> = DbBase<Types>;
+
+export type DbCallableControls<Types extends DbTypeMap = DbTypeMap> = {
+  branch: DbCallableControl<DbBase<Types>['branch'], DbResourceForName<Types, 'branch'>>;
+  close: DbCallableControl<DbBase<Types>['close'], DbResourceForName<Types, 'close'>>;
+  collection: DbCallableControl<DbBase<Types>['collection'], DbResourceForName<Types, 'collection'>>;
+  document: DbCallableControl<DbBase<Types>['document'], DbResourceForName<Types, 'document'>>;
+  fork: DbCallableControl<DbBase<Types>['fork'], DbResourceForName<Types, 'fork'>>;
+  operation: DbCallableControl<DbBase<Types>['operation'], DbResourceForName<Types, 'operation'>>;
+  query: DbCallableControl<DbBase<Types>['query'], DbResourceForName<Types, 'query'>>;
+  resourceNames: DbCallableControl<DbBase<Types>['resourceNames'], DbResourceForName<Types, 'resourceNames'>>;
+};
+
+export type DbResourceProxy<Types extends DbTypeMap = DbTypeMap> = {
+  [Name in DbKnownStringKeys<Types['collections']> as Name extends '_' | keyof DbBase<Types> ? never : Name]:
+    DbCollection<Types['collections'][Name], DbCollectionKey<Types, Name>>;
+} & {
+  [Name in DbKnownStringKeys<Types['documents']> as Name extends '_' | keyof DbBase<Types> ? never : Name]:
+    DbDocument<Types['documents'][Name]>;
+};
+
+export type Db<Types extends DbTypeMap = DbTypeMap> =
+  DbBase<Types>
+  & DbCallableControls<Types>
+  & DbResourceProxy<Types>
+  & {
+    _: DbControls<Types>;
+  };
 
 export type GraphqlRequest = {
   query: string;
@@ -1847,9 +1901,12 @@ export function createIndexedDbCacheStorage(options?: {
   indexedDB?: unknown;
 }): DbCacheStorage;
 export function createDbRuntime(options?: DbRuntimeOptions | string): Promise<DbRuntime>;
-export function createDbRequestHandler(db: Db, options?: DbRequestHandlerOptions): DbRequestHandler;
-export function handleFalcorRequest(db: Db, request: IncomingMessage, response: ServerResponse): Promise<void>;
-export function createDbOperationHandler(db: Db, options?: DbOperationsOptions | { operations?: boolean | 'auto' | DbOperationsOptions }): DbOperationHandler;
+export function createDbRequestHandler<Types extends DbTypeMap = DbTypeMap>(db: Db<Types>, options?: DbRequestHandlerOptions): DbRequestHandler;
+export function handleFalcorRequest<Types extends DbTypeMap = DbTypeMap>(db: Db<Types>, request: IncomingMessage, response: ServerResponse): Promise<void>;
+export function createDbOperationHandler<Types extends DbTypeMap = DbTypeMap>(
+  db: Db<Types>,
+  options?: DbOperationsOptions | { operations?: boolean | 'auto' | DbOperationsOptions },
+): DbOperationHandler;
 export function loadConfig(options?: DbOptions): Promise<DbOptions>;
 export function loadDbSchema(options?: DbOptions | string): Promise<DbLoadedSchema>;
 export function createDbSchema(project: unknown, config: DbOptions): DbLoadedSchema;
@@ -1864,8 +1921,8 @@ export function loadProjectSchema(config: DbOptions, options?: { load?: DbSchema
 export function runDbDoctor(config: DbOptions): Promise<DbDoctorResult>;
 export function startDbServer(options?: DbOpenOptions & { host?: string; port?: number }): Promise<DbServer>;
 export function syncDb(config: DbOptions, options?: { allowErrors?: boolean }): Promise<unknown>;
-export function reloadDb(db: Db, options?: { allowErrors?: boolean }): Promise<unknown>;
-export function watchDbSources(db: Db, options?: DbWatchOptions): Promise<DbSourceWatcher>;
+export function reloadDb<Types extends DbTypeMap = DbTypeMap>(db: Db<Types>, options?: { allowErrors?: boolean }): Promise<unknown>;
+export function watchDbSources<Types extends DbTypeMap = DbTypeMap>(db: Db<Types>, options?: DbWatchOptions): Promise<DbSourceWatcher>;
 export function generateTypes(config: DbOptions, options?: { outFile?: string }): Promise<{ content: string; outFiles: string[] }>;
 export function generateSchemaManifest(config: DbOptions, options?: { outFile?: string }): Promise<{ manifest: unknown; content: string; outFiles: string[] }>;
 export function renderSchemaManifest(resources: unknown[], config?: DbOptions): unknown;
@@ -1947,13 +2004,13 @@ export function generateHonoStarter(
     allowWarnings?: boolean;
   },
 ): Promise<{ outDir: string; files: string[]; diagnostics: unknown[] }>;
-export function executeGraphql(
-  db: Db,
+export function executeGraphql<Types extends DbTypeMap = DbTypeMap>(
+  db: Db<Types>,
   request: string | GraphqlRequest,
 ): Promise<GraphqlResult>;
-export function executeGraphql(
-  db: Db,
+export function executeGraphql<Types extends DbTypeMap = DbTypeMap>(
+  db: Db<Types>,
   request: GraphqlRequest[],
 ): Promise<GraphqlResult[]>;
-export function executeGraphqlBatch(db: Db, requests: GraphqlRequest[]): Promise<GraphqlResult[]>;
+export function executeGraphqlBatch<Types extends DbTypeMap = DbTypeMap>(db: Db<Types>, requests: GraphqlRequest[]): Promise<GraphqlResult[]>;
 export function parseGraphql(query: string): unknown;
