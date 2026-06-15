@@ -84,6 +84,7 @@ export type DbSqliteIntegrationSuggestion = {
 
 export type DbSqliteIntegrationImportKeyStrategy =
   | { kind: 'single-primary-key'; field: string }
+  | { kind: 'compound-object-key'; fields: string[] }
   | { kind: 'compound-generated-id'; fields: string[]; idField: string }
   | { kind: 'key-value-document'; keyField: string; valueField: string }
   | { kind: 'append-only'; idField?: string };
@@ -95,6 +96,9 @@ export type DbSqliteIntegrationImportResource = {
   importKind: 'collection' | 'document' | 'append-only';
   primaryKey: string[];
   idField?: string;
+  identity?: {
+    fields: string[];
+  };
   writePolicy?: 'append-only';
   fields: Record<string, {
     type: string;
@@ -248,6 +252,7 @@ export type DbPostgresIntegrationSuggestion = {
 
 export type DbPostgresIntegrationImportKeyStrategy =
   | { kind: 'single-primary-key'; field: string }
+  | { kind: 'compound-object-key'; fields: string[] }
   | { kind: 'compound-generated-id'; fields: string[]; idField: string }
   | { kind: 'key-value-document'; keyField: string; valueField: string }
   | { kind: 'append-only'; idField?: string };
@@ -260,6 +265,9 @@ export type DbPostgresIntegrationImportResource = {
   importKind: 'collection' | 'document' | 'append-only';
   primaryKey: string[];
   idField?: string;
+  identity?: {
+    fields: string[];
+  };
   writePolicy?: 'append-only';
   fields: Record<string, {
     type: string;

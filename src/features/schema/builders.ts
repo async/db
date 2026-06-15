@@ -88,6 +88,13 @@ export const field = {
     return makeField('datetime', options);
   },
 
+  bytes(options: FieldOptions = {}) {
+    return makeField('bytes', {
+      encoding: options.encoding === 'base64url' || options.encoding === 'hex' ? options.encoding : 'base64',
+      ...options,
+    });
+  },
+
   number(options: FieldOptions = {}) {
     return makeField('number', options);
   },

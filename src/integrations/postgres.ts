@@ -3,6 +3,7 @@ import { loadConfig } from '../config.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../names.js';
 import { assertRecordMatchesResource, loadProjectSchema } from '../schema.js';
 import { applyDefaultsToRecord } from '../sync.js';
+import { identityForResource } from '../features/identity.js';
 import type { SchemaField } from '../features/schema/fields.js';
 import { getPointer, setPointer, type JsonPath } from '../features/runtime/json-pointer.js';
 import {
@@ -50,6 +51,9 @@ type RuntimeResource = {
   name: string;
   kind?: string;
   idField?: string;
+  identity?: {
+    fields?: string[];
+  };
   dataHash?: string | null;
   writePolicy?: string;
   fields?: Record<string, SchemaField>;
@@ -405,6 +409,7 @@ export class PostgresDbCollection {
   }
 
   async create(record: unknown): Promise<Record<string, unknown>> {
+    this.assertMutable('create');
     return this.createWithOperation(record, 'create');
   }
 
@@ -434,7 +439,7 @@ export class PostgresDbCollection {
       assertCompoundKeyPresent(this.resource, keyFields, nextRecord);
     }
 
-    assertRecordMatchesResource(nextRecord, this.resource, this.config, {
+    assertRecordMatchesResource(nextRecord, resourceWithMappingIdentity(this.resource, this.mapping), this.config, {
       source: `${this.resource.name} ${operation} body`,
     });
 
@@ -486,7 +491,7 @@ export class PostgresDbCollection {
       ...Object.fromEntries(keyFields.map((field) => [field, existing[field]])),
     });
 
-    assertRecordMatchesResource(nextRecord, this.resource, this.config, {
+    assertRecordMatchesResource(nextRecord, resourceWithMappingIdentity(this.resource, this.mapping), this.config, {
       source: `${this.resource.name} patch body`,
     });
 
@@ -683,11 +688,16 @@ async function migratePostgresDbInternal(
 }
 
 function createTableSql(resource: PostgresResource, schema: string): string {
+  const keyFields = identityForResource(resource).fields;
+  const singleKey = keyFields.length === 1 ? keyFields[0] : null;
   const columns = Object.entries(resource.fields).map(([fieldName, field]) => {
-    const primary = fieldName === resource.idField ? ' PRIMARY KEY' : '';
-    const required = field.required && fieldName !== resource.idField ? ' NOT NULL' : '';
+    const primary = fieldName === singleKey ? ' PRIMARY KEY' : '';
+    const required = (field.required || keyFields.includes(fieldName)) && fieldName !== singleKey ? ' NOT NULL' : '';
     return `  ${quoteIdentifier(fieldName)} ${postgresTypeForField(field)}${primary}${required}`;
   });
+  if (keyFields.length > 1) {
+    columns.push(`  PRIMARY KEY (${keyFields.map(quoteIdentifier).join(', ')})`);
+  }
 
   return `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(schema)}.${quoteIdentifier(resource.name)} (
 ${columns.join(',\n')}
@@ -707,6 +717,7 @@ function postgresTypeForField(field: SchemaField): string {
     case 'string':
     case 'datetime':
     case 'enum':
+    case 'bytes':
     default:
       return 'TEXT';
   }
@@ -753,7 +764,7 @@ function defaultTableMapping(resource: PostgresResource, schema?: string): Norma
     schema,
     table: resource.name,
     columns: {},
-    primaryKey: resource.idField ? [resource.idField] : ['id'],
+    primaryKey: identityForResource(resource).fields,
     readOnly: false,
   };
 }
@@ -785,10 +796,16 @@ function keyFieldsFor(resource: PostgresResource, mapping: NormalizedPostgresTab
   if (mapping.primaryKey.length > 0) {
     return mapping.primaryKey;
   }
-  if (resource.idField) {
-    return [resource.idField];
-  }
-  return ['id'];
+  return identityForResource(resource).fields;
+}
+
+function resourceWithMappingIdentity(resource: PostgresResource, mapping: NormalizedPostgresTableMapping): PostgresResource {
+  const fields = keyFieldsFor(resource, mapping);
+  return {
+    ...resource,
+    idField: fields.length === 1 ? fields[0] : undefined,
+    identity: { fields },
+  };
 }
 
 function keyPredicate(

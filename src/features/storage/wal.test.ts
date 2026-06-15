@@ -39,6 +39,23 @@ test('replayWal applies put/delete/replace idempotently', () => {
   assert.deepEqual(replayWal([], [{ op: 'replace-all', value: [{ id: 'x' }], seq: 1, at: 't' } as never]), [{ id: 'x' }]);
 });
 
+test('replayWal applies compound identity deltas idempotently', () => {
+  const identity = { fields: ['name', 'version'] };
+  const entries = [
+    { op: 'put-record', identity, record: { name: '@async/db', version: '0.9.0', tag: 'latest' }, seq: 1, at: 't' },
+    { op: 'put-record', identity, record: { name: '@async/db', version: '0.9.0', tag: 'stable' }, seq: 2, at: 't' },
+    { op: 'put-record', identity, record: { name: '@async/json', version: '0.2.0', tag: 'latest' }, seq: 3, at: 't' },
+    { op: 'delete-record', identity, key: { name: '@async/json', version: '0.2.0' }, seq: 4, at: 't' },
+  ] as never[];
+
+  const once = replayWal([], entries);
+  const twice = replayWal(once, entries);
+  assert.deepEqual(once, [
+    { name: '@async/db', version: '0.9.0', tag: 'stable' },
+  ]);
+  assert.deepEqual(twice, once);
+});
+
 test('wal store acknowledges before checkpoint and survives a simulated crash', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'flags.json', JSON.stringify([{ id: 'beta', enabled: false }]));

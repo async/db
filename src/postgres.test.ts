@@ -341,6 +341,10 @@ test('openPostgresDb supports append-only table-backed collections', async () =>
     },
   ]);
   await assert.rejects(
+    () => db.table('installEvents').create({ id: 'evt_2', decision: 'blocked' }),
+    /append-only/,
+  );
+  await assert.rejects(
     () => db.table('installEvents').patch('evt_1', { decision: 'blocked' }),
     /append-only/,
   );

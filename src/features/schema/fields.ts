@@ -101,6 +101,21 @@ export function normalizeField(field: unknown, fieldName = ''): SchemaField {
     normalized.unique = Boolean(field.unique);
   }
 
+  if (field.type === 'bytes') {
+    normalized.encoding = normalizeBytesEncoding(field.encoding);
+    normalized.bytes = { encoding: normalized.encoding };
+    for (const metadataName of ['mediaType', 'contentEncoding', 'storage']) {
+      if (metadataName in field && field[metadataName] !== undefined && field[metadataName] !== null) {
+        normalized[metadataName] = String(field[metadataName]);
+        (normalized.bytes as Record<string, unknown>)[metadataName] = normalized[metadataName];
+      }
+    }
+  }
+
+  if (field.type === 'unknown' && 'storage' in field && field.storage !== undefined && field.storage !== null) {
+    normalized.storage = String(field.storage);
+  }
+
   for (const constraintName of ['min', 'max', 'minLength', 'maxLength', 'pattern']) {
     if (constraintName in field) {
       normalized[constraintName] = field[constraintName];
@@ -140,6 +155,10 @@ export function normalizeField(field: unknown, fieldName = ''): SchemaField {
   }
 
   return normalized;
+}
+
+function normalizeBytesEncoding(value: unknown): 'base64' | 'base64url' | 'hex' {
+  return value === 'base64url' || value === 'hex' ? value : 'base64';
 }
 
 function normalizeDerivedField(value: Record<string, unknown>): DerivedField {

@@ -156,6 +156,7 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
     record: '/projects/{id}',
     canonicalList: '/resources/projects',
     canonicalRecord: '/resources/projects/{id}',
+    identity: ['id'],
   });
   assert.equal(manifest.capabilities.collections, true);
   assert.equal(manifest.capabilities.documents, false);

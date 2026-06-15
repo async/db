@@ -208,6 +208,7 @@ function typeForField(
   switch (field.type) {
     case 'string':
     case 'datetime':
+    case 'bytes':
       type = 'string';
       break;
     case 'number':

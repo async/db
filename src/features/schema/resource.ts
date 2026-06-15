@@ -1,4 +1,5 @@
 import { resourceConfigValue, routePathForResource, typeNameForResource } from '../../names.js';
+import { normalizeIdentity, singleIdentityField, type IdentityDefinition } from '../identity.js';
 import { inferFieldsFromData, normalizeField, type SchemaField } from './fields.js';
 import { relationsForResource } from './relations.js';
 import { normalizeFilesSource, type FilesSourceDefinition } from './source-definitions.js';
@@ -19,8 +20,10 @@ type SchemaBuildConfig = {
 type RawSchema = {
   kind?: ResourceKind;
   idField?: string;
+  identity?: unknown;
   description?: string;
   writePolicy?: string;
+  log?: unknown;
   seed?: unknown;
   fields?: Record<string, unknown>;
   validator?: unknown;
@@ -63,9 +66,11 @@ type IdResult = {
 type BuiltResource = {
   name: string;
   kind: ResourceKind;
-  idField: string;
+  idField?: string;
+  identity?: IdentityDefinition;
   description?: string;
   writePolicy?: string;
+  log?: unknown;
   fields: Record<string, SchemaField>;
   seed: unknown;
   dataPath?: string | null;
@@ -104,7 +109,10 @@ export function buildResource({
   const collectionConfig = resourceConfigValue(config.collections, name) ?? {};
   if (rawSchema) {
     const kind = rawSchema.kind ?? inferKindFromData(rawData) ?? 'collection';
-    const idField = rawSchema.idField ?? collectionConfig.idField ?? 'id';
+    const identity = kind === 'collection'
+      ? normalizeIdentity(rawSchema.identity, rawSchema.idField ?? collectionConfig.idField ?? 'id')
+      : undefined;
+    const idField = identity ? singleIdentityField(identity) ?? undefined : undefined;
     const schemaHasSeed = Object.prototype.hasOwnProperty.call(rawSchema, 'seed');
     const schemaSeed = includeSeed && schemaHasSeed ? rawSchema.seed : emptySeedForKind(kind);
     const seed = includeSeed && rawData !== undefined ? rawData : schemaSeed;
@@ -123,21 +131,27 @@ export function buildResource({
     let fields = Object.fromEntries(
       Object.entries(rawFields).map(([fieldName, field]) => [fieldName, normalizeField(field, fieldName)]),
     );
-    if (kind === 'collection') {
+    if (kind === 'collection' && idField) {
       fields = ensureCollectionIdField(fields, idField);
     }
     const normalizedSeed = normalizeSeed(dataFormat === 'csv' ? coerceCsvSeedToSchema(seed, fields, kind) : seed, kind);
-    const idResult = ensureCollectionSeedIds(normalizedSeed, kind, idField);
+    const idResult = idField
+      ? ensureCollectionSeedIds(normalizedSeed, kind, idField)
+      : { seed: normalizedSeed, generated: false };
     const normalizedSchemaSeed = includeSeed && schemaHasSeed
-      ? ensureCollectionSeedIds(normalizeSeed(schemaSeed, kind), kind, idField).seed
+      ? idField
+        ? ensureCollectionSeedIds(normalizeSeed(schemaSeed, kind), kind, idField).seed
+        : normalizeSeed(schemaSeed, kind)
       : undefined;
 
     return withComputedMetadata({
       name,
       kind,
       idField,
+      identity,
       description: rawSchema.description,
       writePolicy: normalizeWritePolicy(rawSchema.writePolicy),
+      log: normalizeLog(rawSchema.log),
       fields,
       seed: idResult.seed,
       dataPath,
@@ -160,9 +174,13 @@ export function buildResource({
   }
 
   const kind = inferKindFromData(rawData);
-  const idField = collectionConfig.idField ?? inferIdField(rawData, kind);
+  const inferredIdField = collectionConfig.idField ?? inferIdField(rawData, kind);
+  const identity = kind === 'collection' ? normalizeIdentity(undefined, inferredIdField) : undefined;
+  const idField = identity ? singleIdentityField(identity) ?? undefined : undefined;
   const normalizedSeed = normalizeSeed(rawData, kind);
-  const idResult = ensureCollectionSeedIds(normalizedSeed, kind, idField);
+  const idResult = idField
+    ? ensureCollectionSeedIds(normalizedSeed, kind, idField)
+    : { seed: normalizedSeed, generated: false };
   const fields = kind === 'collection'
     ? ensureCollectionIdField(inferFieldsFromData(idResult.seed, kind), idField)
     : inferFieldsFromData(idResult.seed, kind);
@@ -171,6 +189,7 @@ export function buildResource({
     name,
     kind,
     idField,
+    identity,
     writePolicy: undefined,
     fields,
     seed: idResult.seed,
@@ -287,6 +306,10 @@ function withComputedMetadata(resource: Omit<BuiltResource, 'typeName' | 'routeP
 
 function normalizeWritePolicy(value: unknown): string | undefined {
   return value === 'append-only' ? value : undefined;
+}
+
+function normalizeLog(value: unknown): unknown {
+  return isPlainRecord(value) ? { ...value } : undefined;
 }
 
 function inferKindFromData(data: unknown): ResourceKind {

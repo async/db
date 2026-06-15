@@ -1054,6 +1054,68 @@ test('REST single record reads support select', async () => {
   });
 });
 
+test('REST compound-key resources use __key object routes', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'package-versions.schema.jsonc', `{
+    "kind": "collection",
+    "identity": { "fields": ["name", "version"] },
+    "fields": {
+      "name": { "type": "string", "required": true },
+      "version": { "type": "string", "required": true },
+      "tag": { "type": "string" }
+    },
+    "seed": [
+      { "name": "@async/db", "version": "0.9.0", "tag": "latest" }
+    ]
+  }`);
+
+  const db = await openDb({ cwd });
+  const query = new URLSearchParams({ name: '@async/db', version: '0.9.0' });
+
+  const read = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('GET'),
+    read,
+    new URL(`http://db.local/package-versions/__key?${query}`),
+  );
+  assert.equal(read.status, 200);
+  assert.deepEqual(read.json(), {
+    name: '@async/db',
+    version: '0.9.0',
+    tag: 'latest',
+  });
+
+  const patch = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('PATCH', {
+      key: { name: '@async/db', version: '0.9.0' },
+      patch: { tag: 'stable', version: 'ignored' },
+    }),
+    patch,
+    new URL('http://db.local/package-versions/__key'),
+  );
+  assert.equal(patch.status, 200);
+  assert.deepEqual(patch.json(), {
+    name: '@async/db',
+    version: '0.9.0',
+    tag: 'stable',
+  });
+
+  const remove = makeResponse();
+  await handleRestRequest(
+    db,
+    makeRequest('DELETE', {
+      key: { name: '@async/db', version: '0.9.0' },
+    }),
+    remove,
+    new URL('http://db.local/package-versions/__key'),
+  );
+  assert.equal(remove.status, 204);
+  assert.equal(await db.collection('packageVersions').get({ name: '@async/db', version: '0.9.0' }), null);
+});
+
 test('REST select and pagination errors are structured', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'posts.json', JSON.stringify([

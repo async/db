@@ -18,9 +18,13 @@ import { dbFileSystem, nodeFileSystem, type DbFileSystem } from '../fs/index.js'
  */
 export type WalFsyncPolicy = 'always' | 'everysec' | 'no';
 
+type WalIdentity = {
+  fields: string[];
+};
+
 export type WalDelta =
-  | { op: 'put-record'; idField: string; record: Record<string, unknown> }
-  | { op: 'delete-record'; idField: string; id: unknown }
+  | { op: 'put-record'; identity?: WalIdentity; idField?: string; record: Record<string, unknown> }
+  | { op: 'delete-record'; identity?: WalIdentity; key?: Record<string, unknown>; idField?: string; id?: unknown }
   | { op: 'replace-all'; value: unknown };
 
 export type WalEntry = WalDelta & {
@@ -133,7 +137,9 @@ export function replayWal(checkpoint: unknown, entries: WalEntry[]): unknown {
     }
     const records = Array.isArray(value) ? [...value] as Array<Record<string, unknown>> : [];
     if (entry.op === 'put-record') {
-      const index = records.findIndex((record) => idMatches(record?.[entry.idField], entry.record?.[entry.idField]));
+      const identity = identityForWalEntry(entry);
+      const key = keyFromRecord(identity, entry.record);
+      const index = records.findIndex((record) => recordMatchesKey(identity, record, key));
       if (index === -1) {
         records.push(entry.record);
       } else {
@@ -143,10 +149,39 @@ export function replayWal(checkpoint: unknown, entries: WalEntry[]): unknown {
       continue;
     }
     if (entry.op === 'delete-record') {
-      value = records.filter((record) => !idMatches(record?.[entry.idField], entry.id));
+      const identity = identityForWalEntry(entry);
+      const key = keyForDeleteEntry(identity, entry);
+      value = records.filter((record) => !recordMatchesKey(identity, record, key));
     }
   }
   return value;
+}
+
+function identityForWalEntry(entry: Extract<WalEntry, { op: 'put-record' | 'delete-record' }>): WalIdentity {
+  const fields = entry.identity?.fields?.filter(Boolean);
+  if (fields && fields.length > 0) {
+    return { fields };
+  }
+  return { fields: [String(entry.idField ?? 'id')] };
+}
+
+function keyFromRecord(identity: WalIdentity, record: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(identity.fields.map((field) => [field, record[field]]));
+}
+
+function keyForDeleteEntry(
+  identity: WalIdentity,
+  entry: Extract<WalEntry, { op: 'delete-record' }>,
+): Record<string, unknown> {
+  if (entry.key && typeof entry.key === 'object' && !Array.isArray(entry.key)) {
+    return Object.fromEntries(identity.fields.map((field) => [field, entry.key?.[field]]));
+  }
+  const field = identity.fields[0] ?? 'id';
+  return { [field]: entry.id };
+}
+
+function recordMatchesKey(identity: WalIdentity, record: Record<string, unknown>, key: Record<string, unknown>): boolean {
+  return identity.fields.every((field) => idMatches(record?.[field], key[field]));
 }
 
 function idMatches(left: unknown, right: unknown): boolean {

@@ -11,6 +11,9 @@ export type SchemaResource = {
   typeName: string;
   routePath: string;
   idField?: string;
+  identity?: {
+    fields?: string[];
+  };
   fields: Record<string, SchemaField>;
   [key: string]: unknown;
 };
@@ -70,23 +73,44 @@ function restRoutes(resource: SchemaResource): string[] {
     ];
   }
 
-  return [
-    `GET ${resource.routePath}`,
-    `GET ${resource.routePath}/:${resource.idField}`,
-    `POST ${resource.routePath}`,
-    `PATCH ${resource.routePath}/:${resource.idField}`,
-    `DELETE ${resource.routePath}/:${resource.idField}`,
-  ];
+  const idField = singleIdField(resource);
+  return idField
+    ? [
+      `GET ${resource.routePath}`,
+      `GET ${resource.routePath}/:${idField}`,
+      `POST ${resource.routePath}`,
+      `PATCH ${resource.routePath}/:${idField}`,
+      `DELETE ${resource.routePath}/:${idField}`,
+    ]
+    : [
+      `GET ${resource.routePath}`,
+      `GET ${resource.routePath}/__key?<identity>`,
+      `POST ${resource.routePath}`,
+      `PATCH ${resource.routePath}/__key`,
+      `DELETE ${resource.routePath}/__key`,
+    ];
 }
 
 function generateGraphqlSdl(resources: SchemaResource[]): string {
   const lines = ['scalar JSON', ''];
 
   for (const resource of resources) {
+    if (resource.kind === 'collection' && !singleIdField(resource)) {
+      lines.push(...graphqlKeyInput(resource), '');
+    }
     lines.push(...graphqlType(resource), '');
   }
 
   return lines.join('\n').trimEnd();
+}
+
+function graphqlKeyInput(resource: SchemaResource): string[] {
+  const lines = [`input ${resource.typeName}KeyInput {`];
+  for (const field of identityFields(resource)) {
+    lines.push(`  ${field}: ${graphqlFieldType(resource.fields[field] ?? { type: 'string', required: true }, true)}`);
+  }
+  lines.push('}');
+  return lines;
 }
 
 function graphqlType(resource: SchemaResource): string[] {
@@ -101,6 +125,18 @@ function graphqlType(resource: SchemaResource): string[] {
   return lines;
 }
 
+function identityFields(resource: SchemaResource): string[] {
+  const fields = Array.isArray(resource.identity?.fields)
+    ? resource.identity.fields.map(String).filter(Boolean)
+    : [];
+  return fields.length > 0 ? fields : [String(resource.idField ?? 'id')];
+}
+
+function singleIdField(resource: SchemaResource): string | null {
+  const fields = identityFields(resource);
+  return fields.length === 1 ? fields[0] ?? null : null;
+}
+
 function graphqlFieldType(field: SchemaField, isIdField = false): string {
   if (isIdField) {
     return field.required ? 'ID!' : 'ID';
@@ -110,6 +146,7 @@ function graphqlFieldType(field: SchemaField, isIdField = false): string {
   switch (field.type) {
     case 'string':
     case 'datetime':
+    case 'bytes':
     case 'enum':
       return `String${suffix}`;
     case 'number':

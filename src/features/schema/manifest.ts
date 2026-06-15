@@ -20,6 +20,8 @@ type SchemaResource = {
   kind: ResourceKind;
   name: string;
   idField?: string;
+  identity?: unknown;
+  log?: unknown;
   description?: string;
   fields?: Record<string, SchemaField>;
   schemaPath?: string | null;
@@ -59,6 +61,8 @@ type ResourceManifest = Record<string, unknown> & {
   fields: Record<string, unknown>;
   description?: string;
   idField?: string;
+  identity?: unknown;
+  log?: unknown;
 };
 
 type SchemaManifest = {
@@ -213,6 +217,10 @@ function resourceManifest(
 
   if (resource.kind === 'collection') {
     defaultManifest.idField = resource.idField;
+    defaultManifest.identity = resource.identity;
+    if (resource.log) {
+      defaultManifest.log = resource.log;
+    }
   }
 
   return customizeResourceManifest(resource, config, diagnostics, defaultManifest);

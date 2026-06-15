@@ -15,3 +15,5 @@ export {
   withJsonStateWrite,
   writeJsonState,
 } from '@async/json';
+
+export { default as json } from '@async/json';

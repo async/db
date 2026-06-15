@@ -5,6 +5,7 @@ import { parseCsvRecords } from '../csv.js';
 import { dbError, listChoices, serializeError } from '../errors.js';
 import { executeSequentialJsonBatch, readJsonBody, readRawBody, sendJson, sendText, tryJsonEndpoint } from '../features/http/json-endpoint.js';
 import { recordEtag } from '../features/runtime/etag.js';
+import { identityForResource, singleIdentityField } from '../features/identity.js';
 import { resolveResource, resourceNameCandidates } from '../names.js';
 import { makeGeneratedSchema } from '../schema.js';
 import { syncDb } from '../sync.js';
@@ -74,10 +75,10 @@ type RestWriteOptions = {
 
 type RestCollection = {
   all(): unknown[] | Promise<unknown[]>;
-  get(id: string): unknown | Promise<unknown>;
+  get(id: unknown): unknown | Promise<unknown>;
   create(body: unknown): unknown | Promise<unknown>;
-  patch(id: string, body: unknown, options?: RestWriteOptions): unknown | Promise<unknown>;
-  delete(id: string, options?: RestWriteOptions): boolean | Promise<boolean>;
+  patch(id: unknown, body: unknown, options?: RestWriteOptions): unknown | Promise<unknown>;
+  delete(id: unknown, options?: RestWriteOptions): boolean | Promise<boolean>;
   replaceAll(records: unknown[]): unknown[] | Promise<unknown[]>;
 };
 
@@ -165,6 +166,7 @@ type RestRouteOptions = Required<Pick<
 type ParsedResourcePath = {
   routeName: string | undefined;
   id: string | undefined;
+  keyRoute?: boolean;
   format: string | null;
 };
 
@@ -346,7 +348,7 @@ async function handleRestRequestUnsafe(
 
   const resourceUrl = tracePhaseSync(trace, 'rest-route', () => restResourceUrl(url, routeOptions));
   const [rawRouteName, rawId] = resourceUrl.pathname.split('/').filter(Boolean);
-  const { routeName, id, format } = parseFormattedResourcePath(rawRouteName, rawId);
+  const { routeName, id, keyRoute, format } = parseFormattedResourcePath(rawRouteName, rawId);
   if (!routeName) {
     setRestTraceRoute(trace, routeOptions, { operation: 'discovery' });
     const discovery = rootDiscovery(db, routeOptions);
@@ -392,7 +394,7 @@ async function handleRestRequestUnsafe(
   }
 
   if (resource.kind === 'collection') {
-    await handleCollection(db, resource, id, request, response, resourceUrl, format, routeOptions);
+    await handleCollection(db, resource, id, keyRoute === true, request, response, resourceUrl, format, routeOptions);
   } else {
     await handleDocument(db, resource, request, response, format, routeOptions);
   }
@@ -400,14 +402,15 @@ async function handleRestRequestUnsafe(
 
 function parseFormattedResourcePath(routeName: string | undefined, id: string | undefined): ParsedResourcePath {
   if (!routeName) {
-    return { routeName, id, format: null };
+    return { routeName, id, keyRoute: false, format: null };
   }
 
   if (id) {
     const parsedId = splitFormatExtension(id);
     return {
       routeName,
-      id: parsedId.name,
+      id: parsedId.name === '__key' ? undefined : parsedId.name,
+      keyRoute: parsedId.name === '__key',
       format: parsedId.format,
     };
   }
@@ -416,6 +419,7 @@ function parseFormattedResourcePath(routeName: string | undefined, id: string | 
   return {
     routeName: parsedRoute.name,
     id,
+    keyRoute: false,
     format: parsedRoute.format,
   };
 }
@@ -924,6 +928,7 @@ async function handleCollection(
   db: RestDb,
   resource: RestResource,
   id: string | undefined,
+  keyRoute: boolean,
   request: RestRequest,
   response: RestResponse,
   url: URL,
@@ -932,6 +937,11 @@ async function handleCollection(
 ): Promise<void> {
   const trace = options.trace;
   const collection = db.collection(resource.name);
+  if (keyRoute) {
+    await handleCollectionKeyRoute(db, collection, resource, request, response, url, format, options);
+    return;
+  }
+
   const hasQueryId = request.method === 'GET' && !id && url.searchParams.has('id');
   if (hasQueryId && format !== 'json') {
     throw idQueryRequiresJsonRoute(resource, url.searchParams.get('id'));
@@ -1082,6 +1092,138 @@ async function handleCollection(
   sendJson(response, 405, {
     error: 'Method not allowed',
   });
+}
+
+async function handleCollectionKeyRoute(
+  db: RestDb,
+  collection: RestCollection,
+  resource: RestResource,
+  request: RestRequest,
+  response: RestResponse,
+  url: URL,
+  format: string | null,
+  options: RestRouteOptions,
+): Promise<void> {
+  const trace = options.trace;
+  const identity = identityForResource(resource);
+  if (singleIdentityField(identity)) {
+    throw dbError(
+      'REST_KEY_ROUTE_NOT_REQUIRED',
+      `Resource "${resource.name}" uses a single id route.`,
+      {
+        status: 400,
+        hint: `Use ${resource.routePath}/:${singleIdentityField(identity)} for single-key resources.`,
+        details: { resource: resource.name, identity },
+      },
+    );
+  }
+
+  if (request.method === 'GET') {
+    const key = keyFromSearchParams(resource, url);
+    setRestTraceRoute(trace, options, { resource: resource.name, operation: 'get', key });
+    const record = await tracePhase(trace, 'collection-read', () => collection.get(key), {
+      resource: resource.name,
+      operation: 'get',
+    });
+    if (!record) {
+      sendJson(response, 404, { error: 'Not found' });
+      return;
+    }
+    const etag = recordEtag(record);
+    if (sendNotModifiedWhenMatched(request, response, etag)) {
+      return;
+    }
+    setResponseEtag(response, etag);
+    const body = await tracePhase(trace, 'response-shaping', () => shapeCollectionRead(db as never, resource, [record] as never, url, { allowPagination: false }), {
+      resource: resource.name,
+    });
+    await sendFormattedResource(db, response, resource, body[0], format, request, url, trace);
+    return;
+  }
+
+  if (request.method === 'PATCH') {
+    const body = await tracePhase(trace, 'request-body', () => readJsonBody(request, {
+      maxBytes: maxBodyBytes(db),
+    }));
+    if (!isRecord(body) || !isRecord(body.key) || !isRecord(body.patch)) {
+      throw dbError(
+        'REST_KEY_PATCH_INVALID_BODY',
+        'Compound-key PATCH requires { "key": {...}, "patch": {...} }.',
+        {
+          status: 400,
+          hint: `Use PATCH ${resource.routePath}/__key with key fields: ${identity.fields.join(', ')}.`,
+          details: { resource: resource.name, identity },
+        },
+      );
+    }
+    const record = await tracePhase(trace, 'collection-write', () => collection.patch(body.key, body.patch, {
+      ifMatch: requestIfMatch(request),
+    }), {
+      resource: resource.name,
+      operation: 'patch',
+    });
+    if (record) {
+      setResponseEtag(response, recordEtag(record));
+    }
+    sendJson(response, record ? 200 : 404, record ?? { error: 'Not found' });
+    return;
+  }
+
+  if (request.method === 'DELETE') {
+    const key = hasIdentitySearchParams(resource, url)
+      ? keyFromSearchParams(resource, url)
+      : keyFromDeleteBody(resource, await tracePhase(trace, 'request-body', () => readJsonBody(request, {
+        maxBytes: maxBodyBytes(db),
+      })));
+    const deleted = await tracePhase(trace, 'collection-write', () => collection.delete(key, {
+      ifMatch: requestIfMatch(request),
+    }), {
+      resource: resource.name,
+      operation: 'delete',
+    });
+    sendJson(response, deleted ? 204 : 404, deleted ? null : { error: 'Not found' });
+    return;
+  }
+
+  sendJson(response, 405, { error: 'Method not allowed' });
+}
+
+function keyFromSearchParams(resource: RestResource, url: URL): Record<string, unknown> {
+  const identity = identityForResource(resource);
+  const key = Object.fromEntries(identity.fields.map((field) => [field, url.searchParams.get(field)]));
+  for (const field of identity.fields) {
+    if (key[field] === null || key[field] === '') {
+      throw dbError(
+        'REST_KEY_FIELD_MISSING',
+        `Compound-key route for "${resource.name}" is missing query field "${field}".`,
+        {
+          status: 400,
+          hint: `Pass all identity query parameters: ${identity.fields.join(', ')}.`,
+          details: { resource: resource.name, identity, missingField: field },
+        },
+      );
+    }
+  }
+  return key;
+}
+
+function hasIdentitySearchParams(resource: RestResource, url: URL): boolean {
+  return identityForResource(resource).fields.some((field) => url.searchParams.has(field));
+}
+
+function keyFromDeleteBody(resource: RestResource, body: unknown): Record<string, unknown> {
+  if (isRecord(body) && isRecord(body.key)) {
+    return body.key;
+  }
+  throw dbError(
+    'REST_KEY_DELETE_INVALID_BODY',
+    'Compound-key DELETE requires key query parameters or { "key": {...} }.',
+    {
+      status: 400,
+      hint: `Pass all identity fields for "${resource.name}".`,
+      details: { resource: resource.name, identity: identityForResource(resource) },
+    },
+  );
 }
 
 function idQueryRequiresJsonRoute(resource: RestResource, id: string | null): Error {

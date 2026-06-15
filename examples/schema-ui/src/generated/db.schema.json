@@ -83,6 +83,11 @@
       },
       "description": "CMS pages rendered by a tiny schema-driven UI example.",
       "idField": "id",
+      "identity": {
+        "fields": [
+          "id"
+        ]
+      },
       "editor": {
         "title": "Pages",
         "description": "CMS pages edited from generated schema metadata."
@@ -126,7 +131,12 @@
         }
       },
       "description": "Authors that can own CMS pages.",
-      "idField": "id"
+      "idField": "id",
+      "identity": {
+        "fields": [
+          "id"
+        ]
+      }
     }
   },
   "documents": {}

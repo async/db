@@ -518,8 +518,51 @@ Use `--target-state ./data/app.asyncdb` instead of
 DB-owned local SQLite state file.
 
 Event-log resources can use `writePolicy: "append-only"` and
-`collection.append(record)`. Append-only collections reject patch, update,
-delete, and replace-all calls while still allowing append-style event writes.
+`collection.append(record)`. Append-only collections reject create, patch,
+update, delete, and replace-all calls while still allowing append-style event
+writes.
+
+Compound identity is declared with `identity.fields`; `idField` remains the
+single-field shorthand. Package API methods accept scalar ids for single-field
+identity and object keys for compound identity:
+
+```json
+{
+  "kind": "collection",
+  "identity": { "fields": ["tenantId", "slug"] },
+  "fields": {
+    "tenantId": { "type": "string", "required": true },
+    "slug": { "type": "string", "required": true },
+    "name": { "type": "string" }
+  }
+}
+```
+
+```ts
+const projects = db.collection('projects');
+const key = { tenantId: 'tenant_acme', slug: 'homepage' };
+
+await projects.get(key);
+await projects.patch(key, { name: 'Homepage' });
+await projects.delete(key);
+```
+
+Single-key REST routes keep `/:id`. Compound-key resources use `/__key`:
+
+```bash
+curl 'http://127.0.0.1:7331/db/projects/__key?tenantId=tenant_acme&slug=homepage'
+curl -X PATCH http://127.0.0.1:7331/db/projects/__key \
+  -H 'content-type: application/json' \
+  -d '{"key":{"tenantId":"tenant_acme","slug":"homepage"},"patch":{"name":"Homepage"}}'
+```
+
+GraphQL uses the resource-specific key input metadata and a `key` argument for
+compound-key reads and mutations.
+
+Encoded payload fields can be declared with `field.bytes()` in executable
+schemas or `{ "type": "bytes", "encoding": "hex" }` in JSON schemas. Supported
+encodings are `base64`, `base64url`, and `hex`; validation rejects malformed
+payload strings while generated TypeScript represents the field as `string`.
 
 Singleton document usage:
 
@@ -877,7 +920,7 @@ with `operations.acceptRefs`.
 | `@async/db/schema` | `.schema.js` and `.schema.js` authoring helpers, including `field.derived`. |
 | `@async/db/config` | `defineConfig` and manifest helpers. |
 | `@async/db/client` | HTTP client with REST, GraphQL, and batching helpers. |
-| `@async/db/json` | Compatibility exports for `@async/json` file database capabilities and safe JSON state helpers. |
+| `@async/db/json` | Compatibility exports for the standalone `@async/json` `json()` runtime, file database capabilities, and safe JSON state helpers. |
 | `@async/db/vite` | Optional Vite dev server plugin. |
 | `@async/db/hono` | Optional Hono route registration helpers. |
 | `@async/db/sqlite` | Optional SQLite adapter helpers. |
@@ -889,9 +932,12 @@ with `operations.acceptRefs`.
 The core package stays dependency-light. Optional integrations use dynamic
 imports, generated app dependencies, or injected database clients.
 
-`@async/json` owns the standalone JSON file/folder engine. `@async/db/json`
-keeps the existing compatibility subpath for JSON store capability metadata and
-safe file-state helpers used by tooling, diagnostics, exports, and migrations.
+`@async/json` owns the standalone JSON file/folder database engine, including
+runtime collection/document behavior for identity keys, append-only resources,
+bytes validation, indexes, sidecar state, and RedisJSON key layout.
+`@async/db/json` keeps the existing compatibility subpath for the `json()`
+entrypoint, JSON store capability metadata, and safe file-state helpers used by
+tooling, diagnostics, exports, and migrations.
 Most app code should still use `openDb()`, `createDbClient()`, and registered
 operations so resources can graduate from JSON to RedisJSON, SQLite, Postgres,
 or custom stores without changing client calls.

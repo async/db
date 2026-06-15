@@ -373,6 +373,80 @@ test('dependency-free GraphQL collection mutations create update and delete reco
   });
 });
 
+test('GraphQL compound identity resources use key input objects', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'package-versions.schema.jsonc', `{
+    "kind": "collection",
+    "identity": { "fields": ["name", "version"] },
+    "fields": {
+      "name": { "type": "string", "required": true },
+      "version": { "type": "string", "required": true },
+      "tag": { "type": "string" }
+    },
+    "seed": [
+      { "name": "@async/db", "version": "0.9.0", "tag": "latest" }
+    ]
+  }`);
+
+  const db = await openDb({ cwd });
+  const key = { name: '@async/db', version: '0.9.0' };
+
+  const read = await executeGraphql(db, {
+    query: `query GetPackageVersion($key: JSON!) {
+      packageVersion(key: $key) {
+        name
+        version
+        tag
+      }
+    }`,
+    variables: { key },
+  });
+
+  assert.deepEqual(read, {
+    data: {
+      packageVersion: {
+        name: '@async/db',
+        version: '0.9.0',
+        tag: 'latest',
+      },
+    },
+  });
+
+  const updated = await executeGraphql(db, {
+    query: `mutation UpdatePackageVersion($key: JSON!) {
+      updatePackageVersion(key: $key, patch: { tag: "stable", version: "ignored" }) {
+        name
+        version
+        tag
+      }
+    }`,
+    variables: { key },
+  });
+
+  assert.deepEqual(updated, {
+    data: {
+      updatePackageVersion: {
+        name: '@async/db',
+        version: '0.9.0',
+        tag: 'stable',
+      },
+    },
+  });
+
+  const deleted = await executeGraphql(db, {
+    query: `mutation DeletePackageVersion($key: JSON!) {
+      deletePackageVersion(key: $key)
+    }`,
+    variables: { key },
+  });
+
+  assert.deepEqual(deleted, {
+    data: {
+      deletePackageVersion: true,
+    },
+  });
+});
+
 test('GraphQL collection updates do not backfill omitted schema defaults', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {

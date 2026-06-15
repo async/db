@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { dbError } from '../../errors.js';
+import { identityForResource, keyFromRecord } from '../identity.js';
 
 type DiagnosticSeverity = 'error' | 'warn';
 
@@ -127,6 +128,28 @@ export function validateRecordAgainstResource(
   }
 
   const fields = resource.fields ?? {};
+  if (resource.kind === 'collection') {
+    const identity = identityForResource(resource);
+    if (identity.fields.length > 1) {
+      for (const field of identity.fields) {
+        if (record[field] === undefined || record[field] === null || record[field] === '') {
+          diagnostics.push({
+            code: 'SCHEMA_IDENTITY_FIELD_MISSING',
+            severity: 'error',
+            resource: resource.name,
+            field,
+            message: `${resource.name} record is missing identity field "${field}"`,
+            hint: `Provide all identity fields: ${identity.fields.join(', ')}.`,
+            details: {
+              identity,
+              missingField: field,
+            },
+          });
+        }
+      }
+    }
+  }
+
   const unknownFields = Object.keys(record).filter((fieldName) => !(fieldName in fields));
   for (const fieldName of unknownFields) {
     const setting = config.schema?.unknownFields ?? 'warn';
@@ -212,6 +235,10 @@ export function validateValueAgainstField(value: unknown, field: SchemaField, co
       return typeof value === 'string' ? validateFieldConstraints(value, field, context) : [typeMismatch(context, expected, value)];
     case 'datetime':
       return typeof value === 'string' ? validateFieldConstraints(value, field, context) : [typeMismatch(context, expected, value)];
+    case 'bytes':
+      return typeof value === 'string'
+        ? validateBytesEncoding(value, field, context)
+        : [typeMismatch(context, expected, value)];
     case 'number':
       return typeof value === 'number' && Number.isFinite(value) ? validateFieldConstraints(value, field, context) : [typeMismatch(context, expected, value)];
     case 'boolean':
@@ -253,6 +280,31 @@ export function validateValueAgainstField(value: unknown, field: SchemaField, co
     default:
       return diagnostics;
   }
+}
+
+function validateBytesEncoding(value: string, field: SchemaField, context: ValidationContext): SchemaDiagnostic[] {
+  const encoding = field.encoding === 'base64url' || field.encoding === 'hex' ? field.encoding : 'base64';
+  const valid = encoding === 'hex'
+    ? /^(?:[0-9a-fA-F]{2})*$/u.test(value)
+    : encoding === 'base64url'
+      ? /^(?:[A-Za-z0-9_-]+={0,2})?$/u.test(value) && value.length % 4 !== 1
+      : /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value);
+  if (valid) {
+    return validateFieldConstraints(value, field, context);
+  }
+
+  return [{
+    code: 'SCHEMA_BYTES_ENCODING_INVALID',
+    severity: 'error',
+    resource: context.resource.name,
+    field: context.fieldPath,
+    message: `${context.resource.name} field "${context.fieldPath}" must be a ${encoding}-encoded string`,
+    hint: 'Store binary payloads as JSON-safe encoded strings; Async DB validates the envelope but does not decode domain payloads.',
+    details: {
+      encoding,
+      fieldType: field.type,
+    },
+  }];
 }
 
 function validateFieldConstraints(value: unknown, field: SchemaField, context: ValidationContext): SchemaDiagnostic[] {
@@ -550,6 +602,42 @@ export function validateUniqueCollectionFields(
   }
 
   const diagnostics: SchemaDiagnostic[] = [];
+  const identity = identityForResource(resource);
+  if (identity.fields.length > 1) {
+    const identitySeen = new Map<string, number>();
+    for (const [index, record] of records.entries()) {
+      if (!isPlainRecord(record)) {
+        continue;
+      }
+      try {
+        const key = keyFromRecord(resource, record);
+        const serialized = JSON.stringify(key);
+        const firstIndex = identitySeen.get(serialized);
+        if (firstIndex !== undefined) {
+          diagnostics.push({
+            code: 'SCHEMA_IDENTITY_VALUE_DUPLICATE',
+            severity: 'error',
+            resource: resource.name,
+            message: `${resource.name} identity ${JSON.stringify(key)} appears more than once`,
+            hint: `Use a unique identity for fields: ${identity.fields.join(', ')}.`,
+            details: {
+              constraint: 'identity',
+              identity,
+              key,
+              firstIndex,
+              duplicateIndex: index,
+              source: options.source,
+            },
+          });
+        } else {
+          identitySeen.set(serialized, index);
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+
   const fields = Object.entries(resource.fields ?? {}).filter(([, field]) => field.unique === true);
 
   for (const [fieldName] of fields) {

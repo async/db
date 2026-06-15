@@ -128,8 +128,10 @@ test('SQLite integration inspector inventories tables and recommends migration p
   assert.equal(importReport.importPlan.kind, 'sqlite.importPlan');
   assert.equal(importReport.importPlan.target.stateFile, 'data/local-registry.asyncdb');
   assert.equal(importResources.users.keyStrategy.kind, 'single-primary-key');
-  assert.equal(importResources.package_versions.keyStrategy.kind, 'compound-generated-id');
+  assert.equal(importResources.package_versions.keyStrategy.kind, 'compound-object-key');
   assert.deepEqual(importResources.package_versions.keyStrategy.fields, ['name', 'version']);
+  assert.deepEqual(importResources.package_versions.identity, { fields: ['name', 'version'] });
+  assert.equal(importResources.package_versions.idField, undefined);
   assert.equal(importResources.install_events.importKind, 'append-only');
   assert.equal(importResources.install_events.writePolicy, 'append-only');
   assert.equal(importResources.settings.kind, 'document');

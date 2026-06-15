@@ -452,6 +452,7 @@ test('SQLite table-backed collections support query helpers and append-only reso
       decision: 'allow',
       bytes: 10,
     });
+    await assert.rejects(() => events.create({ id: 5, decision: 'block', bytes: 1 }), /append-only/);
     await assert.rejects(() => events.patch(1, { decision: 'block' }), /append-only/);
     await assert.rejects(() => events.delete(1), /append-only/);
   } finally {

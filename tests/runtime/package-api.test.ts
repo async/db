@@ -2,10 +2,16 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { createMemoryFs, loadDbSchema as typedLoadDbSchema, openDb as typedOpenDb } from '../../src/index.js';
+import {
+  createMemoryFs,
+  loadDbSchema as typedLoadDbSchema,
+  makeGeneratedSchema as typedMakeGeneratedSchema,
+  openDb as typedOpenDb,
+} from '../../src/index.js';
 import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 
 const loadDbSchema = async (options: unknown): Promise<any> => typedLoadDbSchema(options as never) as Promise<any>;
+const makeGeneratedSchema = (...args: unknown[]): any => typedMakeGeneratedSchema(args[0] as never, args[1] as never);
 const openDb = async (options: unknown): Promise<any> => typedOpenDb(options as never) as Promise<any>;
 
 test('defaults apply when creating records through the package API', async () => {
@@ -183,6 +189,126 @@ test('package API duplicate ids produce actionable errors', async () => {
   );
 });
 
+test('package API supports compound identity object keys', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'package-versions.schema.jsonc', `{
+    "kind": "collection",
+    "identity": { "fields": ["name", "version"] },
+    "fields": {
+      "name": { "type": "string", "required": true },
+      "version": { "type": "string", "required": true },
+      "tag": { "type": "string" }
+    },
+    "seed": [
+      { "name": "@async/db", "version": "0.9.0", "tag": "latest" }
+    ]
+  }`);
+
+  const db = await openDb({ cwd });
+  const versions = db.collection('packageVersions');
+
+  assert.deepEqual(await versions.get({ name: '@async/db', version: '0.9.0' }), {
+    name: '@async/db',
+    version: '0.9.0',
+    tag: 'latest',
+  });
+  assert.equal(await versions.exists({ name: '@async/db', version: '0.9.0' }), true);
+
+  await assert.rejects(
+    () => versions.create({ name: '@async/db', version: '0.9.0', tag: 'duplicate' }),
+    (error: any) => {
+      assert.equal(error.code, 'DB_CREATE_DUPLICATE_KEY');
+      assert.deepEqual(error.details.identity, { fields: ['name', 'version'] });
+      return true;
+    },
+  );
+
+  assert.deepEqual(await versions.patch({ name: '@async/db', version: '0.9.0' }, {
+    tag: 'stable',
+    version: 'bad-patch',
+  }), {
+    name: '@async/db',
+    version: '0.9.0',
+    tag: 'stable',
+  });
+
+  assert.deepEqual(await versions.create({
+    name: '@async/json',
+    version: '0.2.0',
+    tag: 'latest',
+  }), {
+    name: '@async/json',
+    version: '0.2.0',
+    tag: 'latest',
+  });
+  assert.equal(await versions.delete({ name: '@async/json', version: '0.2.0' }), true);
+  assert.equal(await versions.get({ name: '@async/json', version: '0.2.0' }), null);
+});
+
+test('package API validates encoded bytes fields', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'files.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "payload": { "type": "bytes", "encoding": "hex", "required": true }
+    },
+    "seed": []
+  }`);
+
+  const db = await openDb({ cwd });
+  const files = db.collection('files');
+
+  assert.deepEqual(await files.create({ id: 'file_1', payload: 'deadbeef' }), {
+    id: 'file_1',
+    payload: 'deadbeef',
+  });
+
+  await assert.rejects(
+    () => files.create({ id: 'file_2', payload: 'not-hex' }),
+    (error: any) => {
+      assert.equal(error.code, 'DB_SCHEMA_VALIDATION_FAILED');
+      assert.match(error.message, /hex/i);
+      return true;
+    },
+  );
+});
+
+test('generated schema metadata includes identity log bytes and compound protocols', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'package-versions.schema.jsonc', `{
+    "kind": "collection",
+    "identity": { "fields": ["name", "version"] },
+    "log": { "appendOnly": true },
+    "fields": {
+      "name": { "type": "string", "required": true },
+      "version": { "type": "string", "required": true },
+      "payload": { "type": "bytes", "encoding": "base64url" }
+    },
+    "seed": []
+  }`);
+
+  const schema = await loadDbSchema({ from: path.join(cwd, 'db/package-versions.schema.jsonc') });
+  const generated = makeGeneratedSchema([schema.resource('packageVersions')], []);
+  const resource = generated.resources.packageVersions;
+
+  assert.deepEqual(resource.identity, { fields: ['name', 'version'] });
+  assert.deepEqual(resource.log, { appendOnly: true });
+  assert.deepEqual(resource.fields.payload.bytes, { encoding: 'base64url' });
+  assert.deepEqual(generated.rest.packageVersions, [
+    'GET /package-versions',
+    'GET /package-versions/__key?<identity>',
+    'POST /package-versions',
+    'PATCH /package-versions/__key',
+    'DELETE /package-versions/__key',
+  ]);
+  assert.match(generated.graphql, /input PackageVersionKeyInput/);
+  assert.match(generated.graphql, /name: ID!/);
+  assert.match(generated.graphql, /version: ID!/);
+  assert.match(generated.graphql, /payload: String/);
+});
+
 test('collection.exists returns whether an id is present', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([
@@ -264,6 +390,7 @@ test('append-only collections allow append and reject mutation APIs', async () =
     id: '1',
     decision: 'allow',
   });
+  await assert.rejects(() => events.create({ id: '2', decision: 'block' }), /append-only/);
   await assert.rejects(() => events.patch('1', { decision: 'block' }), (error: any) => {
     assert.equal(error.code, 'DB_APPEND_ONLY_RESOURCE');
     return true;

@@ -112,8 +112,8 @@ Contract: `@async/db.runtime`
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
 | `runtime.optional-stores` | SQLite, Postgres, KV, and Redis-like store adapter helper boundaries remain optional | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
-| `runtime.postgres-integration` | Postgres inspection, JSONB envelope storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
-| `runtime.sqlite-integration` | SQLite inspection, Async DB-owned SQLite storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `runtime.postgres-integration` | Postgres inspection, primary-key identity metadata, JSONB envelope storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `runtime.sqlite-integration` | SQLite inspection, primary-key identity metadata, Async DB-owned SQLite storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 
 ### Lifecycle
 
@@ -143,21 +143,21 @@ Contract: `@async/db.runtime`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.database` | openDb, Db, collection/document APIs, forks, branches, snapshots, migrations, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.database` | openDb, Db, collection/document APIs, scalar/object identity keys, append-only resources, forks, branches, snapshots, migrations, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `runtime.lifecycle` | createDbRuntime, reloadDb, watchDbSources, and createDbRequestHandler for custom local servers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Schema
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.schema-authoring` | trusted local schema helpers including collection, document, field, files, and derived fields | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/typescript-schema-sources.md) |
+| `runtime.schema-authoring` | trusted local schema helpers including collection identity, log metadata, document, field.bytes, files, and derived fields | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/typescript-schema-sources.md) |
 | `runtime.schema-loading` | loadDbSchema, validators, computed field resolvers, metadata-only loading, and schema locator support | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
 
 ### Storage
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.json-store` | JSON store helpers use @async/json engine boundaries for advisory locks, atomic writes, versioning, crash recovery, encryption, and sidecar state | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.json-store` | JSON store helpers use @async/json engine boundaries for identity keys, append-only policy, bytes validation, advisory locks, atomic writes, versioning, crash recovery, encryption, and sidecar state | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Testing
 
@@ -191,7 +191,7 @@ Contract: `@async/db.http`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `http.graphql` | Dependency-free GraphQL subset supports queries, mutations, aliases, variables, batching, and introspection | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `http.graphql` | Dependency-free GraphQL subset supports queries, mutations, compound key inputs, aliases, variables, batching, and introspection | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Health
 
@@ -210,7 +210,7 @@ Contract: `@async/db.http`
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
 | `http.rest-batching` | REST batching preserves per-item result shape and errors | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
-| `http.rest-resources` | REST resources under /db support JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `http.rest-resources` | REST resources under /db support single-id routes, compound __key routes, JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Viewer
 
@@ -251,7 +251,7 @@ Contract: `@async/db.generated`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `generated.schema` | .db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated schema metadata | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+| `generated.schema` | .db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated identity, log, bytes, schema, REST, and GraphQL metadata | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
 
 ### Types
 
@@ -263,7 +263,7 @@ Contract: `@async/db.generated`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `generated.viewer-manifest` | viewerManifestOutFile and outputs.viewerManifest viewer contracts | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+| `generated.viewer-manifest` | viewerManifestOutFile and outputs.viewerManifest viewer contracts with identity and field metadata | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
 
 ## Async DB Config Surface
 
@@ -280,7 +280,7 @@ Contract: `@async/db.config`
 | `config.protocols` | rest, graphql, and falcor protocol exposure and request/response toggles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `config.schema` | schema validation, inference, unknown-field policy, and behavior toggles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `config.server` | server host, port, base path, exposure, trace, watcher, viewer, events, authorize, and local behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
-| `config.stores` | stores, JSON durability, resource schemas, sources, routes, defaults, seed, audit, and UI metadata | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.stores` | stores, JSON durability, resource identity/log schemas, bytes fields, sources, routes, defaults, seed, audit, and UI metadata | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `config.types` | types generation options including output paths, committed copy, comments, readonly properties, and runtime helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 
 ## Async DB Internal Boundaries
