@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [0.9.0](https://github.com/async/db/releases/tag/v0.9.0) - 2026-06-15
+
+### Added
+
+- Added the standalone `@async/json` package dependency as the JSON engine boundary while keeping `@async/db/json` as a compatibility export.
+- Added RedisJSON adapter exports from `@async/db/redis` through `@async/json/redis`.
+
+### Changed
+
+- Shared collection query helpers with `@async/json` and documented the responsibility split between the JSON engine and `@async/db` platform layer.
+
 ## [0.8.0](https://github.com/async/db/releases/tag/v0.8.0) - 2026-06-14
 
 ### Added
