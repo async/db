@@ -47,7 +47,7 @@ const PUBLIC_SURFACE_PATTERNS: PathPattern[] = [
 
 const IGNORED_PUBLIC_SURFACE_PATTERNS: PathPattern[] = [
   /^src\/.*\.test\.ts$/,
-  /^test\//,
+  /^tests\//,
   /^scripts\//,
   /^examples\//,
   /^docs\//,

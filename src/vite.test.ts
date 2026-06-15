@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { dbPlugin } from './vite.js';
-import { makeProject, writeFixture } from '../test/helpers.js';
+import { makeProject, writeFixture } from '../tests/helpers.js';
 
 test('db Vite plugin is serve-only and exposes a virtual client module', async () => {
   const plugin = dbPlugin({

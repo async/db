@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { openDb } from '../../index.js';
-import { makeProject, writeConfig, writeFixture } from '../../../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../../../tests/helpers.js';
 import { appendWalEntry, readWal, replayWal, rotateWal, walContentHash, walPathFor } from './wal.js';
 
 test('wal append/read/rotate round-trips entries and tolerates a torn tail', async () => {

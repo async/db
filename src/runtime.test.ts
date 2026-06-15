@@ -5,7 +5,7 @@ import test from 'node:test';
 import { openDb as typedOpenDb } from './db.js';
 import { createDbRuntime as typedCreateDbRuntime, createDbRuntimeEvents, reloadDb as typedReloadDb, watchDbSources as typedWatchDbSources } from './runtime.js';
 import { loadConfig as typedLoadConfig, syncDb as typedSyncDb } from './index.js';
-import { makeProject, writeFixture } from '../test/helpers.js';
+import { makeProject, writeFixture } from '../tests/helpers.js';
 
 const openDb = async (options: unknown): Promise<any> => typedOpenDb(options as never) as Promise<any>;
 const createDbRuntime = async (...args: any[]): Promise<any> => typedCreateDbRuntime(args[0] as never) as Promise<any>;

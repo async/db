@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { dbContext as typedDbContext, registerDbRoutes as typedRegisterDbRoutes } from './hono.js';
 import { openDb } from '../index.js';
-import { makeProject, writeFixture } from '../../test/helpers.js';
+import { makeProject, writeFixture } from '../../tests/helpers.js';
 
 const dbContext = (options: unknown): any => typedDbContext(options as never) as any;
 const registerDbRoutes = (app: unknown, db: unknown, options?: unknown): void => {

@@ -6,7 +6,7 @@ import test from 'node:test';
 import { promisify } from 'node:util';
 import { loadConfig } from '../config.js';
 import { generateHonoStarter } from './hono.js';
-import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../../tests/helpers.js';
 
 const execFileAsync = promisify(execFile);
 

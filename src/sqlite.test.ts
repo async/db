@@ -5,7 +5,7 @@ import test from 'node:test';
 import { openDb } from './index.js';
 import { openSqliteDb, sqliteStore } from './sqlite.js';
 import { adaptSqliteDatabase, compoundKeyId, openCompatSqlite, openLegacySqlite, runSqliteImportPlan } from './sqlite-compat.js';
-import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../tests/helpers.js';
 
 test('SQLite adapter supports collection and document CRUD when node:sqlite is available', async (t) => {
   try {

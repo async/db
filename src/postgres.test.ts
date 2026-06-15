@@ -6,7 +6,7 @@ import { openDb } from './index.js';
 import { createDbOperationHandler } from './operations.js';
 import { openPostgresDb } from './postgres.js';
 import { adaptPostgresClient, compoundKeyId, runPostgresImportPlan, type PostgresImportPlan } from './postgres-compat.js';
-import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../tests/helpers.js';
 
 test('postgresStore hydrates, persists, and refreshes selected resources', async () => {
   const cwd = await makeProject();

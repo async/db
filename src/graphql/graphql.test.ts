@@ -3,7 +3,7 @@ import { access } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb } from '../index.js';
-import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../../tests/helpers.js';
 import { handleGraphqlRequest as typedHandleGraphqlRequest } from './http.js';
 import { executeGraphql as typedExecuteGraphql } from './index.js';
 

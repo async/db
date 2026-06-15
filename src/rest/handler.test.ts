@@ -3,7 +3,7 @@ import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb } from '../index.js';
-import { makeProject, writeConfig, writeFixture } from '../../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../../tests/helpers.js';
 import { handleRestRequest as typedHandleRestRequest } from './handler.js';
 
 const handleRestRequest = async (...args: any[]): Promise<void> => typedHandleRestRequest(args[0], args[1], args[2], args[3], args[4]);

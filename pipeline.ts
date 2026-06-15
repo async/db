@@ -41,7 +41,7 @@ export default definePipeline({
   namedInputs: {
     default: [
       "src/**/*",
-      "test/**/*",
+      "tests/**/*",
       "scripts/**/*",
       "docs/**/*.md",
       "website/**/*",
