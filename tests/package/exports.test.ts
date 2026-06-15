@@ -49,7 +49,7 @@ test('consumer projects can import package APIs through the @async/db package', 
   await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, inspectSchemaMigration, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
-import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
+import { fileStorage, json, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
 import { sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, openLegacySqlite } from '@async/db/sqlite/compat';
 import { openPostgresDb, postgresStore } from '@async/db/postgres';
@@ -73,6 +73,7 @@ if (typeof createIndexedDbCacheStorage !== 'function') throw new Error('missing 
 if (typeof createClientIndexedDbCacheStorage !== 'function') throw new Error('missing client indexeddb cache API');
 if (typeof defineConfig !== 'function') throw new Error('missing config API');
 if (jsonStoreCapabilities.persistence !== 'local-file') throw new Error('missing json store capabilities');
+if (typeof json !== 'function') throw new Error('missing json standalone API');
 if (typeof jsonStore !== 'function') throw new Error('missing json store helper');
 if (typeof fileStorage !== 'function') throw new Error('missing json file storage helper');
 if (typeof s3Storage !== 'function') throw new Error('missing json s3 storage helper');
@@ -162,6 +163,7 @@ import {
   atomicWriteJson,
   atomicWriteJsonVersioned,
   fileStorage,
+  json,
   jsonStateVersionsDir,
   jsonStore,
   jsonStatePathForResource,
@@ -173,6 +175,7 @@ import {
   s3Storage,
   withJsonStateWrite,
   writeJsonState,
+  type JsonOpenOptions,
   type JsonStoreCapabilities,
 } from '@async/db/json';
 import { kvStore } from '@async/db/kv';
@@ -309,6 +312,7 @@ void recoverJsonStateDir('.db/state');
 void jsonStateVersionsDir(jsonStatePath);
 void jsonStore({ durability: 'versioned', maxVersions: 5, encryption: { key: () => 'k' } });
 void jsonStore();
+void json('./db/package-versions.json', { identity: { fields: ['name', 'version'] } } satisfies JsonOpenOptions);
 void s3Storage({
   bucket: 'app-json-db',
   prefix: 'prod',
@@ -485,7 +489,7 @@ test('generated async-pipeline workflow owns release, preview, snapshot, and Pag
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /packages: write/);
   assert.match(workflow, /pull-requests: write/);
-  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.npm_token \}\}/);
   const releaseDoctorJob = workflow.match(/  release-doctor:[\s\S]*?\n\n  snapshot:/)?.[0] ?? '';
   assert.match(releaseDoctorJob, /contents: read/);
   assert.match(releaseDoctorJob, /packages: read/);
@@ -631,6 +635,12 @@ test('public JSON declarations expose file database helpers', async () => {
   assert.match(declarations, /export function restoreJsonStateVersion\(/);
   assert.match(declarations, /export function listJsonStateVersions\(/);
   assert.match(declarations, /export function recoverJsonStateDir\(/);
+  assert.match(declarations, /export type JsonIdentityDefinition = \{/);
+  assert.match(declarations, /export type JsonOpenOptions = \{/);
+  assert.match(declarations, /identity\?: JsonIdentityDefinition;/);
+  assert.match(declarations, /writePolicy\?: 'append-only' \| string;/);
+  assert.match(declarations, /export type JsonKey = string \| number \| boolean \| Record<string, unknown>;/);
+  assert.match(declarations, /export function json\(target: string, options\?: JsonOpenOptions\): Promise<JsonOpenResult>;/);
   assert.match(declarations, /export type JsonStoreEncryptionOptions = \{/);
   assert.match(declarations, /export type JsonStateWriteOptions = \{/);
   assert.match(declarations, /crossProcessLock\?: boolean;/);

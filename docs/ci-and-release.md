@@ -174,7 +174,7 @@ pipeline npm publish command:
 pnpm run pipeline:publish:npm
 ```
 
-The generated publish job maps `NPM_TOKEN` to `NODE_AUTH_TOKEN` and requires
+The generated publish job maps the org-level `npm_token` secret to `NODE_AUTH_TOKEN` and requires
 GitHub OIDC provenance. Keep `package.json` `repository.url` exactly aligned with
 `https://github.com/async/db`, because npm validates trusted
 publishing against the GitHub repository identity.
@@ -184,7 +184,7 @@ and verify the package, but npm publish will fail until npm trusts this
 repository and workflow.
 
 If Trusted Publishing is not configured and the npm publish step fails, fix the
-`npm-publish` environment or `NPM_TOKEN` setup and rerun the generated GitHub
+`npm-publish` environment or `npm_token` setup and rerun the generated GitHub
 Actions publish job. Do not publish `@async/db` from the local machine.
 
 ## Actions Release
