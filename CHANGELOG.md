@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+## [0.11.0](https://github.com/async/db/releases/tag/v0.11.0) - 2026-06-15
+
+### Added
+
+- Added typed resource-property access on `openDb<DbTypes>()` handles, callable
+  control/resource collision handling, and `db._` as the explicit control
+  namespace.
+- Added generated `DbCollectionKeys` maps so collection identity fields type
+  package API key arguments.
+
+## [0.10.0](https://github.com/async/db/releases/tag/v0.10.0) - 2026-06-15
+
+### Added
+
+- Added normalized resource identity metadata across schema builders, generated
+  TypeScript, schema manifests, viewer manifests, REST metadata, GraphQL SDL,
+  API surface ledgers, SQL adapters, and inspectors.
+- Added compound object-key runtime support across package APIs, REST `__key`
+  routes, GraphQL resource key inputs, WAL replay, audit payloads, and
+  SQLite/Postgres existing-table adapters.
+- Added append-only log policy handling and `field.bytes(...)` metadata with
+  encoded payload validation.
+
+### Changed
+
+- Delegated JSON-backed identity behavior through the standalone `@async/json`
+  engine while preserving the `@async/db/json` compatibility export.
+- Replaced the GitHub release tarball dependency on `@async/json` with the npm
+  package dependency `@async/json@^0.2.0`; GitHub Packages remain preview/mirror
+  install surfaces, not the default dependency source.
+
+## [0.9.0](https://github.com/async/db/releases/tag/v0.9.0) - 2026-06-15
+
+### Added
+
+- Added the standalone `@async/json` package dependency as the JSON engine boundary while keeping `@async/db/json` as a compatibility export.
+- Added RedisJSON adapter exports from `@async/db/redis` through `@async/json/redis`.
+
+### Changed
+
+- Shared collection query helpers with `@async/json` and documented the responsibility split between the JSON engine and `@async/db` platform layer.
+
 ## [0.8.0](https://github.com/async/db/releases/tag/v0.8.0) - 2026-06-14
 
 ### Added

@@ -20,9 +20,9 @@ db/users.json
 ]
 ```
 
-Run `async-db sync`, then read and write the collection through local REST routes such as `GET /db/users.json`. @async/db infers useful contracts from the JSON shape and uses them for generated types, REST metadata, viewer metadata, and write validation.
+Run `async-db sync`, then read and write the collection through local REST routes such as `GET /db/users.json`. @async/db infers useful contracts from the JSON shape and uses them for generated types, REST metadata, GraphQL metadata, viewer metadata, and write validation.
 
-Collections always get an id field. If a JSON collection omits `id`, @async/db adds counter ids in the selected runtime store:
+Collections default to `idField: "id"`, which normalizes to `identity: { "fields": ["id"] }`. If a JSON collection omits `id`, @async/db adds counter ids in the selected runtime store:
 
 ```json
 [
@@ -32,6 +32,35 @@ Collections always get an id field. If a JSON collection omits `id`, @async/db a
 ```
 
 By default, source files stay unchanged and generated ids are written to the selected runtime store.
+
+Collections can also declare compound identity explicitly. Compound identity uses object keys; it does not encode fake delimiter ids:
+
+```json
+{
+  "kind": "collection",
+  "identity": { "fields": ["name", "version"] },
+  "fields": {
+    "name": { "type": "string", "required": true },
+    "version": { "type": "string", "required": true },
+    "tag": { "type": "string" }
+  }
+}
+```
+
+Package API calls use the same object key:
+
+```ts
+await db.collection('packageVersions').get({
+  name: '@async/db',
+  version: '0.9.0',
+});
+```
+
+REST keeps `/:id` routes for single-field identity. Compound-key resources use `/__key` with query parameters for reads and object bodies for writes. GraphQL exposes a resource-specific `KeyInput` type and uses a `key` argument for reads, updates, and deletes.
+
+Append-only event logs can use `writePolicy: "append-only"` and `log` metadata. They allow `append()` and reject create, update, delete, and replace-all mutation APIs.
+
+Encoded payload fields use `type: "bytes"` with `encoding: "base64"`, `"base64url"`, or `"hex"`. The normalized schema and manifests include bytes metadata so viewers, generated types, REST, and GraphQL can treat payloads as strings while validation checks the declared encoding.
 
 ## Add Schema When Inference Is Not Enough
 

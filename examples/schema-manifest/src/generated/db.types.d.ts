@@ -41,9 +41,15 @@ export type DbCollections = {
 export type DbDocuments = {
 };
 
+export type DbCollectionKeys = {
+  projects: NonNullable<Project["id"]>;
+  users: NonNullable<User["id"]>;
+};
+
 export type DbTypes = {
   collections: DbCollections;
   documents: DbDocuments;
+  collectionKeys: DbCollectionKeys;
 };
 
 export type DbCollectionName = keyof DbCollections;

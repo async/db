@@ -10,8 +10,10 @@ type GeneratedSchemaResource = {
   typeName: string;
   routePath: string;
   idField?: string;
+  identity?: unknown;
   description?: unknown;
   writePolicy?: unknown;
+  log?: unknown;
   fields?: unknown;
   relations?: unknown;
   seed?: unknown;
@@ -44,8 +46,10 @@ function serializeResource(resource: SchemaResource): GeneratedSchemaResource {
     typeName: resource.typeName,
     routePath: resource.routePath,
     idField: resource.kind === 'collection' ? resource.idField : undefined,
+    identity: resource.kind === 'collection' ? resource.identity : undefined,
     description: resource.description,
     writePolicy: resource.writePolicy,
+    log: resource.log,
     fields: Object.keys(resource.fields ?? {}).length > 0 ? resource.fields : undefined,
     relations: resource.relations,
     seed: resource.seed,

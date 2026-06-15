@@ -1,10 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "ignoreDependencies": [
+    "@async/api-contract"
+  ],
   "ignorePatterns": [
-    "examples/**"
+    "examples/**",
+    "scripts/build-pages.js"
   ],
   "entry": [
     "db.config.example.mjs",
+    "pipeline.ts",
     "scripts/**/*.js",
     "scripts/**/*.ts",
     "src/**/*.test.ts",

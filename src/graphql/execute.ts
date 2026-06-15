@@ -1,4 +1,5 @@
 import { camelCase, singularResourceName } from '../names.js';
+import { identityForResource, singleIdentityField } from '../features/identity.js';
 import { resolveSelectedComputedFields } from '../features/runtime/fanout.js';
 import { describeValue, graphqlError, dbError, listChoices } from '../errors.js';
 import {
@@ -37,6 +38,9 @@ type GraphqlResource = {
   kind: string;
   typeName: string;
   idField?: string;
+  identity?: {
+    fields?: string[];
+  };
   description?: string;
   fields?: Record<string, GraphqlField>;
 };
@@ -276,7 +280,7 @@ async function executeQueryField(db: GraphqlDb, selection: GraphqlSelectionNode,
     };
   }
 
-  const id = readRequiredIdArgument(selection, variables);
+  const id = readRequiredKeyArgument(selection, variables, resource);
 
   return {
     value: await db.collection(resource.name).get(id),
@@ -333,7 +337,7 @@ async function executeCollectionMutation(
   }
 
   if (mutation.action === 'update') {
-    const id = readRequiredIdArgument(selection, variables);
+    const id = readRequiredKeyArgument(selection, variables, mutation.resource);
     const patch = readArgument(selection, 'patch', variables);
     if (!isObject(patch)) {
       throw argumentTypeError(selection.name, 'patch', 'object', patch);
@@ -342,7 +346,7 @@ async function executeCollectionMutation(
   }
 
   if (mutation.action === 'delete') {
-    const id = readRequiredIdArgument(selection, variables);
+    const id = readRequiredKeyArgument(selection, variables, mutation.resource);
     return collection.delete(id);
   }
 
@@ -616,6 +620,30 @@ function readRequiredIdArgument(selection, variables) {
     );
   }
   return id;
+}
+
+function readRequiredKeyArgument(selection, variables, resource: GraphqlResource) {
+  const identity = identityForResource(resource);
+  const idField = singleIdentityField(identity);
+  if (idField) {
+    return readRequiredIdArgument(selection, variables);
+  }
+
+  const key = readArgument(selection, 'key', variables);
+  if (!isObject(key)) {
+    throw dbError(
+      'GRAPHQL_MISSING_KEY_ARGUMENT',
+      `GraphQL field "${selection.name}" requires object argument "key".`,
+      {
+        hint: `Pass key: { ${identity.fields.map((field) => `${field}: ...`).join(', ')} }.`,
+        details: {
+          field: selection.name,
+          identity,
+        },
+      },
+    );
+  }
+  return key;
 }
 
 function evaluateValue(valueNode, variables) {

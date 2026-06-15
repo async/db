@@ -77,10 +77,11 @@ export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
     const packageResource = report.importPlan?.resources.find((resource) => resource.table === 'package_versions');
     assert.deepEqual(packageResource?.keyStrategy, {
-      kind: 'compound-generated-id',
+      kind: 'compound-object-key',
       fields: ['name', 'version'],
-      idField: 'id',
     });
+    assert.deepEqual(packageResource?.identity, { fields: ['name', 'version'] });
+    assert.equal(packageResource?.idField, undefined);
     const events = report.importPlan?.resources.find((resource) => resource.table === 'install_events');
     assert.equal(events?.importKind, 'append-only');
     const settings = report.importPlan?.resources.find((resource) => resource.table === 'settings');

@@ -79,6 +79,94 @@ export type JsonStateWriteOptions = {
   fs?: DbFileSystem;
 };
 
+export type JsonIdentityDefinition = {
+  fields: string[];
+};
+
+export type JsonBytesEncoding = 'base64' | 'base64url' | 'hex';
+
+export type JsonFieldDefinition = {
+  type?: string;
+  required?: boolean;
+  nullable?: boolean;
+  encoding?: JsonBytesEncoding;
+  fields?: Record<string, JsonFieldDefinition>;
+  items?: JsonFieldDefinition;
+  [key: string]: unknown;
+};
+
+export type JsonResourceOptions = {
+  idField?: string;
+  identity?: JsonIdentityDefinition;
+  writePolicy?: 'append-only' | string;
+  log?: {
+    cursorField?: string;
+    order?: 'asc' | 'desc';
+    payloadField?: string;
+    [key: string]: unknown;
+  };
+  fields?: Record<string, JsonFieldDefinition>;
+  indexes?: Array<string | { fields: string[] }>;
+};
+
+export type JsonKey = string | number | boolean | Record<string, unknown>;
+
+export type JsonWritesMode = 'sidecar' | 'source';
+
+export type JsonOpenOptions = {
+  cwd?: string;
+  fs?: DbFileSystem;
+  writes?: JsonWritesMode;
+  stateDir?: string;
+  idField?: string;
+  identity?: JsonIdentityDefinition;
+  writePolicy?: 'append-only' | string;
+  fields?: Record<string, JsonFieldDefinition>;
+  resource?: JsonResourceOptions;
+  resources?: Record<string, JsonResourceOptions>;
+  indexes?: JsonResourceOptions['indexes'] | Record<string, JsonResourceOptions['indexes']>;
+  store?: unknown;
+};
+
+export type JsonCollection = {
+  kind: 'collection';
+  name: string;
+  all(): Promise<Array<Record<string, unknown>>>;
+  get(key: JsonKey): Promise<Record<string, unknown> | null>;
+  exists(key: JsonKey): Promise<boolean>;
+  find(query?: Record<string, unknown>): Promise<Array<Record<string, unknown>>>;
+  count(query?: Record<string, unknown>): Promise<number>;
+  aggregate(query: Record<string, unknown>): Promise<Array<Record<string, unknown>>>;
+  create(record: Record<string, unknown>): Promise<Record<string, unknown>>;
+  append(record: Record<string, unknown>): Promise<Record<string, unknown>>;
+  update(key: JsonKey, patch: Record<string, unknown>): Promise<Record<string, unknown> | null>;
+  patch(key: JsonKey, patch: Record<string, unknown>): Promise<Record<string, unknown> | null>;
+  delete(key: JsonKey): Promise<boolean>;
+  replaceAll(records: Array<Record<string, unknown>>): Promise<Array<Record<string, unknown>>>;
+};
+
+export type JsonDocumentPath = string | Array<string | number>;
+
+export type JsonDocument = {
+  kind: 'document';
+  name: string;
+  all(): Promise<unknown>;
+  get(path?: JsonDocumentPath): Promise<unknown>;
+  put(value: unknown): Promise<unknown>;
+  set(path: JsonDocumentPath, value: unknown): Promise<unknown>;
+  update(patch: Record<string, unknown>): Promise<unknown>;
+};
+
+export type JsonDatabase = {
+  kind: 'database';
+  resourceNames(): string[];
+  collection(name: string): JsonCollection;
+  document(name: string): JsonDocument;
+  close(): Promise<void>;
+};
+
+export type JsonOpenResult = JsonCollection | JsonDocument | JsonDatabase;
+
 export const jsonStoreCapabilities: JsonStoreCapabilities;
 
 export function fileStorage(root: string): JsonFileStorage;
@@ -108,3 +196,4 @@ export function listJsonStateVersions(filePath: string, fs?: DbFileSystem): Prom
 export function restoreJsonStateVersion(filePath: string, version?: 'latest' | string, options?: { fs?: DbFileSystem; maxVersions?: number }): Promise<JsonStateVersion>;
 /** Boot-time sweep: remove orphaned atomic-write temp files and reclaim lock files whose owner process is gone. */
 export function recoverJsonStateDir(directory: string, fs?: DbFileSystem): Promise<JsonStateRecoveryReport>;
+export function json(target: string, options?: JsonOpenOptions): Promise<JsonOpenResult>;

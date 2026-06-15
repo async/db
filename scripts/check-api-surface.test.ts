@@ -11,7 +11,7 @@ test('api surface check fails when public package files change without the ledge
     changedFiles: [
       'src/index.d.ts',
       'src/features/runtime/collection.ts',
-      'test/runtime/package-api.test.ts',
+      'tests/runtime/package-api.test.ts',
     ],
   });
 
@@ -47,7 +47,7 @@ test('api surface check ignores docs, tests, scripts, and examples', () => {
       'docs/package-api.md',
       'scripts/check-api-surface.ts',
       'src/runtime.test.ts',
-      'test/package/exports.test.ts',
+      'tests/package/exports.test.ts',
       'examples/basic/README.md',
     ],
   });

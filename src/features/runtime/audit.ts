@@ -5,8 +5,8 @@ import { dbFileSystem, type DbFileSystem } from '../fs/index.js';
 /**
  * Opt-in per-resource audit trail. With `resources.<name>.audit: true`, every
  * successful runtime write appends one JSON line to a `.audit/<resource>.jsonl`
- * file beside the resource state. Entries record what changed (op, id, field
- * names) but not values by default; `audit: { values: true }` includes
+ * file beside the resource state. Entries record what changed (op, id/key,
+ * field names) but not values by default; `audit: { values: true }` includes
  * before/after snapshots for full forensic trails.
  *
  * Audit writes are append-only and never fail the data write: failures emit a
@@ -22,6 +22,7 @@ export type AuditEntry = {
   kind: 'collection' | 'document';
   op: string;
   id?: unknown;
+  key?: unknown;
   fields?: string[];
   before?: unknown;
   after?: unknown;

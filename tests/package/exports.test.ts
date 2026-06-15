@@ -49,13 +49,13 @@ test('consumer projects can import package APIs through the @async/db package', 
   await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, inspectSchemaMigration, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig } from '@async/db/config';
-import { fileStorage, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
+import { fileStorage, json, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
 import { sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, openLegacySqlite } from '@async/db/sqlite/compat';
 import { openPostgresDb, postgresStore } from '@async/db/postgres';
 import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, openLegacyPostgres } from '@async/db/postgres/compat';
 import { kvStore } from '@async/db/kv';
-import { redisStore } from '@async/db/redis';
+import { redisJson, redisStore } from '@async/db/redis';
 
 const jsonModule = await import('@async/db/json');
 
@@ -73,6 +73,7 @@ if (typeof createIndexedDbCacheStorage !== 'function') throw new Error('missing 
 if (typeof createClientIndexedDbCacheStorage !== 'function') throw new Error('missing client indexeddb cache API');
 if (typeof defineConfig !== 'function') throw new Error('missing config API');
 if (jsonStoreCapabilities.persistence !== 'local-file') throw new Error('missing json store capabilities');
+if (typeof json !== 'function') throw new Error('missing json standalone API');
 if (typeof jsonStore !== 'function') throw new Error('missing json store helper');
 if (typeof fileStorage !== 'function') throw new Error('missing json file storage helper');
 if (typeof s3Storage !== 'function') throw new Error('missing json s3 storage helper');
@@ -91,6 +92,7 @@ if (typeof definePostgresImportPlan !== 'function') throw new Error('missing pos
 if (typeof openLegacyPostgres !== 'function') throw new Error('missing postgres compat legacy opener');
 if (typeof kvStore !== 'function') throw new Error('missing kv store API');
 if (typeof redisStore !== 'function') throw new Error('missing redis store API');
+if (typeof redisJson !== 'function') throw new Error('missing redis json store API');
 `);
 
   await execFileAsync(process.execPath, ['check-package.mjs'], { cwd });
@@ -125,13 +127,25 @@ export type Settings = {
   theme?: string;
 };
 
+export type CollectionResource = {
+  id: string;
+  label: string;
+};
+
+export type DbCollectionKeys = {
+  users: NonNullable<User["id"]>;
+  collection: NonNullable<CollectionResource["id"]>;
+};
+
 export type DbTypes = {
   collections: {
     users: User;
+    collection: CollectionResource;
   };
   documents: {
     settings: Settings;
   };
+  collectionKeys: DbCollectionKeys;
 };
 `, 'utf8');
   await writeFile(path.join(cwd, 'src/check-package.ts'), `import {
@@ -161,6 +175,7 @@ import {
   atomicWriteJson,
   atomicWriteJsonVersioned,
   fileStorage,
+  json,
   jsonStateVersionsDir,
   jsonStore,
   jsonStatePathForResource,
@@ -172,12 +187,14 @@ import {
   s3Storage,
   withJsonStateWrite,
   writeJsonState,
+  type JsonOpenOptions,
   type JsonStoreCapabilities,
 } from '@async/db/json';
 import { kvStore } from '@async/db/kv';
 import { openPostgresDb, postgresStore, type PostgresTableMapping } from '@async/db/postgres';
 import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, type PostgresCompatDriver, type PostgresImportPlan } from '@async/db/postgres/compat';
 import { redisStore } from '@async/db/redis';
+import { redisJson } from '@async/db/redis';
 import { collection, field, files, type DerivedFieldDefinition, type ResourceDefinition } from '@async/db/schema';
 import { sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, type SqliteCompatDriver, type SqliteImportPlan } from '@async/db/sqlite/compat';
@@ -269,6 +286,15 @@ void dbPromise.then(async (db) => {
   await db.collection('users').delete('u_1', { ifMatch: '*' });
   await db.document('settings').update({}, { ifMatch: recordEtag({}) });
   const settings = await db.document('settings').get();
+  const proxiedUsers = await db.users.find({ where: { email: { contains: '@' } }, orderBy: 'name' });
+  const proxiedSettings = await db.settings.get();
+  const collectionResource = await db.collection.find({ where: { label: 'resource' } });
+  await db._.collection('users').get('u_1');
+  await db._.document('settings').get();
+  // @ts-expect-error unknown query fields should be rejected for typed resources
+  await db.users.find({ where: { missing: true } });
+  // @ts-expect-error document resources do not expose collection query methods
+  await db.settings.find();
   await db.document('settings').set(documentPath, 'dark');
   await db.document('settings').set('theme', 'dark');
   const requestHandler = createDbRequestHandler(db);
@@ -281,7 +307,7 @@ void dbPromise.then(async (db) => {
   void requestHandler;
   void operationHandler;
   void branchList;
-  return { first, settings };
+  return { collectionResource, first, proxiedSettings, proxiedUsers, settings };
 });
 
 const client: DbClient = createDbClient({
@@ -307,12 +333,14 @@ void recoverJsonStateDir('.db/state');
 void jsonStateVersionsDir(jsonStatePath);
 void jsonStore({ durability: 'versioned', maxVersions: 5, encryption: { key: () => 'k' } });
 void jsonStore();
+void json('./db/package-versions.json', { identity: { fields: ['name', 'version'] } } satisfies JsonOpenOptions);
 void s3Storage({
   bucket: 'app-json-db',
   prefix: 'prod',
   encryption: { mode: 'sse-kms', keyId: 'alias/app-json-db' },
 });
 void jsonCapabilities;
+void redisJson({ client: { json: { get: async () => null, set: async () => undefined } } });
 void sqliteStore({ file: ':memory:' });
 const sqliteCompatDriver: SqliteCompatDriver = 'node:sqlite';
 const sqliteImportPlan: SqliteImportPlan = defineSqliteImportPlan({
@@ -401,7 +429,7 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.equal(packageJson.scripts['release:publish'], 'pnpm run pipeline:publish');
   assert.equal(packageJson.scripts.verify, 'pnpm run pipeline:verify');
   assert.equal(packageJson.scripts.prepack, 'pnpm run build');
-  assert.equal(packageJson.devDependencies['@async/pipeline'], '0.4.3');
+  assert.equal(packageJson.devDependencies['@async/pipeline'], '0.4.4');
   assert.equal(packageJson.devDependencies['@async/api-contract'], '0.1.0');
   assert.equal(packageJson.engines.node, '>=24');
 });
@@ -461,7 +489,7 @@ test('generated async-pipeline workflow owns release, preview, snapshot, and Pag
   assert.match(workflow, /release:/);
   assert.match(workflow, /name: pages/);
   assert.match(workflow, /name: pages-deploy/);
-  assert.match(workflow, /path: "\.\/website\/dist"/);
+  assert.match(workflow, /path: "\.async\/pages"/);
   assert.match(workflow, /name: preview/);
   assert.match(workflow, /name: snapshot/);
   assert.match(workflow, /name: publish-github/);
@@ -482,7 +510,7 @@ test('generated async-pipeline workflow owns release, preview, snapshot, and Pag
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /packages: write/);
   assert.match(workflow, /pull-requests: write/);
-  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.npm_token \}\}/);
   const releaseDoctorJob = workflow.match(/  release-doctor:[\s\S]*?\n\n  snapshot:/)?.[0] ?? '';
   assert.match(releaseDoctorJob, /contents: read/);
   assert.match(releaseDoctorJob, /packages: read/);
@@ -496,6 +524,7 @@ test('generated async-pipeline workflow owns release, preview, snapshot, and Pag
   assert(lock.jobs.some((job: { id: string }) => job.id === 'publish'));
   assert(lock.jobs.some((job: { id: string }) => job.id === 'release-doctor'));
   assert(taskLock.commands.some((command: { name: string }) => command.name === 'pipeline:release:ensure'));
+  assert(taskLock.commands.some((command: { name: string }) => command.name === 'pipeline:task:docs.site'));
   assert.deepEqual(releaseConfig.packages['.'], {
     'release-type': 'node',
     'package-name': '@async/db',
@@ -627,6 +656,12 @@ test('public JSON declarations expose file database helpers', async () => {
   assert.match(declarations, /export function restoreJsonStateVersion\(/);
   assert.match(declarations, /export function listJsonStateVersions\(/);
   assert.match(declarations, /export function recoverJsonStateDir\(/);
+  assert.match(declarations, /export type JsonIdentityDefinition = \{/);
+  assert.match(declarations, /export type JsonOpenOptions = \{/);
+  assert.match(declarations, /identity\?: JsonIdentityDefinition;/);
+  assert.match(declarations, /writePolicy\?: 'append-only' \| string;/);
+  assert.match(declarations, /export type JsonKey = string \| number \| boolean \| Record<string, unknown>;/);
+  assert.match(declarations, /export function json\(target: string, options\?: JsonOpenOptions\): Promise<JsonOpenResult>;/);
   assert.match(declarations, /export type JsonStoreEncryptionOptions = \{/);
   assert.match(declarations, /export type JsonStateWriteOptions = \{/);
   assert.match(declarations, /crossProcessLock\?: boolean;/);

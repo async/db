@@ -41,7 +41,7 @@
         },
         {
           "id": "export.json",
-          "title": "@async/db/json JSON store helpers, state utilities, WAL, versioning, recovery, and encryption",
+          "title": "@async/db/json compatibility exports for @async/json store helpers, state utilities, versioning, recovery, and encryption",
           "releaseTag": "public",
           "stability": "stable",
           "group": "exports",
@@ -97,7 +97,7 @@
         },
         {
           "id": "export.redis",
-          "title": "@async/db/redis optional Redis-like store adapter boundary",
+          "title": "@async/db/redis optional Redis-like KV adapter and RedisJSON store adapter boundary",
           "releaseTag": "beta",
           "stability": "preview",
           "group": "exports",
@@ -231,7 +231,7 @@
       "features": [
         {
           "id": "runtime.database",
-          "title": "openDb, Db, collection/document APIs, forks, branches, snapshots, migrations, close, and ETag preconditions",
+          "title": "openDb, Db, resource-property proxies, db._ controls, collection/document APIs, identity keys, append-only resources, lifecycle, close, and ETag preconditions",
           "releaseTag": "public",
           "stability": "stable",
           "group": "runtime",
@@ -255,7 +255,7 @@
         },
         {
           "id": "runtime.schema-authoring",
-          "title": "trusted local schema helpers including collection, document, field, files, and derived fields",
+          "title": "trusted local schema helpers including collection identity, log metadata, document, field.bytes, files, and derived fields",
           "releaseTag": "public",
           "stability": "stable",
           "group": "schema",
@@ -279,7 +279,7 @@
         },
         {
           "id": "runtime.json-store",
-          "title": "JSON store helpers, advisory locks, atomic writes, WAL, versioning, crash recovery, encryption, and object storage descriptor",
+          "title": "JSON store helpers use @async/json engine boundaries for identity keys, append-only policy, bytes validation, advisory locks, atomic writes, versioning, crash recovery, encryption, and sidecar state",
           "releaseTag": "public",
           "stability": "stable",
           "group": "storage",
@@ -327,7 +327,7 @@
         },
         {
           "id": "runtime.sqlite-integration",
-          "title": "SQLite inspection, Async DB-owned SQLite storage, existing table mapping, and compat adapters",
+          "title": "SQLite inspection, primary-key identity metadata, Async DB-owned SQLite storage, existing table mapping, and compat adapters",
           "releaseTag": "beta",
           "stability": "preview",
           "group": "integrations",
@@ -335,7 +335,7 @@
         },
         {
           "id": "runtime.postgres-integration",
-          "title": "Postgres inspection, JSONB envelope storage, existing table mapping, and compat adapters",
+          "title": "Postgres inspection, primary-key identity metadata, JSONB envelope storage, existing table mapping, and compat adapters",
           "releaseTag": "beta",
           "stability": "preview",
           "group": "integrations",
@@ -366,7 +366,7 @@
         },
         {
           "id": "http.rest-resources",
-          "title": "REST resources under /db support JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior",
+          "title": "REST resources under /db support single-id routes, compound __key routes, JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior",
           "releaseTag": "public",
           "stability": "stable",
           "group": "rest",
@@ -398,7 +398,7 @@
         },
         {
           "id": "http.graphql",
-          "title": "Dependency-free GraphQL subset supports queries, mutations, aliases, variables, batching, and introspection",
+          "title": "Dependency-free GraphQL subset supports queries, mutations, compound key inputs, aliases, variables, batching, and introspection",
           "releaseTag": "public",
           "stability": "stable",
           "group": "graphql",
@@ -437,7 +437,7 @@
       "features": [
         {
           "id": "generated.types",
-          "title": ".db/types/index.d.ts and types.commitOutFile generated TypeScript declarations",
+          "title": ".db/types/index.d.ts and types.commitOutFile generated TypeScript declarations with resource proxies and identity key maps",
           "releaseTag": "public",
           "stability": "generated",
           "group": "types",
@@ -445,7 +445,7 @@
         },
         {
           "id": "generated.schema",
-          "title": ".db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated schema metadata",
+          "title": ".db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated identity, log, bytes, schema, REST, and GraphQL metadata",
           "releaseTag": "public",
           "stability": "generated",
           "group": "schema",
@@ -453,7 +453,7 @@
         },
         {
           "id": "generated.viewer-manifest",
-          "title": "viewerManifestOutFile and outputs.viewerManifest viewer contracts",
+          "title": "viewerManifestOutFile and outputs.viewerManifest viewer contracts with identity and field metadata",
           "releaseTag": "public",
           "stability": "generated",
           "group": "viewer",
@@ -572,7 +572,7 @@
         },
         {
           "id": "config.stores",
-          "title": "stores, JSON durability, resource schemas, sources, routes, defaults, seed, audit, and UI metadata",
+          "title": "stores, JSON durability, resource identity/log schemas, bytes fields, sources, routes, defaults, seed, audit, and UI metadata",
           "releaseTag": "beta",
           "stability": "preview",
           "group": "config",

@@ -1,11 +1,19 @@
 # Production JSON Database
 
-`@async/db/json` is the first-party file database surface for @async/db. It is for resources that should stay simple, reviewable, and file-backed while the app talks to the same @async/db API layer it would use for SQLite, Postgres, or a custom store.
+`@async/json` is the standalone file/folder JSON database engine. `@async/db/json`
+keeps the existing compatibility subpath for @async/db users. This surface is
+for resources that should stay simple, reviewable, and file-backed while the app
+talks to the same @async/db API layer it would use for RedisJSON, SQLite,
+Postgres, or a custom store.
 
 The product split is:
 
-- `@async/db` owns the app-facing data layer: schemas, generated types, clients, REST/GraphQL metadata, registered operations, and store switching.
-- `@async/db/json` owns the simple JSON file database surface: JSON store capability metadata and safe JSON state-file helpers.
+- `@async/json` owns the JSON engine: file/folder opening, sidecar state,
+  state-file helpers, declared local indexes, recovery, versioning, and
+  RedisJSON runtime adapters.
+- `@async/db` owns the app-facing data layer: readers, schemas, generated types,
+  clients, REST/GraphQL metadata, registered operations, lifecycle, and store
+  switching.
 
 JSON controls the app. Databases record the app.
 

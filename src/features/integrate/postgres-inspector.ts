@@ -120,6 +120,7 @@ export type PostgresIntegrationSuggestion = {
 
 export type PostgresIntegrationImportKeyStrategy =
   | { kind: 'single-primary-key'; field: string }
+  | { kind: 'compound-object-key'; fields: string[] }
   | { kind: 'compound-generated-id'; fields: string[]; idField: string }
   | { kind: 'key-value-document'; keyField: string; valueField: string }
   | { kind: 'append-only'; idField?: string };
@@ -132,6 +133,9 @@ export type PostgresIntegrationImportResource = {
   importKind: 'collection' | 'document' | 'append-only';
   primaryKey: string[];
   idField?: string;
+  identity?: {
+    fields: string[];
+  };
   writePolicy?: 'append-only';
   fields: Record<string, {
     type: string;
@@ -1092,6 +1096,7 @@ function importResourceForTable(table: PostgresIntegrationTable): PostgresIntegr
       kind: 'collection',
       importKind: 'append-only',
       idField,
+      identity: idField ? { fields: [idField] } : undefined,
       writePolicy: 'append-only',
       keyStrategy: { kind: 'append-only', idField },
     };
@@ -1102,14 +1107,10 @@ function importResourceForTable(table: PostgresIntegrationTable): PostgresIntegr
       ...base,
       kind: 'collection',
       importKind: 'collection',
-      idField: 'id',
-      fields: {
-        id: { type: 'string', required: true },
-        ...base.fields,
-      },
-      keyStrategy: { kind: 'compound-generated-id', fields: table.primaryKey, idField: 'id' },
+      identity: { fields: table.primaryKey },
+      keyStrategy: { kind: 'compound-object-key', fields: table.primaryKey },
       warnings: [
-        `Compound key (${table.primaryKey.join(', ')}) is preserved as domain identity; import mode adds a deterministic Async DB collection id.`,
+        `Compound key (${table.primaryKey.join(', ')}) is preserved as Async DB identity fields; use object keys for reads and writes.`,
       ],
     };
   }
@@ -1120,6 +1121,7 @@ function importResourceForTable(table: PostgresIntegrationTable): PostgresIntegr
       kind: 'collection',
       importKind: 'collection',
       idField: table.primaryKey[0],
+      identity: { fields: [table.primaryKey[0]] },
       keyStrategy: { kind: 'single-primary-key', field: table.primaryKey[0] },
     };
   }
@@ -1129,6 +1131,7 @@ function importResourceForTable(table: PostgresIntegrationTable): PostgresIntegr
     kind: 'collection',
     importKind: 'collection',
     idField: 'id',
+    identity: { fields: ['id'] },
     fields: {
       id: { type: 'string', required: true },
       ...base.fields,

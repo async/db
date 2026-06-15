@@ -6,7 +6,7 @@ import { openDb } from './index.js';
 import { createDbOperationHandler } from './operations.js';
 import { openPostgresDb } from './postgres.js';
 import { adaptPostgresClient, compoundKeyId, runPostgresImportPlan, type PostgresImportPlan } from './postgres-compat.js';
-import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../tests/helpers.js';
 
 test('postgresStore hydrates, persists, and refreshes selected resources', async () => {
   const cwd = await makeProject();
@@ -340,6 +340,10 @@ test('openPostgresDb supports append-only table-backed collections', async () =>
       decision: 'allowed',
     },
   ]);
+  await assert.rejects(
+    () => db.table('installEvents').create({ id: 'evt_2', decision: 'blocked' }),
+    /append-only/,
+  );
   await assert.rejects(
     () => db.table('installEvents').patch('evt_1', { decision: 'blocked' }),
     /append-only/,

@@ -1,4 +1,12 @@
 import { dbError } from '../../errors.js';
+import {
+  assertIdentityFields,
+  identityForResource,
+  keyFromRecord,
+  normalizeKey,
+  recordMatchesKey,
+  singleIdentityField,
+} from '../identity.js';
 import { createSchemaValidator, validateUniqueCollectionFields } from '../../schema.js';
 import { applyDefaultsToRecord } from '../../sync.js';
 import { createRuntime } from '../storage/runtime.js';
@@ -30,6 +38,9 @@ type RuntimeResource = {
   name: string;
   kind?: string;
   idField?: string;
+  identity?: {
+    fields?: string[];
+  };
   writePolicy?: string;
   [key: string]: unknown;
 };
@@ -93,7 +104,8 @@ export class DbCollection {
 
   async get(id: unknown): Promise<RuntimeRecord | null> {
     const records = await this.all();
-    return records.find((record) => idMatches(record?.[this.resource.idField], id)) ?? null;
+    const key = normalizeKey(this.resource, id);
+    return records.find((record) => recordMatchesKey(this.resource, record, key)) ?? null;
   }
 
   async exists(id: unknown): Promise<boolean> {
@@ -113,6 +125,7 @@ export class DbCollection {
   }
 
   async create(record: RuntimeRecord): Promise<RuntimeRecord> {
+    this.assertMutable('create');
     return this.createWithOperation(record, 'create');
   }
 
@@ -127,30 +140,37 @@ export class DbCollection {
       const nextRecord = this.config.defaults?.applyOnCreate === false
         ? { ...record }
         : applyDefaultsToRecord(record, this.resource);
-      let id = nextRecord[this.resource.idField];
+      const identity = identityForResource(this.resource);
+      const idField = singleIdentityField(identity);
 
-      if (id === undefined || id === null || id === '') {
-        id = nextCollectionId(records, this.resource.idField);
-        nextRecord[this.resource.idField] = id;
+      if (idField && (nextRecord[idField] === undefined || nextRecord[idField] === null || nextRecord[idField] === '')) {
+        nextRecord[idField] = nextCollectionId(records, idField);
+      }
+      if (!idField) {
+        assertIdentityFields(this.resource, nextRecord);
       }
 
       const validatedRecord = await assertRuntimeRecord(nextRecord, this.resource, this.config, {
         mode: 'create',
         source: `${this.resource.name} create body`,
       });
-      id = validatedRecord[this.resource.idField];
+      const key = keyFromRecord(this.resource, validatedRecord);
 
-      if (records.some((existing) => idMatches(existing?.[this.resource.idField], id))) {
+      if (records.some((existing) => recordMatchesKey(this.resource, existing, key))) {
         throw dbError(
-          'DB_CREATE_DUPLICATE_ID',
-          `Cannot create "${this.resource.name}" record because id "${id}" already exists.`,
+          idField ? 'DB_CREATE_DUPLICATE_ID' : 'DB_CREATE_DUPLICATE_KEY',
+          idField
+            ? `Cannot create "${this.resource.name}" record because id "${String(key[idField])}" already exists.`
+            : `Cannot create "${this.resource.name}" record because its identity already exists.`,
           {
             status: 409,
-            hint: 'Use a unique id, or call patch/update if you intended to modify the existing record.',
+            hint: idField
+              ? 'Use a unique id, or call patch/update if you intended to modify the existing record.'
+              : `Use a unique compound key for fields: ${identity.fields.join(', ')}.`,
             details: {
               resource: this.resource.name,
-              idField: this.resource.idField,
-              id,
+              identity,
+              key,
             },
           },
         );
@@ -158,9 +178,9 @@ export class DbCollection {
 
       assertUniqueCollectionRecords([...records, validatedRecord], this.resource);
       const nextRecords = [...records, validatedRecord];
-      await this.write(nextRecords, { op: 'put-record', idField: this.resource.idField, record: validatedRecord });
-      await this.audit(operation, { id, after: validatedRecord });
-      this.emit(operation, { id });
+      await this.write(nextRecords, { op: 'put-record', identity, record: validatedRecord });
+      await this.audit(operation, { id: singleAuditId(identity, key), key, after: validatedRecord });
+      this.emit(operation, { id: singleAuditId(identity, key), key });
       return validatedRecord;
     });
   }
@@ -170,22 +190,23 @@ export class DbCollection {
     this.assertMutable('update');
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
-      const index = records.findIndex((record) => idMatches(record?.[this.resource.idField], id));
+      const key = normalizeKey(this.resource, id);
+      const index = records.findIndex((record) => recordMatchesKey(this.resource, record, key));
       if (index === -1) {
         return null;
       }
-      const existingId = records[index]?.[this.resource.idField];
+      const identity = identityForResource(this.resource);
       // Checked inside the write queue so no concurrent write can land
       // between the precondition and this update.
       assertIfMatch(records[index], options.ifMatch, {
         resource: this.resource.name,
-        id: existingId,
+        id: singleAuditId(identity, key),
       });
 
       const nextRecord = {
         ...records[index],
         ...patch,
-        [this.resource.idField]: existingId,
+        ...Object.fromEntries(identity.fields.map((field) => [field, records[index]?.[field]])),
       };
       const nextRecords = [...records];
       nextRecords[index] = await assertRuntimeRecord(nextRecord, this.resource, this.config, {
@@ -193,14 +214,15 @@ export class DbCollection {
         source: `${this.resource.name} patch body`,
       });
       assertUniqueCollectionRecords(nextRecords, this.resource);
-      await this.write(nextRecords, { op: 'put-record', idField: this.resource.idField, record: nextRecords[index] });
+      await this.write(nextRecords, { op: 'put-record', identity, record: nextRecords[index] });
       await this.audit('update', {
-        id: existingId,
+        id: singleAuditId(identity, key),
+        key,
         fields: Object.keys(patch ?? {}),
         before: records[index],
         after: nextRecords[index],
       });
-      this.emit('update', { id: existingId });
+      this.emit('update', { id: singleAuditId(identity, key), key });
       return nextRecords[index];
     });
   }
@@ -214,18 +236,20 @@ export class DbCollection {
     this.assertMutable('delete');
     return this.adapter().withResourceWrite(this.resource, async () => {
       const records = await this.all();
-      const index = records.findIndex((record) => idMatches(record?.[this.resource.idField], id));
+      const key = normalizeKey(this.resource, id);
+      const identity = identityForResource(this.resource);
+      const index = records.findIndex((record) => recordMatchesKey(this.resource, record, key));
       if (index === -1) {
         return false;
       }
       assertIfMatch(records[index], options.ifMatch, {
         resource: this.resource.name,
-        id,
+        id: singleAuditId(identity, key),
       });
-      const nextRecords = records.filter((record) => !idMatches(record?.[this.resource.idField], id));
-      await this.write(nextRecords, { op: 'delete-record', idField: this.resource.idField, id });
-      await this.audit('delete', { id, before: records[index] });
-      this.emit('delete', { id });
+      const nextRecords = records.filter((record) => !recordMatchesKey(this.resource, record, key));
+      await this.write(nextRecords, { op: 'delete-record', identity, key });
+      await this.audit('delete', { id: singleAuditId(identity, key), key, before: records[index] });
+      this.emit('delete', { id: singleAuditId(identity, key), key });
       return true;
     });
   }
@@ -276,7 +300,13 @@ export class DbCollection {
     });
   }
 
-  private audit(op: string, details: { id?: unknown; fields?: string[]; before?: unknown; after?: unknown }): Promise<void> {
+  private audit(op: string, details: {
+    id?: unknown;
+    key?: unknown;
+    fields?: string[];
+    before?: unknown;
+    after?: unknown;
+  }): Promise<void> {
     return recordAuditEntry(this.config, this.path, {
       at: new Date().toISOString(),
       resource: this.resource.name,
@@ -377,8 +407,9 @@ function assertUniqueCollectionRecords(records: RuntimeRecord[], resource: Runti
   );
 }
 
-function idMatches(left: unknown, right: unknown): boolean {
-  return left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right);
+function singleAuditId(identity: ReturnType<typeof identityForResource>, key: RuntimeRecord): unknown {
+  const idField = singleIdentityField(identity);
+  return idField ? key[idField] : undefined;
 }
 
 function nextCollectionId(records: RuntimeRecord[], idField: string | undefined): string {

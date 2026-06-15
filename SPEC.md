@@ -1205,7 +1205,7 @@ The manifest should have this top-level shape:
 }
 ```
 
-Each resource entry should include `kind`, `name`, `idField` for collections, optional `description`, and `fields`. Each field should include normalized field metadata such as `type`, `required`, `nullable`, `default`, `values`, nested object `fields`, array `items`, `relation`, constraints, and inferred `ui` defaults.
+Each resource entry should include `kind`, `name`, normalized `identity` for collections, `idField` when the identity has one field, optional `log` metadata, optional `description`, and `fields`. Each field should include normalized field metadata such as `type`, `required`, `nullable`, `default`, `values`, nested object `fields`, array `items`, `relation`, constraints, encoded `bytes` metadata, and inferred `ui` defaults.
 
 The manifest must not include seed records, source hashes, source paths, runtime state, diagnostics, REST route lists, or GraphQL SDL.
 

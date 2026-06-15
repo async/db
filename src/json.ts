@@ -5,7 +5,7 @@ export {
   fileStorage,
   jsonStateVersionsDir,
   jsonStore,
-  jsonRuntimeCapabilities as jsonStoreCapabilities,
+  jsonStoreCapabilities,
   listJsonStateVersions,
   readJsonState,
   recoverJsonStateDir,
@@ -14,4 +14,6 @@ export {
   statePathForResource as jsonStatePathForResource,
   withJsonStateWrite,
   writeJsonState,
-} from './features/storage/json.js';
+} from '@async/json';
+
+export { default as json } from '@async/json';

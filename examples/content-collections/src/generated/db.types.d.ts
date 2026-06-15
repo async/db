@@ -72,9 +72,16 @@ export type DbDocuments = {
   site: Site;
 };
 
+export type DbCollectionKeys = {
+  authors: NonNullable<Author["id"]>;
+  blog: NonNullable<Blog["id"]>;
+  docs: NonNullable<Doc["id"]>;
+};
+
 export type DbTypes = {
   collections: DbCollections;
   documents: DbDocuments;
+  collectionKeys: DbCollectionKeys;
 };
 
 export type DbCollectionName = keyof DbCollections;

@@ -6,6 +6,7 @@ Use it to:
 
 - Start from editable JSON, JSONC, or CSV data files in `db/`.
 - Infer schema contracts and generate TypeScript types from data files and schemas.
+- Model resource identity with `idField` or compound `identity.fields`, plus log and bytes metadata.
 - Serve local REST routes, GraphQL, and a lightweight data explorer while the backend contract is still forming.
 - Upgrade persistence per resource without rewriting frontend data access.
 - Emit schema metadata for admin, CMS, or form-building screens.
@@ -61,7 +62,7 @@ Add package scripts for the CLI commands you run often:
 }
 ```
 
-The package import name is `@async/db`. Helpers are available from `@async/db/config`, `@async/db/schema`, `@async/db/client`, and `@async/db/json`.
+The package import name is `@async/db`. Helpers are available from `@async/db/config`, `@async/db/schema`, `@async/db/client`, and the compatibility JSON engine subpath `@async/db/json`. The standalone `@async/json` package owns direct JSON file/folder database usage.
 
 ## Five-Minute Start
 

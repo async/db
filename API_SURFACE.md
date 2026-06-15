@@ -13,11 +13,11 @@ Contract: `@async/db.package`
 | `export.client` | @async/db/client tiny HTTP client, REST and GraphQL calls, batching, and cache helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.config` | @async/db/config defineConfig public config helper | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `export.hono` | @async/db/hono optional Hono integration without required Hono dependency | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
-| `export.json` | @async/db/json JSON store helpers, state utilities, WAL, versioning, recovery, and encryption | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.json` | @async/db/json compatibility exports for @async/json store helpers, state utilities, versioning, recovery, and encryption | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.kv` | @async/db/kv optional generic KV store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.postgres` | @async/db/postgres optional Postgres JSONB envelope storage and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.postgres.compat` | @async/db/postgres/compat low-level Postgres driver adapters and legacy bridges | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
-| `export.redis` | @async/db/redis optional Redis-like store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.redis` | @async/db/redis optional Redis-like KV adapter and RedisJSON store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.root` | @async/db root runtime, schema, server, sync, operations, and helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.schema` | @async/db/schema authoring helpers: collection, document, field, derived fields, and files | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
 | `export.sqlite` | @async/db/sqlite optional SQLite store and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
@@ -112,8 +112,8 @@ Contract: `@async/db.runtime`
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
 | `runtime.optional-stores` | SQLite, Postgres, KV, and Redis-like store adapter helper boundaries remain optional | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
-| `runtime.postgres-integration` | Postgres inspection, JSONB envelope storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
-| `runtime.sqlite-integration` | SQLite inspection, Async DB-owned SQLite storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `runtime.postgres-integration` | Postgres inspection, primary-key identity metadata, JSONB envelope storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `runtime.sqlite-integration` | SQLite inspection, primary-key identity metadata, Async DB-owned SQLite storage, existing table mapping, and compat adapters | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 
 ### Lifecycle
 
@@ -143,21 +143,21 @@ Contract: `@async/db.runtime`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.database` | openDb, Db, collection/document APIs, forks, branches, snapshots, migrations, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.database` | openDb, Db, resource-property proxies, db._ controls, collection/document APIs, identity keys, append-only resources, lifecycle, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `runtime.lifecycle` | createDbRuntime, reloadDb, watchDbSources, and createDbRequestHandler for custom local servers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Schema
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.schema-authoring` | trusted local schema helpers including collection, document, field, files, and derived fields | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/typescript-schema-sources.md) |
+| `runtime.schema-authoring` | trusted local schema helpers including collection identity, log metadata, document, field.bytes, files, and derived fields | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/typescript-schema-sources.md) |
 | `runtime.schema-loading` | loadDbSchema, validators, computed field resolvers, metadata-only loading, and schema locator support | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
 
 ### Storage
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.json-store` | JSON store helpers, advisory locks, atomic writes, WAL, versioning, crash recovery, encryption, and object storage descriptor | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.json-store` | JSON store helpers use @async/json engine boundaries for identity keys, append-only policy, bytes validation, advisory locks, atomic writes, versioning, crash recovery, encryption, and sidecar state | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Testing
 
@@ -191,7 +191,7 @@ Contract: `@async/db.http`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `http.graphql` | Dependency-free GraphQL subset supports queries, mutations, aliases, variables, batching, and introspection | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `http.graphql` | Dependency-free GraphQL subset supports queries, mutations, compound key inputs, aliases, variables, batching, and introspection | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Health
 
@@ -210,7 +210,7 @@ Contract: `@async/db.http`
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
 | `http.rest-batching` | REST batching preserves per-item result shape and errors | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
-| `http.rest-resources` | REST resources under /db support JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `http.rest-resources` | REST resources under /db support single-id routes, compound __key routes, JSON reads/writes, ETag, If-Match, If-None-Match, and bulk route behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Viewer
 
@@ -251,19 +251,19 @@ Contract: `@async/db.generated`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `generated.schema` | .db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated schema metadata | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+| `generated.schema` | .db/schema.generated.json and schemaOutFile/outputs.schemaManifest generated identity, log, bytes, schema, REST, and GraphQL metadata | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
 
 ### Types
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `generated.types` | .db/types/index.d.ts and types.commitOutFile generated TypeScript declarations | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+| `generated.types` | .db/types/index.d.ts and types.commitOutFile generated TypeScript declarations with resource proxies and identity key maps | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
 
 ### Viewer
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `generated.viewer-manifest` | viewerManifestOutFile and outputs.viewerManifest viewer contracts | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
+| `generated.viewer-manifest` | viewerManifestOutFile and outputs.viewerManifest viewer contracts with identity and field metadata | public | generated | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
 
 ## Async DB Config Surface
 
@@ -280,7 +280,7 @@ Contract: `@async/db.config`
 | `config.protocols` | rest, graphql, and falcor protocol exposure and request/response toggles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `config.schema` | schema validation, inference, unknown-field policy, and behavior toggles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `config.server` | server host, port, base path, exposure, trace, watcher, viewer, events, authorize, and local behavior | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
-| `config.stores` | stores, JSON durability, resource schemas, sources, routes, defaults, seed, audit, and UI metadata | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `config.stores` | stores, JSON durability, resource identity/log schemas, bytes fields, sources, routes, defaults, seed, audit, and UI metadata | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `config.types` | types generation options including output paths, committed copy, comments, readonly properties, and runtime helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 
 ## Async DB Internal Boundaries

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { openDb } from '../index.js';
-import { makeProject, writeFixture } from '../../test/helpers.js';
+import { makeProject, writeFixture } from '../../tests/helpers.js';
 import { handleFalcorRequest as typedHandleFalcorRequest } from './http.js';
 
 const handleFalcorRequest = async (...args: any[]): Promise<void> => typedHandleFalcorRequest(args[0] as never, args[1] as never, args[2] as never);

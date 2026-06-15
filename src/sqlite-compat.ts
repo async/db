@@ -30,6 +30,7 @@ export type SqliteLegacyOpenOptions = SqliteCompatOpenOptions & {
 
 export type SqliteImportKeyStrategy =
   | { kind: 'single-primary-key'; field: string }
+  | { kind: 'compound-object-key'; fields: string[] }
   | { kind: 'compound-generated-id'; fields: string[]; idField: string }
   | { kind: 'key-value-document'; keyField: string; valueField: string }
   | { kind: 'append-only'; idField?: string };
@@ -42,6 +43,9 @@ export type SqliteImportResource = {
   columns?: Record<string, string>;
   primaryKey?: string[];
   idField?: string;
+  identity?: {
+    fields: string[];
+  };
   writePolicy?: 'append-only';
   fields?: Record<string, Record<string, unknown>>;
   keyStrategy: SqliteImportKeyStrategy;
@@ -367,10 +371,13 @@ function normalizeRunResult(result: unknown): SqliteRunResult {
 }
 
 function sourceResourceForImport(resource: SqliteImportResource): Record<string, unknown> {
+  const identity = identityForImportResource(resource);
+  const idField = identity.fields.length === 1 ? identity.fields[0] : undefined;
   return {
     name: resource.resource,
     kind: 'collection',
-    idField: resource.idField ?? resource.primaryKey?.[0] ?? 'id',
+    idField,
+    identity,
     fields: resource.fields ?? {},
   };
 }
@@ -398,6 +405,25 @@ async function applyImportedRows(target: any, resource: SqliteImportResource, ro
       await collection.create(record);
     }
   }
+}
+
+function identityForImportResource(resource: SqliteImportResource): { fields: string[] } {
+  if (resource.identity?.fields?.length) {
+    return { fields: resource.identity.fields };
+  }
+  if (resource.keyStrategy.kind === 'compound-object-key') {
+    return { fields: resource.keyStrategy.fields };
+  }
+  if (resource.keyStrategy.kind === 'compound-generated-id') {
+    return { fields: [resource.keyStrategy.idField] };
+  }
+  if (resource.keyStrategy.kind === 'single-primary-key') {
+    return { fields: [resource.keyStrategy.field] };
+  }
+  if (resource.idField) {
+    return { fields: [resource.idField] };
+  }
+  return { fields: [resource.primaryKey?.[0] ?? 'id'] };
 }
 
 function parseDocumentValue(value: unknown): unknown {

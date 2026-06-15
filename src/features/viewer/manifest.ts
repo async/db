@@ -72,6 +72,9 @@ type ViewerResource = {
   typeName?: string;
   routePath: string;
   idField?: string;
+  identity?: {
+    fields?: string[];
+  };
   relations?: unknown[];
   [key: string]: unknown;
 };
@@ -225,10 +228,23 @@ function resourceApi(resource: ViewerResource, routes: NormalizedViewerRoutes): 
   return {
     kind: 'collection',
     list: route,
-    record: `${route}/{${resource.idField ?? 'id'}}`,
+    record: singleIdField(resource) ? `${route}/{${singleIdField(resource)}}` : `${route}/__key`,
     canonicalList: canonicalRoute,
-    canonicalRecord: `${canonicalRoute}/{${resource.idField ?? 'id'}}`,
+    canonicalRecord: singleIdField(resource) ? `${canonicalRoute}/{${singleIdField(resource)}}` : `${canonicalRoute}/__key`,
+    identity: identityFields(resource),
   };
+}
+
+function identityFields(resource: ViewerResource): string[] {
+  const fields = Array.isArray(resource.identity?.fields)
+    ? resource.identity.fields.map(String).filter(Boolean)
+    : [];
+  return fields.length > 0 ? fields : [String(resource.idField ?? 'id')];
+}
+
+function singleIdField(resource: ViewerResource): string | null {
+  const fields = identityFields(resource);
+  return fields.length === 1 ? fields[0] ?? null : null;
 }
 
 function normalizeViewerRoutes(config: ViewerConfig, routes: ViewerRoutes = {}): NormalizedViewerRoutes {

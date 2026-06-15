@@ -6,6 +6,7 @@ import { loadConfig } from '../config.js';
 import { dbError, listChoices } from '../errors.js';
 import { resolveResource, resourceAliasCollisionGroups } from '../names.js';
 import { getPointer, setPointer, type JsonPath } from '../features/runtime/json-pointer.js';
+import { identityForResource } from '../features/identity.js';
 import type { SchemaField } from '../features/schema/fields.js';
 import { assertRecordMatchesResource, loadProjectSchema } from '../schema.js';
 import { applyDefaultsToRecord } from '../sync.js';
@@ -74,6 +75,9 @@ type SqliteResource = {
   name: string;
   kind: 'collection' | 'document' | string;
   idField?: string;
+  identity?: {
+    fields?: string[];
+  };
   writePolicy?: string;
   fields: Record<string, SchemaField>;
   dataHash?: string | null;
@@ -553,6 +557,7 @@ export class SqliteDbCollection {
   }
 
   async create(record: unknown): Promise<Record<string, unknown>> {
+    this.assertMutable('create');
     return this.createWithOperation(record, 'create');
   }
 
@@ -583,7 +588,7 @@ export class SqliteDbCollection {
       assertCompoundKeyPresent(this.resource, keyFields, nextRecord);
     }
 
-    assertRecordMatchesResource(nextRecord, this.resource, this.config, {
+    assertRecordMatchesResource(nextRecord, resourceWithMappingIdentity(this.resource, this.mapping), this.config, {
       source: `${this.resource.name} create body`,
     });
 
@@ -633,7 +638,7 @@ export class SqliteDbCollection {
       ...Object.fromEntries(keyFields.map((field) => [field, existing[field]])),
     });
 
-    assertRecordMatchesResource(nextRecord, this.resource, this.config, {
+    assertRecordMatchesResource(nextRecord, resourceWithMappingIdentity(this.resource, this.mapping), this.config, {
       source: `${this.resource.name} patch body`,
     });
 
@@ -822,11 +827,16 @@ async function sqliteRun(database: SqliteDatabase, sql: string, ...values: unkno
 }
 
 function createTableSql(resource: SqliteResource): string {
+  const keyFields = identityForResource(resource).fields;
+  const singleKey = keyFields.length === 1 ? keyFields[0] : null;
   const columns = Object.entries(resource.fields).map(([fieldName, field]) => {
-    const primary = fieldName === resource.idField ? ' PRIMARY KEY' : '';
-    const required = field.required && fieldName !== resource.idField ? ' NOT NULL' : '';
+    const primary = fieldName === singleKey ? ' PRIMARY KEY' : '';
+    const required = (field.required || keyFields.includes(fieldName)) && fieldName !== singleKey ? ' NOT NULL' : '';
     return `  ${quoteIdentifier(fieldName)} ${sqliteTypeForField(field)}${primary}${required}`;
   });
+  if (keyFields.length > 1) {
+    columns.push(`  PRIMARY KEY (${keyFields.map(quoteIdentifier).join(', ')})`);
+  }
 
   return `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(resource.name)} (
 ${columns.join(',\n')}
@@ -842,6 +852,7 @@ function sqliteTypeForField(field: SchemaField): string {
     case 'string':
     case 'datetime':
     case 'enum':
+    case 'bytes':
     case 'object':
     case 'array':
     case 'unknown':
@@ -912,7 +923,7 @@ function defaultTableMapping(resource: SqliteResource): NormalizedTableMapping {
   return {
     table: resource.name,
     columns: {},
-    primaryKey: resource.idField ? [resource.idField] : ['id'],
+    primaryKey: identityForResource(resource).fields,
     readOnly: false,
   };
 }
@@ -925,10 +936,16 @@ function keyFieldsFor(resource: SqliteResource, mapping: NormalizedTableMapping)
   if (mapping.primaryKey.length > 0) {
     return mapping.primaryKey;
   }
-  if (resource.idField) {
-    return [resource.idField];
-  }
-  return ['id'];
+  return identityForResource(resource).fields;
+}
+
+function resourceWithMappingIdentity(resource: SqliteResource, mapping: NormalizedTableMapping): SqliteResource {
+  const fields = keyFieldsFor(resource, mapping);
+  return {
+    ...resource,
+    idField: fields.length === 1 ? fields[0] : undefined,
+    identity: { fields },
+  };
 }
 
 function keyPredicate(

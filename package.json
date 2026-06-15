@@ -1,6 +1,6 @@
 {
   "name": "@async/db",
-  "version": "0.8.0",
+  "version": "0.11.0",
   "description": "The Async data workflow package for fixtures, generated types, local APIs, runtime stores, and database-backed graduation.",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
@@ -17,7 +17,7 @@
     "examples": "pnpm run build && pnpm run build:test && node ./.tmp/test-build/scripts/serve-examples.js",
     "pipeline:api-surface": "async-pipeline run-task api-surface",
     "pipeline:api-surface:generate": "async-pipeline run-task api-surface-generate",
-    "pipeline:docs": "async-pipeline run-task docs",
+    "pipeline:docs": "async-pipeline run-task docs.site",
     "pipeline:github:check": "async-pipeline github check",
     "pipeline:github:generate": "async-pipeline github generate",
     "pipeline:pages": "async-pipeline run pages",
@@ -37,6 +37,7 @@
     "pipeline:task:api-surface": "async-pipeline run-task api-surface",
     "pipeline:task:api-surface-generate": "async-pipeline run-task api-surface-generate",
     "pipeline:task:docs": "async-pipeline run-task docs",
+    "pipeline:task:docs.site": "async-pipeline run-task docs.site",
     "pipeline:task:sync-check": "async-pipeline run-task sync-check",
     "pipeline:verify": "async-pipeline run verify",
     "pipeline:verify:force": "async-pipeline run verify --force",
@@ -53,9 +54,12 @@
   "bin": {
     "async-db": "./dist/cli.js"
   },
+  "dependencies": {
+    "@async/json": "^0.4.0"
+  },
   "devDependencies": {
     "@async/api-contract": "0.1.0",
-    "@async/pipeline": "0.4.3",
+    "@async/pipeline": "0.4.4",
     "@types/node": "24.12.4",
     "typescript": "6.0.3"
   },

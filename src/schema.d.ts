@@ -1,6 +1,7 @@
 export type FieldDefinition =
   | ({ type: 'string' } & FieldOptions<string>)
   | ({ type: 'datetime' } & FieldOptions<string>)
+  | ({ type: 'bytes'; encoding?: BytesFieldEncoding } & FieldOptions<string>)
   | ({ type: 'number' } & FieldOptions<number>)
   | ({ type: 'boolean' } & FieldOptions<boolean>)
   | ({ type: 'enum'; values: readonly (string | number | boolean)[] } & FieldOptions<string | number | boolean>)
@@ -16,6 +17,8 @@ export type DerivedFieldDefinition = {
 };
 
 export type SchemaFieldTag = 'public' | 'internal' | 'private' | string;
+
+export type BytesFieldEncoding = 'base64' | 'base64url' | 'hex';
 
 export type FieldBuilderDefinition = FieldDefinition & {
   tag(tag: SchemaFieldTag): FieldBuilderDefinition;
@@ -64,10 +67,28 @@ export type ObjectFieldOptions = FieldOptions<Record<string, unknown>> & {
   additionalProperties?: boolean;
 };
 
+export type BytesFieldOptions = FieldOptions<string> & {
+  encoding?: BytesFieldEncoding;
+  mediaType?: string;
+  contentEncoding?: string;
+};
+
+export type ResourceIdentityDefinition = {
+  fields: readonly string[];
+};
+
+export type ResourceLogDefinition = {
+  cursorField?: string;
+  order?: 'asc' | 'desc';
+  payloadField?: string;
+};
+
 export type ResourceDefinition = {
   description?: string;
   idField?: string;
+  identity?: ResourceIdentityDefinition;
   writePolicy?: 'append-only';
+  log?: ResourceLogDefinition;
   source?: FilesSourceDefinition | string | readonly string[];
   fields: Record<string, FieldDefinition>;
   seed?: unknown;
@@ -204,6 +225,7 @@ export function files(patterns: string | readonly string[], options?: {
 export const field: {
   string(options?: FieldOptions<string>): FieldBuilderDefinition;
   datetime(options?: FieldOptions<string>): FieldBuilderDefinition;
+  bytes(options?: BytesFieldOptions): FieldBuilderDefinition;
   number(options?: FieldOptions<number>): FieldBuilderDefinition;
   boolean(options?: FieldOptions<boolean>): FieldBuilderDefinition;
   enum<const Values extends readonly (string | number | boolean)[]>(

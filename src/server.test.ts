@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb as typedOpenDb } from './db.js';
-import { makeProject, devProtocolOptions, writeConfig, writeFixture } from '../test/helpers.js';
+import { makeProject, devProtocolOptions, writeConfig, writeFixture } from '../tests/helpers.js';
 import { createDbRequestHandler as createTypedDbRequestHandler, reloadDb as typedReloadDb, startDbServer, watchSourceDir as typedWatchSourceDir } from './server.js';
 
 const openDb = async (options: unknown): Promise<any> => typedOpenDb(options as never) as Promise<any>;

@@ -51,9 +51,14 @@ export type DbDocuments = {
   appSettings: AppSettings;
 };
 
+export type DbCollectionKeys = {
+  featureFlags: NonNullable<FeatureFlag["id"]>;
+};
+
 export type DbTypes = {
   collections: DbCollections;
   documents: DbDocuments;
+  collectionKeys: DbCollectionKeys;
 };
 
 export type DbCollectionName = keyof DbCollections;

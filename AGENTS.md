@@ -42,8 +42,8 @@ Important files:
 - `scripts/example-launcher.js`: resolves `examples/*/serve-example.mjs` hooks so an example can compose middleware ahead of db; defaults to a stock db request runtime.
 - `website/`: docs site consumer project. `website/db.schema.js` curates `docs/*.md` in the `pages` collection and `docs/advanced/*.md` in the `advanced` collection; `website/build.js` renders static HTML under `dist/docs/` plus a generated `dist/docs/examples.html` IDE-style browser of every `examples/*` project (ordered by `example.json` level/order, intros from README `## What This Teaches`); `website/serve.js` is the live preview server; `website/pages/index.html` is the only hand-authored HTML page (landing teaser injects `CodeExplorer` at build/serve time).
 - `src/schema-builders.js`: `.schema.mjs` authoring helpers exported as `@async/db/schema`.
-- `test/helpers.js`: shared test project helpers.
-- `test/**/*.test.js`: general Node test runner suite.
+- `tests/helpers.js`: shared test project helpers.
+- `tests/**/*.test.js`: general Node test runner suite.
 - `src/**/*.test.js`: co-located protocol/module tests.
 - `examples/basic`: smoke-testable example project.
 
@@ -153,7 +153,7 @@ If a smoke command writes `.db/` inside any example, remove those generated file
 
 Use `node:test` and temporary project directories under the system temp directory. Tests should create their own `db/` data files and avoid depending on generated repo state.
 
-Put broad package behavior in `test/*.test.js`. Put protocol-specific tests next to their implementation, such as `src/graphql/graphql.test.js` and `src/rest/handler.test.js`.
+Put broad package behavior in `tests/*.test.js`. Put protocol-specific tests next to their implementation, such as `src/graphql/graphql.test.js` and `src/rest/handler.test.js`.
 
 When testing `.schema.mjs`, symlink this repo into the temp project's `node_modules/@async/db` so package self-imports behave like a consumer install.
 
@@ -187,6 +187,6 @@ and runs on Node.js 24:
 - `npm pack --dry-run`
 
 Docs site deployment is generated from the `pages` job in `pipeline.ts` and
-publishes `website/dist/` to GitHub Pages on pushes to `main`.
+publishes `.async/pages/` to GitHub Pages on pushes to `main`.
 
 Dependabot is configured in `.github/dependabot.yml` for GitHub Actions updates.

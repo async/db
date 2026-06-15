@@ -3,7 +3,7 @@ import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { openDb } from './index.js';
-import { makeProject, writeConfig, writeFixture } from '../test/helpers.js';
+import { makeProject, writeConfig, writeFixture } from '../tests/helpers.js';
 
 test('kvStore hydrates, persists, and refreshes selected resources', async () => {
   const cwd = await makeProject();

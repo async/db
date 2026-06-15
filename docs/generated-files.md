@@ -69,6 +69,20 @@ Then import the generated contract through the alias:
 import type { DbTypes } from '#db/types';
 ```
 
+Pass the generated `DbTypes` to `openDb()` to get resource-property access and
+typed keys:
+
+```ts
+const db = await openDb<DbTypes>();
+await db.users.find({ where: { role: 'admin' } });
+await db.settings.get();
+```
+
+Generated files include `DbCollectionKeys`, which maps collection identity to
+the key argument type used by `get`, `patch`, `update`, and `delete`. Single-id
+collections use the id field type; compound identity collections use an object
+with the declared identity fields.
+
 Keep this as a type-only import unless the same alias is also configured for
 your runtime or bundler. TypeScript `paths` helps the IDE and compiler resolve
 the generated declaration file, but it does not create a Node.js or browser
