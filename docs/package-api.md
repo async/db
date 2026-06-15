@@ -877,23 +877,29 @@ with `operations.acceptRefs`.
 | `@async/db/schema` | `.schema.js` and `.schema.js` authoring helpers, including `field.derived`. |
 | `@async/db/config` | `defineConfig` and manifest helpers. |
 | `@async/db/client` | HTTP client with REST, GraphQL, and batching helpers. |
-| `@async/db/json` | First-party JSON file database capabilities and safe JSON state helpers. |
+| `@async/db/json` | Compatibility exports for `@async/json` file database capabilities and safe JSON state helpers. |
 | `@async/db/vite` | Optional Vite dev server plugin. |
 | `@async/db/hono` | Optional Hono route registration helpers. |
 | `@async/db/sqlite` | Optional SQLite adapter helpers. |
 | `@async/db/sqlite/compat` | Low-level SQLite driver adapters for migration wrappers and generated importers. |
 | `@async/db/postgres` | Optional Postgres runtime store helpers using an injected client. |
 | `@async/db/kv` | Optional generic KV runtime store helpers using an injected `get`/`set` client. |
-| `@async/db/redis` | Optional Redis-named helper over the generic KV store. |
+| `@async/db/redis` | Optional Redis-named KV helper plus additive RedisJSON store adapter. |
 
 The core package stays dependency-light. Optional integrations use dynamic
 imports, generated app dependencies, or injected database clients.
 
-`@async/db/json` is the first-party JSON file database subpath. It exposes the
-JSON store capability metadata and safe file-state helpers for tooling,
-diagnostics, exports, and migrations. Most app code should still use `openDb()`,
-`createDbClient()`, and registered operations so resources can graduate from
-JSON to SQLite, Postgres, or custom stores without changing client calls.
+`@async/json` owns the standalone JSON file/folder engine. `@async/db/json`
+keeps the existing compatibility subpath for JSON store capability metadata and
+safe file-state helpers used by tooling, diagnostics, exports, and migrations.
+Most app code should still use `openDb()`, `createDbClient()`, and registered
+operations so resources can graduate from JSON to RedisJSON, SQLite, Postgres,
+or custom stores without changing client calls.
+
+`@async/db/redis` keeps the existing `redisStore()` KV-style resource store and
+adds `redisJson()` for Redis JSON runtimes. `redisJson()` uses per-record JSON
+keys for collections and maps only explicit `resources.<name>.indexes` metadata
+to Redis Search indexes.
 
 The root export also includes `hashOperation()`, `buildOperationManifest()`,
 and `createDbOperationHandler()` for tools and framework adapters that want to

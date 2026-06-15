@@ -41,7 +41,7 @@
         },
         {
           "id": "export.json",
-          "title": "@async/db/json JSON store helpers, state utilities, WAL, versioning, recovery, and encryption",
+          "title": "@async/db/json compatibility exports for @async/json store helpers, state utilities, versioning, recovery, and encryption",
           "releaseTag": "public",
           "stability": "stable",
           "group": "exports",
@@ -97,7 +97,7 @@
         },
         {
           "id": "export.redis",
-          "title": "@async/db/redis optional Redis-like store adapter boundary",
+          "title": "@async/db/redis optional Redis-like KV adapter and RedisJSON store adapter boundary",
           "releaseTag": "beta",
           "stability": "preview",
           "group": "exports",
@@ -279,7 +279,7 @@
         },
         {
           "id": "runtime.json-store",
-          "title": "JSON store helpers, advisory locks, atomic writes, WAL, versioning, crash recovery, encryption, and object storage descriptor",
+          "title": "JSON store helpers use @async/json engine boundaries for advisory locks, atomic writes, versioning, crash recovery, encryption, and sidecar state",
           "releaseTag": "public",
           "stability": "stable",
           "group": "storage",

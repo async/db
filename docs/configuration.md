@@ -113,7 +113,7 @@ behavior stay the same:
 ```js
 import { defineConfig } from '@async/db/config';
 import { postgresStore } from '@async/db/postgres';
-import { redisStore } from '@async/db/redis';
+import { redisJson, redisStore } from '@async/db/redis';
 
 export default defineConfig({
   resources: {
@@ -123,6 +123,7 @@ export default defineConfig({
   stores: {
     postgres: postgresStore({ client: pgPool }),
     redis: redisStore({ client: redisClient, prefix: 'my-app:' }),
+    redisJson: redisJson({ client: redisJsonClient, prefix: 'my-json-app:' }),
   },
 });
 ```
@@ -131,6 +132,13 @@ The package does not install database clients for you. Pass a `pg` Pool/Client
 or compatible object to `postgresStore({ client })`, and pass a Redis-like,
 edge KV, Valkey, Dragonfly, or compatible object with `get(key)` and
 `set(key, value)` to `kvStore()` or `redisStore()`.
+
+`redisJson()` is the Redis-backed JSON engine path from `@async/json`. It stores
+collection records under per-record Redis JSON keys and creates physical Redis
+Search indexes only from explicit `resources.<name>.indexes` metadata. Use it
+when a JSON-shaped resource should keep the Async DB schema, generated types,
+operations, REST, and GraphQL contract while moving the live runtime out of
+local sidecar state.
 
 ## Schema Strictness
 

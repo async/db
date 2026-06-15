@@ -54,6 +54,9 @@
   "bin": {
     "async-db": "./dist/cli.js"
   },
+  "dependencies": {
+    "@async/json": "https://github.com/async/json/releases/download/v0.1.0/async-json-0.1.0.tgz"
+  },
   "devDependencies": {
     "@async/api-contract": "0.1.0",
     "@async/pipeline": "0.4.4",

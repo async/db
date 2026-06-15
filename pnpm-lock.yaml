@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@async/json':
+        specifier: https://github.com/async/json/releases/download/v0.1.0/async-json-0.1.0.tgz
+        version: https://github.com/async/json/releases/download/v0.1.0/async-json-0.1.0.tgz
     devDependencies:
       '@async/api-contract':
         specifier: 0.1.0
@@ -28,6 +32,11 @@ packages:
     engines: {node: '>=24'}
     hasBin: true
 
+  '@async/json@https://github.com/async/json/releases/download/v0.1.0/async-json-0.1.0.tgz':
+    resolution: {tarball: https://github.com/async/json/releases/download/v0.1.0/async-json-0.1.0.tgz}
+    version: 0.1.0
+    engines: {node: '>=24'}
+
   '@async/pipeline@0.4.4':
     resolution: {integrity: sha512-y/sWpJZkwbei7w6Wwjyf8XR1Ds7/gmoRd/Qc3XsNOysnMG4p6r06TWMCFA9mMKa1jASUogjQBt67RzFbsNyO9g==}
     engines: {node: '>=24'}
@@ -47,6 +56,8 @@ packages:
 snapshots:
 
   '@async/api-contract@0.1.0': {}
+
+  '@async/json@https://github.com/async/json/releases/download/v0.1.0/async-json-0.1.0.tgz': {}
 
   '@async/pipeline@0.4.4': {}
 

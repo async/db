@@ -55,7 +55,7 @@ import { compoundKeyId, defineSqliteImportPlan, openLegacySqlite } from '@async/
 import { openPostgresDb, postgresStore } from '@async/db/postgres';
 import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, openLegacyPostgres } from '@async/db/postgres/compat';
 import { kvStore } from '@async/db/kv';
-import { redisStore } from '@async/db/redis';
+import { redisJson, redisStore } from '@async/db/redis';
 
 const jsonModule = await import('@async/db/json');
 
@@ -91,6 +91,7 @@ if (typeof definePostgresImportPlan !== 'function') throw new Error('missing pos
 if (typeof openLegacyPostgres !== 'function') throw new Error('missing postgres compat legacy opener');
 if (typeof kvStore !== 'function') throw new Error('missing kv store API');
 if (typeof redisStore !== 'function') throw new Error('missing redis store API');
+if (typeof redisJson !== 'function') throw new Error('missing redis json store API');
 `);
 
   await execFileAsync(process.execPath, ['check-package.mjs'], { cwd });
@@ -178,6 +179,7 @@ import { kvStore } from '@async/db/kv';
 import { openPostgresDb, postgresStore, type PostgresTableMapping } from '@async/db/postgres';
 import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, type PostgresCompatDriver, type PostgresImportPlan } from '@async/db/postgres/compat';
 import { redisStore } from '@async/db/redis';
+import { redisJson } from '@async/db/redis';
 import { collection, field, files, type DerivedFieldDefinition, type ResourceDefinition } from '@async/db/schema';
 import { sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, type SqliteCompatDriver, type SqliteImportPlan } from '@async/db/sqlite/compat';
@@ -313,6 +315,7 @@ void s3Storage({
   encryption: { mode: 'sse-kms', keyId: 'alias/app-json-db' },
 });
 void jsonCapabilities;
+void redisJson({ client: { json: { get: async () => null, set: async () => undefined } } });
 void sqliteStore({ file: ':memory:' });
 const sqliteCompatDriver: SqliteCompatDriver = 'node:sqlite';
 const sqliteImportPlan: SqliteImportPlan = defineSqliteImportPlan({

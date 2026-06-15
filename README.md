@@ -61,7 +61,7 @@ Add package scripts for the CLI commands you run often:
 }
 ```
 
-The package import name is `@async/db`. Helpers are available from `@async/db/config`, `@async/db/schema`, `@async/db/client`, and `@async/db/json`.
+The package import name is `@async/db`. Helpers are available from `@async/db/config`, `@async/db/schema`, `@async/db/client`, and the compatibility JSON engine subpath `@async/db/json`. The standalone `@async/json` package owns direct JSON file/folder database usage.
 
 ## Five-Minute Start
 

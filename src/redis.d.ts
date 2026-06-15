@@ -1,4 +1,9 @@
 import type { KvStoreClient, KvStoreOptions } from './kv.d.ts';
+export {
+  redisJson,
+  redisJsonStore,
+  redisJsonStoreCapabilities,
+} from '@async/json/redis';
 
 export type RedisStoreClient = KvStoreClient;
 export type RedisStoreOptions = KvStoreOptions;

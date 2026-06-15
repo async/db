@@ -13,11 +13,11 @@ Contract: `@async/db.package`
 | `export.client` | @async/db/client tiny HTTP client, REST and GraphQL calls, batching, and cache helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.config` | @async/db/config defineConfig public config helper | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `export.hono` | @async/db/hono optional Hono integration without required Hono dependency | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
-| `export.json` | @async/db/json JSON store helpers, state utilities, WAL, versioning, recovery, and encryption | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.json` | @async/db/json compatibility exports for @async/json store helpers, state utilities, versioning, recovery, and encryption | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.kv` | @async/db/kv optional generic KV store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.postgres` | @async/db/postgres optional Postgres JSONB envelope storage and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.postgres.compat` | @async/db/postgres/compat low-level Postgres driver adapters and legacy bridges | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
-| `export.redis` | @async/db/redis optional Redis-like store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.redis` | @async/db/redis optional Redis-like KV adapter and RedisJSON store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.root` | @async/db root runtime, schema, server, sync, operations, and helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.schema` | @async/db/schema authoring helpers: collection, document, field, derived fields, and files | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
 | `export.sqlite` | @async/db/sqlite optional SQLite store and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
@@ -157,7 +157,7 @@ Contract: `@async/db.runtime`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.json-store` | JSON store helpers, advisory locks, atomic writes, WAL, versioning, crash recovery, encryption, and object storage descriptor | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.json-store` | JSON store helpers use @async/json engine boundaries for advisory locks, atomic writes, versioning, crash recovery, encryption, and sidecar state | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Testing
 
