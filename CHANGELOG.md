@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## [0.11.0](https://github.com/async/db/releases/tag/v0.11.0) - 2026-06-15
+## 0.11.0 - 2026-06-15
 
 ### Added
 
@@ -12,7 +12,7 @@
 - Added generated `DbCollectionKeys` maps so collection identity fields type
   package API key arguments.
 
-## [0.10.0](https://github.com/async/db/releases/tag/v0.10.0) - 2026-06-15
+## 0.10.0 - 2026-06-15
 
 ### Added
 
@@ -33,7 +33,7 @@
   package dependency `@async/json@^0.2.0`; GitHub Packages remain preview/mirror
   install surfaces, not the default dependency source.
 
-## [0.9.0](https://github.com/async/db/releases/tag/v0.9.0) - 2026-06-15
+## 0.9.0 - 2026-06-15
 
 ### Added
 
@@ -44,7 +44,7 @@
 
 - Shared collection query helpers with `@async/json` and documented the responsibility split between the JSON engine and `@async/db` platform layer.
 
-## [0.8.0](https://github.com/async/db/releases/tag/v0.8.0) - 2026-06-14
+## 0.8.0 - 2026-06-14
 
 ### Added
 
@@ -57,7 +57,7 @@
 - Standardized docs, examples, and README task commands on pnpm and `pnpm run <pipeline-name>`.
 - Replaced standalone release/docs workflows with the generated `async-pipeline.yml`; the unrelated Fallow workflow remains separate.
 
-## [0.7.0](https://github.com/async-framework/async-db/releases/tag/v0.7.0) - 2026-06-11
+## 0.7.0 - 2026-06-11
 
 ### Added
 
@@ -74,7 +74,7 @@
 
 - Made watcher tests event-driven and example launchers replace stale package self-reference symlinks when a checkout moves between machines.
 
-## [0.6.0](https://github.com/async-framework/async-db/releases/tag/v0.6.0) - 2026-06-10
+## 0.6.0 - 2026-06-10
 
 ### Added
 
@@ -92,13 +92,13 @@
 - Updated docs, examples, and starter guidance to prefer `.js` config and schema files in ESM packages while keeping existing `.mjs` discovery support.
 - Reworked README and docs-site onboarding around JSON files in `db/`, generated schemas/types, local REST/GraphQL routes, and the local data explorer.
 
-## [0.5.1](https://github.com/async-framework/async-db/releases/tag/v0.5.1) - 2026-06-07
+## 0.5.1 - 2026-06-07
 
 ### Fixed
 
 - Suppressed the optional `node:sqlite` experimental warning while Async DB loads SQLite support, keeping `async-db integrate inspect` stdout/stderr stable on Node.js 22.
 
-## [0.5.0](https://github.com/async-framework/async-db/releases/tag/v0.5.0) - 2026-06-07
+## 0.5.0 - 2026-06-07
 
 ### Added
 
@@ -113,13 +113,13 @@
 - Updated SQLite integration guidance to keep existing SQLite as the default write source of truth, recommend wrapper/read-model/table-backed/app-owned paths, and keep ORM support advisory.
 - Documented minimal collection queries, wrapper-first SQLite adoption, explicit import mode, and the `API_SURFACE.md` plus `docs/package-api.md` update rule for agents.
 
-## [0.4.2](https://github.com/async-framework/async-db/releases/tag/v0.4.2) - 2026-06-07
+## 0.4.2 - 2026-06-07
 
 ### Added
 
 - Added the SQLite integration inspector for inventorying SQLite-backed projects and recommending Async DB migration paths.
 
-## [0.4.1](https://github.com/async-framework/async-db/releases/tag/v0.4.1) - 2026-06-07
+## 0.4.1 - 2026-06-07
 
 ### Changed
 
@@ -130,7 +130,7 @@
 - Added a Fallow PR review gate that installs Fallow in CI without adding a package dependency, while ignoring examples for the analysis workflow.
 - Removed unused internal source wrappers and tightened duplicate internal export names surfaced by Fallow.
 
-## [0.4.0](https://github.com/async-framework/async-db/releases/tag/v0.4.0) - 2026-06-04
+## 0.4.0 - 2026-06-04
 
 ### Added
 
@@ -144,14 +144,14 @@
 
 - Hardened document path access against prototype-sensitive segments such as `__proto__`, `prototype`, and `constructor`.
 
-## [0.2.1](https://github.com/async-framework/async-db/releases/tag/v0.2.1) - 2026-06-01
+## 0.2.1 - 2026-06-01
 
 ### Fixed
 
 - Made the tag release workflow retry-safe by skipping npm publish when the package version already exists, while still creating or updating the GitHub release asset.
 - Updated release documentation to match the built `dist/` package allowlist, gated Release Please behavior, and manual/tag release flow.
 
-## [0.2.0](https://github.com/async-framework/async-db/releases/tag/v0.2.0) - 2026-06-01
+## 0.2.0 - 2026-06-01
 
 ### Added
 
@@ -169,7 +169,7 @@
 
 - Fixed CI and release workflows so they install pinned pnpm dependencies before running package checks.
 
-## [0.1.0](https://github.com/async-framework/async-db/releases/tag/v0.1.0) - 2026-05-28
+## 0.1.0 - 2026-05-28
 
 First public release of `@async/db`.
 
