@@ -44,7 +44,7 @@ jobs:
       - name: Setup pnpm runtime
         uses: pnpm/setup@f7d0e5f4b1b3089d2799ef9722859e7ba314c4c8 # v1
         with:
-          version: 11.1.0
+          version: 10.20.0
           runtime: node@24
           install: false
           cache: true
@@ -121,7 +121,7 @@ jobs:
       - name: Setup pnpm runtime
         uses: pnpm/setup@f7d0e5f4b1b3089d2799ef9722859e7ba314c4c8 # v1
         with:
-          version: 11.1.0
+          version: 10.20.0
           runtime: node@24
           install: false
           cache: true
@@ -177,7 +177,7 @@ jobs:
       - name: Setup pnpm runtime
         uses: pnpm/setup@f7d0e5f4b1b3089d2799ef9722859e7ba314c4c8 # v1
         with:
-          version: 11.1.0
+          version: 10.20.0
           runtime: node@24
           install: false
           cache: true
@@ -233,7 +233,7 @@ jobs:
       - name: Setup pnpm runtime
         uses: pnpm/setup@f7d0e5f4b1b3089d2799ef9722859e7ba314c4c8 # v1
         with:
-          version: 11.1.0
+          version: 10.20.0
           runtime: node@24
           install: false
           cache: true
@@ -285,7 +285,7 @@ jobs:
       - name: Setup pnpm runtime
         uses: pnpm/setup@f7d0e5f4b1b3089d2799ef9722859e7ba314c4c8 # v1
         with:
-          version: 11.1.0
+          version: 10.20.0
           runtime: node@24
           install: false
           cache: true
@@ -337,7 +337,7 @@ jobs:
       - name: Setup pnpm runtime
         uses: pnpm/setup@f7d0e5f4b1b3089d2799ef9722859e7ba314c4c8 # v1
         with:
-          version: 11.1.0
+          version: 10.20.0
           runtime: node@24
           install: false
           cache: true
@@ -386,7 +386,7 @@ jobs:
       - name: Setup pnpm runtime
         uses: pnpm/setup@f7d0e5f4b1b3089d2799ef9722859e7ba314c4c8 # v1
         with:
-          version: 11.1.0
+          version: 10.20.0
           runtime: node@24
           install: false
           cache: true
