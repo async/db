@@ -1,5 +1,5 @@
 export { loadConfig } from './config.js';
-export { mergeManifest, parseFixturePath, resourceNameFromPath } from './config-public.js';
+export { env, mergeManifest, parseFixturePath, resourceNameFromPath } from './config-public.js';
 export { createDbClient, createIndexedDbCacheStorage } from './client.js';
 export { openDb, Db, DbCollection, DbDocument } from './db.js';
 export { recordEtag } from './features/runtime/etag.js';

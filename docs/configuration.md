@@ -33,6 +33,9 @@ See [db.config.example.js](../db.config.example.js) for a commented config with 
 | Importable generated types | Off | `outputs.committedTypes` |
 | Importable schema manifest | Off | `outputs.schemaManifest` |
 | Importable viewer manifest | Off | `outputs.viewerManifest` |
+| Named config policy bundle | None | `profile` and `profiles` |
+| Runtime non-secret config values | None | `env.var(...)` |
+| Runtime secret config values | None | `env.secret(...)` |
 | Registered query operation refs | Off | `operations` |
 | Contract-scoped operation refs | Off | `outputs.contractRefs` and `contracts` |
 | REST response formats | `.json`, `.html`, `.md` | `rest.formats` |
@@ -47,6 +50,96 @@ See [db.config.example.js](../db.config.example.js) for a commented config with 
 | GraphQL endpoint | `/graphql`, disabled until enabled | `graphql.enabled: true` |
 | Falcor endpoint | `/model.json`, disabled until enabled | `falcor.enabled: true` |
 | Host, port, dev-tool route base, body limit | `127.0.0.1:7331`, `/__db`, 1 MB bodies | `server` |
+
+## Profiles Vs Modes Vs Env Values
+
+Use these names for different jobs:
+
+| Name | Meaning |
+| --- | --- |
+| `profile` | Top-level named config policy bundle selected once at config load/startup. |
+| `mode` | Scoped behavior inside one API, operation, loader, validator, UI, or integration report. |
+| `env.var` | Runtime-supplied non-secret value used to select or fill config. |
+| `env.secret` | Runtime-supplied secret value used to fill config, redacted in diagnostics. |
+
+Use a profile when settings must change together and should be reviewable as one
+policy. Control-plane deployments are the clearest example: local and production
+control planes usually need route exposure, operation strictness, mocks,
+audit/durability, and store selection to move together. Prefer
+`ASYNC_DB_PROFILE=prod-control-plane` over many independent flags such as
+`DB_VIEWER=false`, `DB_STRICT=true`, and `DB_STORE=postgres`.
+
+```js
+import { defineConfig, env } from '@async/db/config';
+
+export default defineConfig({
+  profile: env.var('ASYNC_DB_PROFILE', { default: 'local-control-plane' }),
+
+  profiles: {
+    'local-control-plane': {
+      server: {
+        dataPath: false,
+        expose: {
+          rest: 'registered-only',
+          viewer: 'dev',
+          schema: 'dev',
+          manifest: 'dev',
+          health: 'open',
+        },
+      },
+      operations: { enabled: true, strict: true, acceptRefs: 'ref' },
+    },
+
+    'prod-control-plane': {
+      mock: { delay: 0, errors: null },
+      server: {
+        dataPath: false,
+        expose: {
+          rest: 'registered-only',
+          graphql: false,
+          viewer: false,
+          schema: false,
+          manifest: false,
+          health: 'open',
+        },
+      },
+      operations: { enabled: true, strict: true, acceptRefs: 'ref' },
+      stores: {
+        default: 'postgres',
+        postgres: {
+          connectionString: env.secret('DATABASE_URL'),
+        },
+      },
+    },
+  },
+});
+```
+
+Profiles merge over the base config, and inline/programmatic options still merge
+last. Profile patches can override static policy such as `dbDir`, `outputs`,
+`stores`, `resources`, `schema`, `mock`, `server`, `rest`, `graphql`, `falcor`,
+`operations`, `contracts`, and `generate`. They cannot set loader context keys
+such as `cwd`, `configPath`, `from`, `fs`, `profile`, or `profiles`.
+
+Use `env.var(...)` for selected profile names, host, port, state directory, CI
+output paths, and public base URLs:
+
+```js
+env.var('ASYNC_DB_PROFILE')
+env.var('ASYNC_DB_PROFILE', { default: 'development' })
+env.var('ASYNC_DB_PROFILE', { dev: 'development', prod: 'production' }, { default: 'dev' })
+```
+
+Use `env.secret(...)` for database URLs, admin tokens, encryption keys, and
+external credentials:
+
+```js
+env.secret('DATABASE_URL')
+```
+
+Do not use top-level `mode` for deployment policy. `mode` remains useful inside
+scoped APIs that already define what their mode means, such as validation,
+schema loading, migrations, UI behavior, and integration reports.
 
 ## Data Folder (db/)
 

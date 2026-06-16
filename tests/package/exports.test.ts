@@ -48,7 +48,7 @@ test('consumer projects can import package APIs through the @async/db package', 
   const cwd = await makeProject();
   await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, inspectSchemaMigration, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
-import { defineConfig } from '@async/db/config';
+import { defineConfig, env } from '@async/db/config';
 import { fileStorage, json, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
 import { sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, openLegacySqlite } from '@async/db/sqlite/compat';
@@ -72,6 +72,8 @@ if (typeof createDbClient !== 'function') throw new Error('missing client API');
 if (typeof createIndexedDbCacheStorage !== 'function') throw new Error('missing indexeddb cache API');
 if (typeof createClientIndexedDbCacheStorage !== 'function') throw new Error('missing client indexeddb cache API');
 if (typeof defineConfig !== 'function') throw new Error('missing config API');
+if (typeof env.var !== 'function') throw new Error('missing config env var API');
+if (typeof env.secret !== 'function') throw new Error('missing config env secret API');
 if (jsonStoreCapabilities.persistence !== 'local-file') throw new Error('missing json store capabilities');
 if (typeof json !== 'function') throw new Error('missing json standalone API');
 if (typeof jsonStore !== 'function') throw new Error('missing json store helper');
@@ -170,7 +172,7 @@ export type DbTypes = {
   type DbWatchOptions,
 } from '@async/db';
 import { createDbClient, type DbClient } from '@async/db/client';
-import { defineConfig, type DbConfig } from '@async/db/config';
+import { defineConfig, env, type DbConfig, type DbConfigProfilePatch } from '@async/db/config';
 import {
   atomicWriteJson,
   atomicWriteJsonVersioned,
@@ -214,7 +216,47 @@ const config = defineConfig({
   },
 }) satisfies DbConfig;
 
+const profilePatch = {
+  server: {
+    dataPath: false,
+    expose: {
+      rest: 'registered-only',
+      viewer: false,
+      schema: false,
+      manifest: false,
+      health: 'open',
+    },
+  },
+  operations: {
+    enabled: true,
+    strict: true,
+    acceptRefs: 'ref',
+  },
+  stores: {
+    default: 'postgres',
+    postgres: {
+      connectionString: env.secret('DATABASE_URL'),
+    },
+  },
+} satisfies DbConfigProfilePatch;
+
+const profiledConfig = defineConfig({
+  profile: env.var('ASYNC_DB_PROFILE', { default: 'local-control-plane' }),
+  profiles: {
+    'local-control-plane': {
+      server: {
+        port: env.var('ASYNC_DB_PORT_MODE', { dev: 7331, prod: 29419 }, { default: 'dev' }),
+        expose: {
+          viewer: 'dev',
+        },
+      },
+    },
+    'prod-control-plane': profilePatch,
+  },
+}) satisfies DbConfig;
+
 const options: DbOptions = config;
+const profiledOptions: DbOptions = profiledConfig;
 const memoryFs: DbFileSystem = createMemoryFs({
   cwd: '.',
   files: {

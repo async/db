@@ -1,6 +1,15 @@
-import type { DbOptions } from './index.d.ts';
+import type {
+  DbConfigInput,
+  DbEnvHelpers,
+} from './index.d.ts';
 
 export type {
+  DbConfigInput,
+  DbConfigProfilePatch,
+  DbEnvRef,
+  DbEnvSecretRef,
+  DbEnvVarMap,
+  DbEnvVarRef,
   DbSourceReader,
   DbSourceReaderContext,
   DbSourceReaderResult,
@@ -27,7 +36,9 @@ export type {
  * });
  * ```
  */
-export type DbConfig = DbOptions;
+export type DbConfig = DbConfigInput;
+
+export const env: DbEnvHelpers;
 
 /**
  * Type-only helper for authoring `db.config.js`.

@@ -1163,6 +1163,54 @@ export type DbRestFormatDefinition = {
   renderManifest?: DbRestManifestFormatRenderer;
 };
 
+export type DbEnvVarMap = Record<string, unknown>;
+
+export type DbEnvVarRef = {
+  kind: 'async-db.env.var';
+  name: string;
+  values?: DbEnvVarMap;
+  default?: string;
+};
+
+export type DbEnvSecretRef = {
+  kind: 'async-db.env.secret';
+  name: string;
+};
+
+export type DbEnvRef = DbEnvVarRef | DbEnvSecretRef;
+
+export type DbEnvConfigValue<T> =
+  T extends (...args: any[]) => unknown
+    ? T | DbEnvRef
+    : T extends readonly (infer Item)[]
+      ? Array<DbEnvConfigValue<Item>> | DbEnvRef
+      : T extends object
+        ? DbEnvConfigShape<T> | DbEnvRef
+        : T | DbEnvRef;
+
+export type DbEnvConfigShape<T> = {
+  [Key in keyof T]?: DbEnvConfigValue<T[Key]>;
+};
+
+export type DbConfigProfilePatch = Omit<
+  DbEnvConfigShape<DbOptions>,
+  'cwd' | 'configPath' | 'from' | 'fs' | 'profile' | 'profiles'
+>;
+
+export type DbConfigInput = DbEnvConfigShape<Omit<DbOptions, 'profile' | 'profiles'>> & {
+  /** Selected top-level named config policy bundle. */
+  profile?: string | DbEnvVarRef;
+  /** Named static config policy bundles selected once at config load/startup. */
+  profiles?: Record<string, DbConfigProfilePatch>;
+};
+
+export type DbEnvHelpers = {
+  var(name: string): DbEnvVarRef;
+  var(name: string, options: { default: string }): DbEnvVarRef;
+  var(name: string, values: DbEnvVarMap, options?: { default?: string }): DbEnvVarRef;
+  secret(name: string): DbEnvSecretRef;
+};
+
 export type DbSchemaConfig = {
   /** Which inputs define schemas. "auto" uses schema files when present and otherwise infers from data. */
   source?: 'auto' | 'data' | 'schema';
@@ -1183,6 +1231,10 @@ export type DbSchemaConfig = {
 };
 
 export type DbOptions = {
+  /** Selected top-level named config policy bundle. Resolved at config load/startup, not per request. */
+  profile?: string | DbEnvVarRef;
+  /** Named static config policy bundles that merge over the base config before inline startup options. */
+  profiles?: Record<string, DbConfigProfilePatch>;
   /** Project root used to resolve relative config paths. Defaults to process.cwd(). */
   cwd?: string;
   /** Optional filesystem adapter used by openDb(), sync, generated outputs, and built-in local stores. */
@@ -1993,6 +2045,7 @@ export function parseFixturePath(file: string): {
   basename: string;
   extension: string;
 };
+export const env: DbEnvHelpers;
 export function generateHonoStarter(
   config: DbOptions,
   options?: {

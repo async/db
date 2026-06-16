@@ -1,5 +1,6 @@
 type PlainObject = Record<string, unknown>;
 type ResourceNamingStrategy = 'basename' | 'folder-prefixed' | 'path';
+type EnvVarMap = Record<string, unknown>;
 
 export type ParsedFixturePath = {
   file: string;
@@ -10,9 +11,48 @@ export type ParsedFixturePath = {
   extension: string;
 };
 
+export type DbEnvVarRef = {
+  kind: 'async-db.env.var';
+  name: string;
+  values?: EnvVarMap;
+  default?: string;
+};
+
+export type DbEnvSecretRef = {
+  kind: 'async-db.env.secret';
+  name: string;
+};
+
 export function defineConfig<TConfig extends PlainObject>(config: TConfig): TConfig {
   return config;
 }
+
+function envVar(name: string): DbEnvVarRef;
+function envVar(name: string, options: { default: string }): DbEnvVarRef;
+function envVar(name: string, values: EnvVarMap, options?: { default?: string }): DbEnvVarRef;
+function envVar(name: string, valuesOrOptions?: EnvVarMap | { default: string }, options: { default?: string } = {}): DbEnvVarRef {
+  if (!valuesOrOptions) {
+    return { kind: 'async-db.env.var', name };
+  }
+
+  if (isDefaultOnlyEnvOptions(valuesOrOptions)) {
+    return { kind: 'async-db.env.var', name, default: valuesOrOptions.default };
+  }
+
+  return {
+    kind: 'async-db.env.var',
+    name,
+    values: { ...valuesOrOptions },
+    default: options.default,
+  };
+}
+
+export const env = {
+  var: envVar,
+  secret(name: string): DbEnvSecretRef {
+    return { kind: 'async-db.env.secret', name };
+  },
+};
 
 export function mergeManifest(base: unknown, patch: unknown): unknown {
   return mergePlainObjects(structuredClone(base), patch);
@@ -75,6 +115,10 @@ function isPlainObject(value: unknown): value is PlainObject {
     && typeof value === 'object'
     && !Array.isArray(value)
     && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+}
+
+function isDefaultOnlyEnvOptions(value: EnvVarMap | { default: string }): value is { default: string } {
+  return Object.keys(value).length === 1 && typeof value.default === 'string';
 }
 
 function camelCase(value: string): string {

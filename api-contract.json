@@ -25,11 +25,27 @@
         },
         {
           "id": "export.config",
-          "title": "@async/db/config defineConfig public config helper",
+          "title": "@async/db/config defineConfig, env helpers, and profile config authoring",
           "releaseTag": "public",
           "stability": "stable",
           "group": "exports",
           "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
+        },
+        {
+          "id": "config.profiles",
+          "title": "profile/profiles named config policy bundles for reviewable startup profiles",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md#profiles-vs-modes-vs-env-values"
+        },
+        {
+          "id": "config.env",
+          "title": "env.var and env.secret config references for runtime values and redacted secrets",
+          "releaseTag": "public",
+          "stability": "stable",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md#profiles-vs-modes-vs-env-values"
         },
         {
           "id": "export.client",

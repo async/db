@@ -941,7 +941,7 @@ with `operations.acceptRefs`.
 | --- | --- |
 | `@async/db` | Runtime API such as `openDb`, schema loading, and `inspectSchemaMigration`. |
 | `@async/db/schema` | `.schema.js` and `.schema.js` authoring helpers, including `field.derived`. |
-| `@async/db/config` | `defineConfig` and manifest helpers. |
+| `@async/db/config` | `defineConfig`, `env.var`, `env.secret`, profile config authoring, and manifest helpers. |
 | `@async/db/client` | HTTP client with REST, GraphQL, and batching helpers. |
 | `@async/db/json` | Compatibility exports for the standalone `@async/json` `json()` runtime, file database capabilities, and safe JSON state helpers. |
 | `@async/db/vite` | Optional Vite dev server plugin. |
@@ -951,6 +951,10 @@ with `operations.acceptRefs`.
 | `@async/db/postgres` | Optional Postgres runtime store helpers using an injected client. |
 | `@async/db/kv` | Optional generic KV runtime store helpers using an injected `get`/`set` client. |
 | `@async/db/redis` | Optional Redis-named KV helper plus additive RedisJSON store adapter. |
+
+See [Profiles Vs Modes Vs Env Values](configuration.md#profiles-vs-modes-vs-env-values)
+for when to use top-level config profiles, scoped `mode` settings, and runtime
+environment helpers.
 
 The core package stays dependency-light. Optional integrations use dynamic
 imports, generated app dependencies, or injected database clients.

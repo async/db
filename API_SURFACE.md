@@ -6,12 +6,19 @@ This file is the generated review ledger for semantic API contract features. It 
 
 Contract: `@async/db.package`
 
+### Config
+
+| Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
+| --- | --- | --- | --- | --- | --- | --- |
+| `config.env` | env.var and env.secret config references for runtime values and redacted secrets | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md#profiles-vs-modes-vs-env-values) |
+| `config.profiles` | profile/profiles named config policy bundles for reviewable startup profiles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md#profiles-vs-modes-vs-env-values) |
+
 ### Exports
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
 | `export.client` | @async/db/client tiny HTTP client, REST and GraphQL calls, batching, and cache helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
-| `export.config` | @async/db/config defineConfig public config helper | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `export.config` | @async/db/config defineConfig, env helpers, and profile config authoring | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
 | `export.hono` | @async/db/hono optional Hono integration without required Hono dependency | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.json` | @async/db/json compatibility exports for @async/json store helpers, state utilities, versioning, recovery, and encryption | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.kv` | @async/db/kv optional generic KV store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |

@@ -3,11 +3,28 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { syncDb as typedSyncDb, loadConfig as typedLoadConfig } from '../../src/index.js';
-import { mergeManifest, resourceNameFromPath } from '../../src/config-public.js';
+import { env, mergeManifest, resourceNameFromPath } from '../../src/config-public.js';
 import { makeProject, writeConfig } from '../helpers.js';
 
 const loadConfig = async (options: unknown): Promise<any> => typedLoadConfig(options as never) as Promise<any>;
 const syncDb = async (...args: any[]): Promise<any> => typedSyncDb(args[0] as never, args[1] as never) as Promise<any>;
+
+function withEnv(name: string, value: string | undefined): () => void {
+  const previous = process.env[name];
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+
+  return () => {
+    if (previous === undefined) {
+      delete process.env[name];
+    } else {
+      process.env[name] = previous;
+    }
+  };
+}
 
 test('default config adds a small local mock delay range', async () => {
   const cwd = await makeProject();
@@ -215,6 +232,321 @@ export default defineConfig({
   assert.deepEqual(config.mock.delay, [75, 250]);
 });
 
+test('loadConfig applies literal profiles before inline options', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    profile: 'prod-control-plane',
+    dbDir: './base-db',
+    server: {
+      dataPath: '/db',
+      expose: {
+        rest: 'open',
+        viewer: 'dev',
+      },
+    },
+    operations: {
+      enabled: false,
+      strict: false,
+      acceptRefs: 'both',
+    },
+    profiles: {
+      'prod-control-plane': {
+        dbDir: './prod-db',
+        outputs: {
+          stateDir: './state/prod-db',
+        },
+        mock: {
+          delay: 0,
+          errors: null,
+        },
+        server: {
+          dataPath: false,
+          expose: {
+            rest: 'registered-only',
+            viewer: false,
+            schema: false,
+            manifest: false,
+            health: 'open',
+          },
+        },
+        operations: {
+          enabled: true,
+          strict: true,
+          acceptRefs: 'ref',
+        },
+      },
+    },
+  };`);
+
+  const config = await loadConfig({
+    cwd,
+    operations: {
+      strict: false,
+    },
+  });
+
+  assert.equal(config.profile, 'prod-control-plane');
+  assert.equal(config.profiles, undefined);
+  assert.equal(config.dbDir, path.join(cwd, 'prod-db'));
+  assert.equal(config.outputs.stateDir, path.join(cwd, 'state/prod-db'));
+  assert.equal(config.mock.delay, 0);
+  assert.equal(config.server.dataPath, false);
+  assert.equal(config.server.expose.rest, 'registered-only');
+  assert.equal(config.server.expose.viewer, false);
+  assert.equal(config.operations.enabled, true);
+  assert.equal(config.operations.strict, false);
+  assert.equal(config.operations.acceptRefs, 'ref');
+});
+
+test('loadConfig selects profiles with env.var and resolves selected env values', async () => {
+  const cwd = await makeProject();
+  const restoreProfile = withEnv('ASYNC_DB_TEST_PROFILE', 'prod');
+  const restorePort = withEnv('ASYNC_DB_TEST_PORT_MODE', undefined);
+  const restoreDatabaseUrl = withEnv('ASYNC_DB_TEST_DATABASE_URL', 'postgres://example.local/db');
+  try {
+    await writeConfig(cwd, `import { defineConfig, env } from '@async/db/config';
+
+export default defineConfig({
+  profile: env.var('ASYNC_DB_TEST_PROFILE', {
+    local: 'local-control-plane',
+    prod: 'prod-control-plane',
+  }, { default: 'local' }),
+  profiles: {
+    'local-control-plane': {
+      server: {
+        dataPath: false,
+        expose: {
+          rest: 'registered-only',
+          viewer: 'dev',
+          schema: 'dev',
+          manifest: 'dev',
+          health: 'open',
+        },
+      },
+      operations: {
+        enabled: true,
+        strict: true,
+        acceptRefs: 'ref',
+      },
+    },
+    'prod-control-plane': {
+      server: {
+        port: env.var('ASYNC_DB_TEST_PORT_MODE', {
+          dev: 7331,
+          prod: 29419,
+        }, { default: 'prod' }),
+        dataPath: false,
+        expose: {
+          rest: 'registered-only',
+          graphql: false,
+          viewer: false,
+          schema: false,
+          manifest: false,
+          health: 'open',
+        },
+      },
+      operations: {
+        enabled: true,
+        strict: true,
+        acceptRefs: 'ref',
+      },
+      stores: {
+        default: 'postgres',
+        postgres: {
+          connectionString: env.secret('ASYNC_DB_TEST_DATABASE_URL'),
+        },
+      },
+    },
+  },
+});
+`);
+
+    const config = await loadConfig({ cwd });
+
+    assert.equal(config.profile, 'prod-control-plane');
+    assert.equal(config.server.port, 29419);
+    assert.equal(config.server.dataPath, false);
+    assert.equal(config.server.expose.rest, 'registered-only');
+    assert.equal(config.server.expose.graphql, false);
+    assert.equal(config.server.expose.viewer, false);
+    assert.equal(config.operations.strict, true);
+    assert.equal(config.operations.acceptRefs, 'ref');
+    assert.equal(config.stores.default, 'postgres');
+    assert.equal(config.stores.postgres.connectionString, 'postgres://example.local/db');
+  } finally {
+    restoreProfile();
+    restorePort();
+    restoreDatabaseUrl();
+  }
+});
+
+test('non-selected profile secrets are not resolved', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `import { defineConfig, env } from '@async/db/config';
+
+export default defineConfig({
+  profile: env.var('ASYNC_DB_TEST_PROFILE', { default: 'local-control-plane' }),
+  profiles: {
+    'local-control-plane': {
+      server: {
+        expose: {
+          viewer: 'dev',
+        },
+      },
+    },
+    'prod-control-plane': {
+      stores: {
+        default: 'postgres',
+        postgres: {
+          connectionString: env.secret('ASYNC_DB_TEST_UNSET_DATABASE_URL'),
+        },
+      },
+    },
+  },
+});
+`);
+
+  const config = await loadConfig({ cwd });
+
+  assert.equal(config.profile, 'local-control-plane');
+  assert.equal(config.server.expose.viewer, 'dev');
+  assert.equal(config.stores.default, 'json');
+});
+
+test('loadConfig reports missing profiles with known names', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    profile: 'missing',
+    profiles: {
+      local: {},
+      production: {},
+    },
+  };`);
+
+  await assert.rejects(
+    () => loadConfig({ cwd }),
+    (error: any) => {
+      assert.equal(error.code, 'CONFIG_PROFILE_NOT_FOUND');
+      assert.match(error.message, /missing/);
+      assert.deepEqual(error.details.knownProfiles, ['local', 'production']);
+      return true;
+    },
+  );
+});
+
+test('profile patches cannot set loader context keys', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    profiles: {
+      production: {
+        cwd: '/tmp/elsewhere',
+      },
+    },
+  };`);
+
+  await assert.rejects(
+    () => loadConfig({ cwd }),
+    (error: any) => {
+      assert.equal(error.code, 'CONFIG_PROFILE_INVALID');
+      assert.equal(error.diagnostics[0].path, 'profiles.production.cwd');
+      assert.match(error.diagnostics[0].message, /cannot set loader context key "cwd"/);
+      return true;
+    },
+  );
+});
+
+test('env.var reports missing and unmapped config values', async () => {
+  const missingCwd = await makeProject();
+  const restoreMissing = withEnv('ASYNC_DB_TEST_MISSING_HOST', undefined);
+  try {
+    await writeConfig(missingCwd, `import { defineConfig, env } from '@async/db/config';
+
+export default defineConfig({
+  server: {
+    host: env.var('ASYNC_DB_TEST_MISSING_HOST'),
+  },
+});
+`);
+
+    await assert.rejects(
+      () => loadConfig({ cwd: missingCwd }),
+      (error: any) => {
+        assert.equal(error.code, 'CONFIG_ENV_VAR_MISSING');
+        assert.equal(error.details.name, 'ASYNC_DB_TEST_MISSING_HOST');
+        return true;
+      },
+    );
+  } finally {
+    restoreMissing();
+  }
+
+  const unmappedCwd = await makeProject();
+  const restoreUnmapped = withEnv('ASYNC_DB_TEST_PORT_MODE', 'qa');
+  try {
+    await writeConfig(unmappedCwd, `import { defineConfig, env } from '@async/db/config';
+
+export default defineConfig({
+  server: {
+    port: env.var('ASYNC_DB_TEST_PORT_MODE', {
+      dev: 7331,
+      prod: 29419,
+    }),
+  },
+});
+`);
+
+    await assert.rejects(
+      () => loadConfig({ cwd: unmappedCwd }),
+      (error: any) => {
+        assert.equal(error.code, 'CONFIG_ENV_VAR_UNMAPPED');
+        assert.equal(error.details.name, 'ASYNC_DB_TEST_PORT_MODE');
+        assert.equal(error.details.value, 'qa');
+        assert.deepEqual(error.details.knownValues, ['dev', 'prod']);
+        return true;
+      },
+    );
+  } finally {
+    restoreUnmapped();
+  }
+});
+
+test('env.secret reports missing config secrets without printing values', async () => {
+  const cwd = await makeProject();
+  const restore = withEnv('ASYNC_DB_TEST_MISSING_SECRET', undefined);
+  try {
+    await writeConfig(cwd, `import { defineConfig, env } from '@async/db/config';
+
+export default defineConfig({
+  profile: 'production',
+  profiles: {
+    production: {
+      stores: {
+        default: 'postgres',
+        postgres: {
+          connectionString: env.secret('ASYNC_DB_TEST_MISSING_SECRET'),
+        },
+      },
+    },
+  },
+});
+`);
+
+    await assert.rejects(
+      () => loadConfig({ cwd }),
+      (error: any) => {
+        assert.equal(error.code, 'CONFIG_ENV_SECRET_MISSING');
+        assert.equal(error.details.name, 'ASYNC_DB_TEST_MISSING_SECRET');
+        assert.equal(error.details.secret, true);
+        assert.equal(error.details.value, '<redacted>');
+        assert.match(error.hint, /never printed/i);
+        return true;
+      },
+    );
+  } finally {
+    restore();
+  }
+});
+
 test('db.config.js without type module reports an ESM package boundary hint', async () => {
   const cwd = await makeProject();
   await writeFile(path.join(cwd, 'db.config.js'), `export default {
@@ -352,8 +684,13 @@ test('loadConfig rejects private runtime config with migration diagnostics', asy
         assert.equal(error.diagnostics[0].severity, 'error', scenario.name);
         assert.equal(error.diagnostics[0].path, scenario.path, scenario.name);
         assert.match(error.diagnostics[0].message, /runtime config/i, scenario.name);
-        assert.match(error.diagnostics[0].hint, /stores/i, scenario.name);
-        assert.match(error.diagnostics[0].hint, /resources\.<name>\.store/i, scenario.name);
+        if (scenario.name === 'mode') {
+          assert.match(error.diagnostics[0].hint, /profile\/profiles/i, scenario.name);
+          assert.match(error.diagnostics[0].hint, /scoped mode/i, scenario.name);
+        } else {
+          assert.match(error.diagnostics[0].hint, /stores/i, scenario.name);
+          assert.match(error.diagnostics[0].hint, /resources\.<name>\.store/i, scenario.name);
+        }
         return true;
       },
     );
