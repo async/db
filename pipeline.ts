@@ -12,7 +12,8 @@ export default definePipeline({
   sync: {
     github: {
       nodeVersion: 24,
-      cache: true
+      cache: true,
+      dependencyCache: false
     },
     tasks: {
       prefix: "pipeline",

@@ -46,8 +46,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          package-manager-cache: false
 
       - name: Enable pnpm
         run: |
@@ -127,8 +126,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          package-manager-cache: false
 
       - name: Enable pnpm
         run: |
@@ -187,8 +185,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          package-manager-cache: false
 
       - name: Enable pnpm
         run: |
@@ -247,8 +244,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          package-manager-cache: false
 
       - name: Enable pnpm
         run: |
@@ -303,8 +299,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          package-manager-cache: false
 
       - name: Enable pnpm
         run: |
@@ -359,8 +354,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          package-manager-cache: false
 
       - name: Enable pnpm
         run: |
@@ -412,8 +406,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
-          cache: "pnpm"
-          cache-dependency-path: "pnpm-lock.yaml"
+          package-manager-cache: false
 
       - name: Enable pnpm
         run: |
