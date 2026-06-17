@@ -25,7 +25,7 @@ Contract: `@async/db.package`
 | `export.postgres` | @async/db/postgres optional Postgres JSONB envelope storage and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.postgres.compat` | @async/db/postgres/compat low-level Postgres driver adapters and legacy bridges | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.redis` | @async/db/redis optional Redis-like KV adapter and RedisJSON store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
-| `export.root` | @async/db root runtime, schema, server, sync, operations, and helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `export.root` | @async/db root runtime, schema, server, sync, operations, eventResource, and helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.schema` | @async/db/schema authoring helpers: collection, document, field, derived fields, and files | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
 | `export.sqlite` | @async/db/sqlite optional SQLite store and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.sqlite.compat` | @async/db/sqlite/compat low-level SQLite driver adapters and legacy bridges | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
@@ -150,7 +150,7 @@ Contract: `@async/db.runtime`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `runtime.database` | openDb, Db, resource-property proxies, db._ controls, collection/document APIs, identity keys, append-only resources, lifecycle, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.database` | openDb, Db, resource-property proxies, db._ controls, collection/document APIs, identity keys, append-only resources, eventResource helper, lifecycle, close, and ETag preconditions | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `runtime.lifecycle` | createDbRuntime, reloadDb, watchDbSources, and createDbRequestHandler for custom local servers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 
 ### Schema

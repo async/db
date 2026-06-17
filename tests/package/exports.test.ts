@@ -46,7 +46,7 @@ async function declarationFiles(directory: string): Promise<string[]> {
 
 test('consumer projects can import package APIs through the @async/db package', async () => {
   const cwd = await makeProject();
-  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, inspectSchemaMigration, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
+  await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, eventResource, inspectSchemaMigration, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig, env } from '@async/db/config';
 import { fileStorage, json, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
@@ -65,6 +65,7 @@ if (typeof inspectSchemaMigration !== 'function') throw new Error('missing schem
 if (typeof createDbOperationHandler !== 'function') throw new Error('missing operation handler API');
 if (typeof createDbRequestHandler !== 'function') throw new Error('missing request handler API');
 if (typeof createMemoryFs !== 'function') throw new Error('missing memory fs helper');
+if (typeof eventResource !== 'function') throw new Error('missing event resource helper');
 if (typeof createDbRuntime !== 'function') throw new Error('missing runtime API');
 if (typeof reloadDb !== 'function') throw new Error('missing runtime reload API');
 if (typeof watchDbSources !== 'function') throw new Error('missing runtime watch API');
@@ -156,12 +157,15 @@ export type DbTypes = {
   createDbRuntime,
   createIndexedDbCacheStorage,
   createMemoryFs,
+  eventResource,
   inspectSchemaMigration,
   loadDbSchema,
   openDb,
   recordEtag,
   type Db,
   type DbDocumentPath,
+  type DbEventResource,
+  type DbEventResourceOptions,
   type DbFileSystem,
   type DbSchemaMigrationReport,
   type DbOptions,
@@ -293,6 +297,16 @@ const derivedSchema = collection({
 });
 
 const dbPromise: Promise<Db<DbTypes>> = openDb<DbTypes>(options);
+const eventSink = {
+  async append(record: Record<string, unknown>) {
+    return record;
+  },
+};
+const events: DbEventResource<{ owner: string }> = eventResource<{ owner: string }>(eventSink, {
+  defaultLevel: 'info',
+  levels: ['info', 'warn'],
+} satisfies DbEventResourceOptions);
+void events.append('user.created', { owner: 'patrickjs' }, { message: 'Created user' });
 const runtimeOptions: DbRuntimeOptions = {
   cwd: '.',
   watch: false,
@@ -730,6 +744,9 @@ test('public declarations expose schema loader and validator API', async () => {
   assert.match(declarations, /resolver<TArgs = Record<string, unknown>, TValue = unknown>\(\s+selector: string,\s+options\?: DbSchemaResolverOptions,\s+\): DbSchemaFieldResolver<TArgs, TValue> \| Record<string, DbSchemaFieldResolver<TArgs, TValue>>;/);
   assert.match(declarations, /export type DbOpenOptions = Omit<DbOptions, 'schema'> & \{/);
   assert.match(declarations, /export function openDb<Types extends DbTypeMap = DbTypeMap>\(options\?: DbOpenOptions \| string\): Promise<Db<Types>>;/);
+  assert.match(declarations, /export type DbEventResourceOptions = \{/);
+  assert.match(declarations, /export type DbEventResourceAppendOptions = \{/);
+  assert.match(declarations, /export function eventResource</);
   assert.match(declarations, /export function loadDbSchema\(options\?: DbOptions \| string\): Promise<DbLoadedSchema>;/);
   assert.match(declarations, /export type DbSchemaMigrationReport = \{/);
   assert.match(declarations, /kind: 'db\.schemaMigrationReport';/);

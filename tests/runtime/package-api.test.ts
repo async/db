@@ -4,6 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   createMemoryFs,
+  eventResource as typedEventResource,
   loadDbSchema as typedLoadDbSchema,
   makeGeneratedSchema as typedMakeGeneratedSchema,
   openDb as typedOpenDb,
@@ -13,6 +14,7 @@ import { makeProject, writeConfig, writeFixture } from '../helpers.js';
 const loadDbSchema = async (options: unknown): Promise<any> => typedLoadDbSchema(options as never) as Promise<any>;
 const makeGeneratedSchema = (...args: unknown[]): any => typedMakeGeneratedSchema(args[0] as never, args[1] as never);
 const openDb = async (options: unknown): Promise<any> => typedOpenDb(options as never) as Promise<any>;
+const eventResource = (...args: unknown[]): any => typedEventResource(args[0] as never, args[1] as never);
 
 test('defaults apply when creating records through the package API', async () => {
   const cwd = await makeProject();
@@ -426,6 +428,82 @@ test('append-only collections allow append and reject mutation APIs', async () =
   });
   await assert.rejects(() => events.delete('1'), /append-only/);
   await assert.rejects(() => events.replaceAll([]), /append-only/);
+});
+
+test('eventResource appends conventional event records through append-only collections', async () => {
+  const cwd = await makeProject();
+  await writeFixture(cwd, 'local-events.schema.jsonc', `{
+    "kind": "collection",
+    "idField": "id",
+    "writePolicy": "append-only",
+    "fields": {
+      "id": { "type": "string", "required": true },
+      "type": { "type": "string", "required": true },
+      "level": {
+        "type": "enum",
+        "values": ["info", "warn"],
+        "required": true
+      },
+      "message": { "type": "string", "required": true },
+      "payload": { "type": "json", "required": true },
+      "createdAt": { "type": "string", "required": true },
+      "owner": { "type": "string" }
+    },
+    "seed": []
+  }`);
+
+  const db = await openDb({ cwd });
+  const localEvents = eventResource(db.collection('localEvents'), {
+    id: () => 'evt_1',
+    now: () => new Date('2026-06-16T23:00:00.000Z'),
+    levels: ['info', 'warn'],
+    typePattern: /^[a-z]+(?:\.[a-z]+)+$/,
+  });
+
+  assert.deepEqual(await localEvents.append('app.registered', {
+    app: 'demo',
+  }, {
+    message: 'Registered app demo',
+    fields: { owner: 'patrickjs' },
+  }), {
+    id: 'evt_1',
+    type: 'app.registered',
+    level: 'info',
+    message: 'Registered app demo',
+    payload: { app: 'demo' },
+    createdAt: '2026-06-16T23:00:00.000Z',
+    owner: 'patrickjs',
+  });
+  assert.deepEqual(await db.collection('localEvents').all(), [
+    {
+      id: 'evt_1',
+      type: 'app.registered',
+      level: 'info',
+      message: 'Registered app demo',
+      payload: { app: 'demo' },
+      createdAt: '2026-06-16T23:00:00.000Z',
+      owner: 'patrickjs',
+    },
+  ]);
+
+  await assert.rejects(() => localEvents.append('bad type', {}), (error: any) => {
+    assert.equal(error.code, 'DB_EVENT_RESOURCE_INVALID_TYPE');
+    assert.match(error.message, /pattern/);
+    return true;
+  });
+  await assert.rejects(() => localEvents.append('app.blocked', {}, { level: 'debug' }), (error: any) => {
+    assert.equal(error.code, 'DB_EVENT_RESOURCE_INVALID_LEVEL');
+    assert.match(error.hint, /"info", "warn"/);
+    return true;
+  });
+  await assert.rejects(() => db.collection('localEvents').create({
+    id: 'evt_2',
+    type: 'app.created',
+    level: 'info',
+    message: 'Created',
+    payload: {},
+    createdAt: '2026-06-16T23:00:01.000Z',
+  }), /append-only/);
 });
 
 test('openDb can read and write through an injected memory filesystem', async () => {

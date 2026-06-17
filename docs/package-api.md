@@ -545,6 +545,49 @@ Event-log resources can use `writePolicy: "append-only"` and
 update, delete, and replace-all calls while still allowing append-style event
 writes.
 
+The `eventResource()` helper is a small ergonomic convention over this existing
+append-only support, not append-only support itself. It removes repeated event
+boilerplate while still calling `collection.append(record)` under the hood:
+
+```ts
+import { eventResource } from '@async/db';
+
+const localEvents = eventResource(db.collection('localEvents'), {
+  id: () => crypto.randomUUID(),
+  now: () => new Date().toISOString(),
+  levels: ['info', 'warn', 'error'],
+  typePattern: /^[a-z]+(?:\.[a-z]+)+$/,
+});
+
+await localEvents.append('app.registered', {
+  owner: 'patrickjs',
+  app: 'demo',
+}, {
+  level: 'info',
+  message: 'Registered app demo',
+});
+```
+
+The helper expands to the manual API that already works today:
+
+```ts
+await db.collection('localEvents').append({
+  id: crypto.randomUUID(),
+  type: 'app.registered',
+  level: 'info',
+  message: 'Registered app demo',
+  payload: { owner: 'patrickjs', app: 'demo' },
+  createdAt: new Date().toISOString(),
+});
+```
+
+The helper accepts an append-only collection-like object, preserves the
+`writePolicy: "append-only"` contract by calling only `append`, fills
+conventional event fields such as `id`, `type`, `level`, `message`, `payload`,
+and `createdAt`, and can validate event type or level values through
+`typePattern` and `levels`. It does not add pub/sub, retries, projections,
+workflow orchestration, audit trails, or a second event bus.
+
 Compound identity is declared with `identity.fields`; `idField` remains the
 single-field shorthand. Package API methods accept scalar ids for single-field
 identity and object keys for compound identity:

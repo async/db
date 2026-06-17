@@ -276,6 +276,11 @@ Event logs can opt into `writePolicy: 'append-only'` and write through
 `collection.append(record)`, which blocks update, patch, delete, and replace-all
 calls for that resource.
 
+If event writes repeat the same `id`, `type`, `level`, `message`, `payload`, and
+`createdAt` shaping in several apps, use `eventResource()` as ergonomic sugar
+over those append-only resources. It should not be treated as missing
+append-only storage support.
+
 For example, a local package registry with firewall tables may keep package
 blocking writes in app-owned SQLite, while using `@async/db` for dashboard
 read-model resources such as package inventory, auth/private package views,

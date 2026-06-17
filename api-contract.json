@@ -9,7 +9,7 @@
       "features": [
         {
           "id": "export.root",
-          "title": "@async/db root runtime, schema, server, sync, operations, and helpers",
+          "title": "@async/db root runtime, schema, server, sync, operations, eventResource, and helpers",
           "releaseTag": "public",
           "stability": "stable",
           "group": "exports",
@@ -247,7 +247,7 @@
       "features": [
         {
           "id": "runtime.database",
-          "title": "openDb, Db, resource-property proxies, db._ controls, collection/document APIs, identity keys, append-only resources, lifecycle, close, and ETag preconditions",
+          "title": "openDb, Db, resource-property proxies, db._ controls, collection/document APIs, identity keys, append-only resources, eventResource helper, lifecycle, close, and ETag preconditions",
           "releaseTag": "public",
           "stability": "stable",
           "group": "runtime",

@@ -1467,6 +1467,49 @@ export type DbCollection<RecordType, KeyType = DbKey> = {
   replaceAll(records: RecordType[]): Promise<RecordType[]>;
 };
 
+export type DbEventAppendCollection<RecordType extends Record<string, unknown> = Record<string, unknown>> = {
+  append(record: RecordType): Promise<RecordType>;
+};
+
+export type DbEventResourceOptions = {
+  /**
+   * Optional id producer. Leave unset when the target collection already
+   * generates ids through its normal append path.
+   */
+  id?: () => unknown;
+  /** Timestamp producer for the conventional timestamp field. */
+  now?: () => string | Date;
+  /** Default event level when append() does not provide one. Defaults to "info". */
+  defaultLevel?: string;
+  /** Field name for the generated timestamp. Defaults to "createdAt". */
+  timestampField?: string;
+  /** Optional validation for event type names. */
+  typePattern?: RegExp;
+  /** Optional allow-list for event levels. */
+  levels?: readonly string[];
+};
+
+export type DbEventResourceAppendOptions = {
+  /** Explicit id for this event record. Overrides the helper id producer. */
+  id?: unknown;
+  /** Event severity or classification. Defaults to the helper default level. */
+  level?: string;
+  /** Human-readable event message. Defaults to the event type. */
+  message?: string;
+  /** Explicit timestamp for this event record. */
+  createdAt?: string;
+  /** Extra record fields to merge into the appended event. */
+  fields?: Record<string, unknown>;
+};
+
+export type DbEventResource<
+  Payload = unknown,
+  RecordType extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  readonly collection: DbEventAppendCollection<RecordType>;
+  append(type: string, payload?: Payload, options?: DbEventResourceAppendOptions): Promise<RecordType>;
+};
+
 export type DbDocumentPath = string | Array<string | number>;
 
 export type DbDocument<DocumentType> = {
@@ -1945,6 +1988,13 @@ export type DbServer = {
 };
 
 export function openDb<Types extends DbTypeMap = DbTypeMap>(options?: DbOpenOptions | string): Promise<Db<Types>>;
+export function eventResource<
+  Payload = unknown,
+  RecordType extends Record<string, unknown> = Record<string, unknown>,
+>(
+  collection: DbEventAppendCollection<RecordType>,
+  options?: DbEventResourceOptions,
+): DbEventResource<Payload, RecordType>;
 export function createDbClient(options?: DbClientOptions): DbClient;
 export function createIndexedDbCacheStorage(options?: {
   name?: string;
