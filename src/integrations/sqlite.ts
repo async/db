@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -119,6 +120,13 @@ type NormalizedTableMapping = {
 
 type SqliteStoreOptions = {
   file?: string;
+  gitMirror?: boolean;
+  afterWrite?: (database: SyncSqliteDatabase, resource: SqliteResource, value: unknown, delta: Record<string, unknown>) => void;
+};
+
+type SqliteMirrorOptions = {
+  file?: string;
+  writes?: 'receipt' | 'through';
 };
 
 type StoreContext = {
@@ -138,6 +146,7 @@ type StoreAdapter = {
   hydrate(resources: SqliteResource[]): Promise<void>;
   readResource(resource: SqliteResource, fallback: unknown): unknown;
   writeResource(resource: SqliteResource, value: unknown): void;
+  writeResourceDelta?(resource: SqliteResource, value: unknown, delta: Record<string, unknown>): void;
   withResourceWrite<T>(resource: SqliteResource, operation: () => T | Promise<T>): Promise<T>;
   close(): void;
 };
@@ -173,6 +182,9 @@ export function sqliteStore(options: SqliteStoreOptions = {}): (context: StoreCo
     const connection = openStoreDatabase(file, databases, config);
     const database = connection.database;
     migrateSqliteStore(database);
+    if (options.gitMirror) {
+      migrateSqliteGitMirror(database);
+    }
 
     return {
       name: storeName,
@@ -192,6 +204,11 @@ export function sqliteStore(options: SqliteStoreOptions = {}): (context: StoreCo
       },
       writeResource(resource, value) {
         writeSqliteStoreResource(database, resource, value);
+        options.afterWrite?.(database, resource, value, { op: 'replace-all', value });
+      },
+      writeResourceDelta(resource, value, delta) {
+        writeSqliteStoreResource(database, resource, value);
+        options.afterWrite?.(database, resource, value, delta);
       },
       withResourceWrite<T>(resource: SqliteResource, operation: () => T | Promise<T>): Promise<T> {
         const queueKey = `${file}:${resource.name}`;
@@ -215,6 +232,88 @@ export function sqliteStore(options: SqliteStoreOptions = {}): (context: StoreCo
         databases.delete(config);
       },
     };
+  };
+}
+
+export function sqliteMirror(options: SqliteMirrorOptions = {}): (context: StoreContext) => StoreAdapter & {
+  gitMirror: {
+    kind: 'async-db.git.mirror';
+    store: 'sqlite';
+    writes: 'receipt' | 'through';
+  };
+} {
+  const writes = options.writes ?? 'receipt';
+  const factory = sqliteStore({
+    file: options.file,
+    gitMirror: true,
+    afterWrite: writes === 'through' ? enqueueGitMirrorOutbox : undefined,
+  });
+  const mirrorFactory = (context: StoreContext) => {
+    const store = factory(context);
+    return Object.assign(store, {
+      gitMirror: {
+        kind: 'async-db.git.mirror' as const,
+        store: 'sqlite' as const,
+        writes,
+      },
+    });
+  };
+  return Object.assign(mirrorFactory, {
+    gitMirror: {
+      kind: 'async-db.git.mirror' as const,
+      store: 'sqlite' as const,
+      writes,
+    },
+  });
+}
+
+function enqueueGitMirrorOutbox(
+  database: SyncSqliteDatabase,
+  resource: SqliteResource,
+  value: unknown,
+  delta: Record<string, unknown>,
+): void {
+  const source = gitSourceRecord(resource);
+  if (!source) {
+    return;
+  }
+  const now = new Date().toISOString();
+  const id = randomUUID();
+  database.prepare(`INSERT INTO "_db_git_outbox" (id, resource, remote, status, change_set, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+    id,
+    resource.name,
+    String(source.remote ?? ''),
+    'pending',
+    JSON.stringify({
+      id,
+      resource: resource.name,
+      kind: resource.kind,
+      source: safeGitSourceRecord(source),
+      delta,
+      value,
+    }),
+    now,
+    now,
+  );
+}
+
+function gitSourceRecord(resource: SqliteResource): Record<string, unknown> | null {
+  const source = resource.source;
+  return source && typeof source === 'object' && !Array.isArray(source) && (source as Record<string, unknown>).kind === 'git-files'
+    ? source as Record<string, unknown>
+    : null;
+}
+
+function safeGitSourceRecord(source: Record<string, unknown>): Record<string, unknown> {
+  return {
+    kind: source.kind,
+    shape: source.shape,
+    remote: source.remote,
+    patterns: Array.isArray(source.patterns) ? [...source.patterns] : undefined,
+    read: source.read,
+    bodyField: source.bodyField,
+    idField: source.idField,
   };
 }
 
@@ -327,6 +426,37 @@ function migrateSqliteStore(database: SyncSqliteDatabase): void {
     "kind" TEXT NOT NULL,
     "source_hash" TEXT,
     "value" TEXT NOT NULL
+  ) STRICT;`);
+}
+
+function migrateSqliteGitMirror(database: SyncSqliteDatabase): void {
+  database.exec(`CREATE TABLE IF NOT EXISTS "_db_git_sync" (
+    "resource" TEXT PRIMARY KEY,
+    "remote" TEXT,
+    "ref" TEXT,
+    "commit_sha" TEXT,
+    "synced_at" TEXT NOT NULL,
+    "metadata" TEXT
+  ) STRICT;`);
+  database.exec(`CREATE TABLE IF NOT EXISTS "_db_git_outbox" (
+    "id" TEXT PRIMARY KEY,
+    "resource" TEXT NOT NULL,
+    "remote" TEXT,
+    "status" TEXT NOT NULL,
+    "change_set" TEXT NOT NULL,
+    "created_at" TEXT NOT NULL,
+    "updated_at" TEXT NOT NULL
+  ) STRICT;`);
+  database.exec(`CREATE TABLE IF NOT EXISTS "_db_git_receipts" (
+    "id" TEXT PRIMARY KEY,
+    "resource" TEXT NOT NULL,
+    "remote" TEXT,
+    "commit_sha" TEXT,
+    "branch" TEXT,
+    "pr_url" TEXT,
+    "paths" TEXT,
+    "received_at" TEXT NOT NULL,
+    "metadata" TEXT
   ) STRICT;`);
 }
 

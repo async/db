@@ -84,6 +84,10 @@
       "types": "./dist/json.d.ts",
       "default": "./dist/json.js"
     },
+    "./git": {
+      "types": "./dist/git.d.ts",
+      "default": "./dist/git.js"
+    },
     "./hono": {
       "types": "./dist/hono.d.ts",
       "default": "./dist/hono.js"

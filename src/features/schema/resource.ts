@@ -2,7 +2,7 @@ import { resourceConfigValue, routePathForResource, typeNameForResource } from '
 import { normalizeIdentity, singleIdentityField, type IdentityDefinition } from '../identity.js';
 import { inferFieldsFromData, normalizeField, type SchemaField } from './fields.js';
 import { relationsForResource } from './relations.js';
-import { normalizeFilesSource, type FilesSourceDefinition } from './source-definitions.js';
+import { normalizeResourceSource, type ResourceSourceDefinition } from './source-definitions.js';
 import { mergeStandardSchemaFields, standardJsonSchemaFields, type SchemaDiagnostic, type StandardSchemaV1 } from './standard-schema.js';
 
 type ResourceKind = 'collection' | 'document';
@@ -28,7 +28,7 @@ type RawSchema = {
   fields?: Record<string, unknown>;
   validator?: unknown;
   standardSchema?: unknown;
-  source?: Parameters<typeof normalizeFilesSource>[0];
+  source?: Parameters<typeof normalizeResourceSource>[0];
   parser?: string;
   store?: unknown;
   [key: string]: unknown;
@@ -88,7 +88,7 @@ type BuiltResource = {
   fieldsAuthoritative: boolean;
   typeFallback?: string;
   diagnostics?: SchemaDiagnostic[];
-  source?: FilesSourceDefinition | null;
+  source?: ResourceSourceDefinition | null;
   typeName?: string;
   routePath?: string;
   relations?: ReturnType<typeof relationsForResource>;
@@ -169,7 +169,7 @@ export function buildResource({
       fieldsAuthoritative: standardSchema ? standardFields.authoritative : true,
       typeFallback: standardSchema && Object.keys(rawFields).length === 0 ? 'record' : undefined,
       diagnostics: standardDiagnostics,
-      source: normalizeFilesSource(rawSchema.source, { read: rawSchema.parser }),
+      source: normalizeResourceSource(rawSchema.source, { read: rawSchema.parser }),
     });
   }
 

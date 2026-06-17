@@ -26,6 +26,8 @@ See [db.config.example.js](../db.config.example.js) for a commented config with 
 | --- | --- | --- |
 | Data folder (`db/`) | `./db` | `dbDir` |
 | Custom source formats | Built-in readers | `sources.readers` |
+| Git content remotes | Off | `git.remotes` and `@async/db/git` |
+| Git-backed resource mirror | JSON under `.db/state` | `git.mirror` |
 | Nested resource names | Data file basename | `resources.naming` or `resources.customizeResource` |
 | Runtime store behavior | JSON files under `.db/state` | `stores.default` or `resources.<name>.store` |
 | Index intent metadata | Off | `resources.<name>.indexes` |
@@ -197,6 +199,58 @@ export default defineConfig({
 The `sourceFile` store is intentionally narrow. It is only for resources where supported writebacks should update plain `.json` source data files. Other supported source formats stay read-only inputs and still hydrate runtime state.
 
 `indexes` is metadata for store selection, generated tooling, and `doctor` scale warnings. The default JSON store does not build physical indexes.
+
+## Git Remotes And Mirrors
+
+Git-backed resources use `git.remotes` in `db.config.js` and `source: gitFiles(...)` or related helpers in schema files. This keeps connection details out of resource schemas while letting each collection define its own path mapping.
+
+```js
+import { defineConfig } from '@async/db/config';
+import { githubRemote } from '@async/db/git';
+
+export default defineConfig({
+  git: {
+    remotes: {
+      content: githubRemote({
+        repo: 'acme/site-content',
+        branch: 'main',
+        mode: 'app',
+      }),
+    },
+  },
+  graphql: { enabled: true },
+});
+```
+
+GitHub is the built-in remote type in this slice. `mode: "token"` can read snapshots directly with a token or public repository access. `mode: "app"`, `"actions-pull"`, and `"actions-dispatch"` are the long-lived integration paths owned by `@async/github-app`; pass an injected client or bridge snapshot until that package owns live App/Actions operations in your deployment.
+
+The default Git mirror is the existing JSON state under `.db/state` with receipt-mode writes. Use SQLite when you want a CMS-like production mirror with faster local reads and a durable write-through outbox:
+
+```js
+import { defineConfig } from '@async/db/config';
+import { githubRemote } from '@async/db/git';
+import { sqliteMirror } from '@async/db/sqlite';
+
+export default defineConfig({
+  git: {
+    remotes: {
+      content: githubRemote({
+        repo: 'acme/marketing-content',
+        branch: 'main',
+        mode: 'app',
+      }),
+    },
+    mirror: sqliteMirror({
+      file: './.db/git-mirror.sqlite',
+      writes: 'through',
+    }),
+  },
+});
+```
+
+Receipt-mode mirrors expect writes to go through a Git driver such as `@async/github-app` so the mirror updates after a commit or PR receipt. Without that driver, package API, REST, and GraphQL writes to Git-backed resources are rejected instead of silently changing only the mirror.
+
+Generated schema and viewer manifests include only safe source metadata: source kind, remote alias, patterns, read mode, body field, and source shape. They do not emit GitHub tokens, private keys, webhook secrets, app installation ids, or remote client objects.
 
 Optional database stores keep the same data-file and schema workflow while moving
 runtime persistence out of `.db/state`. They store whole resources as JSON

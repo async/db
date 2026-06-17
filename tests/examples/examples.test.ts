@@ -50,9 +50,11 @@ test('examples launcher can discover repo examples and render an index page', as
     'diagnostics',
     'computed-fields',
     'content-collections',
+    'github-content',
     'standard-schema',
     'schema-manifest',
     'schema-ui',
+    'tina-git-cms',
     'advanced',
     'production-json',
     'hono-auth',
@@ -79,6 +81,8 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /Start here/);
   assert.match(html, /data-first/);
   assert.match(html, /Content Collections/);
+  assert.match(html, /GitHub Content/);
+  assert.match(html, /Tina-Style Git CMS/);
   assert.match(html, /CMS JSON Publish/);
   assert.match(html, /Computed Fields/);
   assert.match(html, /csv/);
@@ -538,6 +542,7 @@ test('new onboarding examples sync expected resources', async () => {
     'computed-fields': ['orders', 'posts', 'products', 'users'],
     'cms-json-publish': ['navigation', 'pages'],
     'free-plan-upgrade': ['appSettings', 'projects'],
+    'github-content': ['posts'],
     'local-web-app': ['appState'],
     'production-json': ['appSettings', 'featureFlags'],
     'rest-client': ['settings', 'users'],
@@ -545,6 +550,7 @@ test('new onboarding examples sync expected resources', async () => {
     'schema-manifest': ['projects', 'users'],
     'schema-ui': ['pages', 'users'],
     'standard-schema': ['settings', 'users'],
+    'tina-git-cms': ['authors', 'pages', 'site'],
   };
 
   for (const [name, resources] of Object.entries(expected)) {

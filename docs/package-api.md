@@ -172,6 +172,41 @@ await db.resourceNames.find(); // resource named "resourceNames"
 await db._.close(); // explicit control namespace
 ```
 
+### Git Source API
+
+`@async/db/git` exports the Git-backed source helpers used by config and schema files:
+
+```ts
+import { githubRemote, gitFiles, gitFile, gitCollectionFile } from '@async/db/git';
+```
+
+Use `githubRemote()` in `db.config.js`:
+
+```js
+import { defineConfig } from '@async/db/config';
+import { githubRemote } from '@async/db/git';
+
+export default defineConfig({
+  git: {
+    remotes: {
+      content: githubRemote({
+        repo: 'acme/site-content',
+        branch: 'main',
+        mode: 'app',
+      }),
+    },
+  },
+});
+```
+
+Use `gitFiles()`, `gitFile()`, and `gitCollectionFile()` in schema modules to map repository files to Async DB resources. `async-db sync` reads the Git snapshot, validates through the normal schema path, writes generated schema/types/manifests, and hydrates the runtime mirror. Local API reads then use the mirror instead of making live GitHub calls per request.
+
+`mode: "token"` can read GitHub tree snapshots directly with a token or public repository access. `mode: "app"`, `"actions-pull"`, and `"actions-dispatch"` are integration modes owned by `@async/github-app`; pass an injected client or bridge snapshot when those modes need to participate in sync before the GitHub integration package is installed in your app runtime.
+
+The package also exposes `db._.git.flush()`, `db._.git.pending()`, `db._.git.receipts()`, and `db._.git.reconcile()` as the control surface for Git mirror/outbox work. In this slice the methods expose the API shape and mirror mode; the live branch, commit, PR, webhook, Actions bridge, and receipt mechanics are delegated to `@async/github-app`.
+
+Receipt-mode mirrors reject direct package API, REST, and GraphQL writes unless a Git write driver owns the commit/receipt path. Use `sqliteMirror({ writes: "through" })` when local writes should be accepted into a durable SQLite outbox before Git flush.
+
 ### In-Memory Filesystem
 
 `openDb()` can take a filesystem adapter when a tool, test, or embedded runtime
@@ -381,6 +416,32 @@ const db = await openSqliteDb({
 await db.table('users').get('u_1');
 await db.table('packageVersions').get({ name: '@async/db', version: '0.4.0' });
 ```
+
+`sqliteMirror()` is the Git-backed resource mirror wrapper. It uses the same optional SQLite store machinery, creates internal Git sync/outbox/receipt tables, and can be selected globally for Git resources through `git.mirror`:
+
+```js
+import { defineConfig } from '@async/db/config';
+import { githubRemote } from '@async/db/git';
+import { sqliteMirror } from '@async/db/sqlite';
+
+export default defineConfig({
+  git: {
+    remotes: {
+      content: githubRemote({
+        repo: 'acme/marketing-content',
+        branch: 'main',
+        mode: 'app',
+      }),
+    },
+    mirror: sqliteMirror({
+      file: './.db/git-mirror.sqlite',
+      writes: 'through',
+    }),
+  },
+});
+```
+
+Without `git.mirror`, Git-backed resources use the default JSON mirror under `.db/state` with receipt-mode writes.
 
 Use `@async/db/sqlite/compat` when transitional code already has a low-level
 SQLite driver handle. Compat supports `node:sqlite`, `better-sqlite3`,

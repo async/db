@@ -15,6 +15,10 @@ type RuntimeConfig = {
   cwd: string;
   stateDir: string;
   resources?: Record<string, unknown>;
+  git?: {
+    mirror?: unknown;
+    [key: string]: unknown;
+  };
   stores?: Record<string, unknown>;
   [key: string]: unknown;
 };
@@ -71,6 +75,12 @@ export function createRuntime(config: RuntimeConfig, resources: RuntimeResource[
     adapters.set(adapter.name, adapter);
   }
 
+  const gitMirror = gitMirrorStore(config, resources);
+  if (gitMirror) {
+    storeDefinitions.set('gitMirror', gitMirror);
+    adapters.set('gitMirror', customStoreAdapter('gitMirror', gitMirror, customStoreQueues));
+  }
+
   for (const [storeName, storeDefinition] of Object.entries(config.stores ?? {})) {
     if (storeName === 'default' || typeof storeDefinition === 'string' || storeRecord(storeDefinition)?.driver) {
       continue;
@@ -92,7 +102,7 @@ export function createRuntime(config: RuntimeConfig, resources: RuntimeResource[
     },
     strategyFor(resource: RuntimeResource): string {
       const resourceConfig = storeRecord(resourceConfigValue(config.resources, resource.name));
-      const storeName = String(resourceConfig?.store ?? config.stores?.default ?? 'json');
+      const storeName = String(resourceConfig?.store ?? defaultStoreForResource(config, resource));
       return strategyForStoreName(resource, storeName, config, adapters, storeDefinitions);
     },
     adapterForStore(resource: RuntimeResource, storeName: string): RuntimeAdapter {
@@ -113,7 +123,7 @@ export function createRuntime(config: RuntimeConfig, resources: RuntimeResource[
           },
         );
       }
-      return adapter;
+      return protectGitMirrorWrites(config, resource, adapter);
     },
     adapterFor(resource: RuntimeResource): RuntimeAdapter {
       const strategy = this.strategyFor(resource);
@@ -133,7 +143,7 @@ export function createRuntime(config: RuntimeConfig, resources: RuntimeResource[
           },
         );
       }
-      return adapter;
+      return protectGitMirrorWrites(config, resource, adapter);
     },
     async hydrate(): Promise<void> {
       const byAdapter = new Map<RuntimeAdapter, RuntimeResource[]>();
@@ -163,6 +173,89 @@ export function createRuntime(config: RuntimeConfig, resources: RuntimeResource[
       events.close();
     },
   };
+}
+
+function defaultStoreForResource(config: RuntimeConfig, resource: RuntimeResource): string {
+  if (isGitBackedResource(resource)) {
+    return gitMirrorStoreName(config);
+  }
+  return String(config.stores?.default ?? 'json');
+}
+
+function gitMirrorStoreName(config: RuntimeConfig): string {
+  const mirror = config.git?.mirror;
+  if (!mirror) {
+    return String(config.stores?.default ?? 'json');
+  }
+  if (typeof mirror === 'function' || isCustomStore(mirror)) {
+    return 'gitMirror';
+  }
+  const record = storeRecord(mirror);
+  return String(record?.store ?? record?.driver ?? config.stores?.default ?? 'json');
+}
+
+function gitMirrorWrites(config: RuntimeConfig): string {
+  const mirror = config.git?.mirror;
+  if (mirror && (typeof mirror === 'object' || typeof mirror === 'function') && !Array.isArray(mirror)) {
+    const record = mirror as Record<string, unknown>;
+    if (typeof record.writes === 'string') {
+      return record.writes;
+    }
+    const gitMirror = record.gitMirror;
+    if (gitMirror && typeof gitMirror === 'object' && !Array.isArray(gitMirror) && typeof (gitMirror as Record<string, unknown>).writes === 'string') {
+      return String((gitMirror as Record<string, unknown>).writes);
+    }
+  }
+  return 'receipt';
+}
+
+function protectGitMirrorWrites(config: RuntimeConfig, resource: RuntimeResource, adapter: RuntimeAdapter): RuntimeAdapter {
+  if (!isGitBackedResource(resource) || gitMirrorWrites(config) === 'through') {
+    return adapter;
+  }
+
+  const writeError = () => dbError(
+    'GIT_WRITE_DRIVER_REQUIRED',
+    `Git-backed resource "${resource.name}" cannot be written through a receipt-mode mirror without a Git write driver.`,
+    {
+      status: 409,
+      hint: 'Configure git.mirror: sqliteMirror({ writes: "through" }) for durable local outbox writes, or route writes through @async/github-app so Git commits and receipts update the mirror.',
+      details: {
+        resource: resource.name,
+        source: storeRecord(resource.source),
+        mirrorWrites: gitMirrorWrites(config),
+      },
+    },
+  );
+
+  return {
+    ...adapter,
+    writeResource() {
+      throw writeError();
+    },
+    writeResourceDelta() {
+      throw writeError();
+    },
+  };
+}
+
+function gitMirrorStore(config: RuntimeConfig, resources: RuntimeResource[]): CustomStore | null {
+  const mirror = config.git?.mirror;
+  if (!mirror || (!isCustomStore(mirror) && typeof mirror !== 'function')) {
+    return null;
+  }
+  return typeof mirror === 'function'
+    ? (mirror as CustomStoreFactory)({ config, resources, storeName: 'gitMirror' }) ?? null
+    : mirror;
+}
+
+function isGitBackedResource(resource: RuntimeResource): boolean {
+  return storeRecord(resource.source)?.kind === 'git-files';
+}
+
+function isCustomStore(value: unknown): value is CustomStore {
+  const record = storeRecord(value);
+  return Boolean(record && (typeof record.readResource === 'function' || typeof record.read === 'function'));
 }
 
 function strategyForStoreName(

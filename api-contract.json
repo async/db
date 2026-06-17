@@ -32,6 +32,14 @@
           "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md"
         },
         {
+          "id": "export.git",
+          "title": "@async/db/git GitHub remote and Git file source helpers for Git-backed resources",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "exports",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/data-files-and-schemas.md#git-backed-content-collections"
+        },
+        {
           "id": "config.profiles",
           "title": "profile/profiles named config policy bundles for reviewable startup profiles",
           "releaseTag": "public",
@@ -46,6 +54,14 @@
           "stability": "stable",
           "group": "config",
           "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md#profiles-vs-modes-vs-env-values"
+        },
+        {
+          "id": "config.git",
+          "title": "git.remotes and git.mirror config for Git-backed content resources",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "config",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/configuration.md#git-remotes-and-mirrors"
         },
         {
           "id": "export.client",
@@ -73,7 +89,7 @@
         },
         {
           "id": "export.sqlite",
-          "title": "@async/db/sqlite optional SQLite store and existing table mapping",
+          "title": "@async/db/sqlite optional SQLite store, Git mirror, and existing table mapping",
           "releaseTag": "beta",
           "stability": "preview",
           "group": "exports",
@@ -308,6 +324,14 @@
           "stability": "preview",
           "group": "content",
           "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md"
+        },
+        {
+          "id": "runtime.git-sources",
+          "title": "Git-backed JSON, JSONC, Markdown, and MDX resources sync through mirrors with Git control APIs",
+          "releaseTag": "beta",
+          "stability": "preview",
+          "group": "content",
+          "docsUrl": "https://github.com/async/db/blob/main/docs/package-api.md#git-source-api"
         },
         {
           "id": "runtime.lifecycle-file",
@@ -649,8 +673,10 @@
       "format": "api-contract.surface.v1",
       "contractId": "@async/db.package",
       "features": [
+        "config.git",
         "export.client",
         "export.config",
+        "export.git",
         "export.hono",
         "export.json",
         "export.kv",
@@ -690,6 +716,7 @@
         "runtime.audit-trail",
         "runtime.content-mdx",
         "runtime.database",
+        "runtime.git-sources",
         "runtime.http-client",
         "runtime.json-store",
         "runtime.lifecycle",

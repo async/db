@@ -1114,6 +1114,78 @@ export type DbSourcesOptions = {
   writePolicy?: 'preserve' | 'allow';
 };
 
+export type DbGitRemoteMode = 'app' | 'actions-pull' | 'actions-dispatch' | 'token';
+
+export type DbGitSnapshotFile = {
+  path: string;
+  content?: string;
+  text?: string;
+  sha?: string;
+  encoding?: string;
+};
+
+export type DbGitFilesSourceDefinition = {
+  kind: 'git-files';
+  shape: 'files' | 'file' | 'collection-file';
+  remote: string;
+  patterns: readonly string[];
+  read?: 'frontmatter' | 'md' | 'mdx' | 'json' | 'jsonc' | 'text' | string;
+  idField?: string;
+  bodyField?: string;
+  allowJsoncWrites?: boolean;
+  components?: readonly string[];
+};
+
+export type DbGitSnapshotContext = {
+  remote: DbGitHubRemoteDefinition;
+  source: DbGitFilesSourceDefinition;
+  resourceName: string;
+  paths: string[];
+};
+
+export type DbGitSnapshotProvider =
+  | readonly DbGitSnapshotFile[]
+  | ((context: DbGitSnapshotContext) => readonly DbGitSnapshotFile[] | Promise<readonly DbGitSnapshotFile[]>);
+
+export type DbGitHubRemoteDefinition = {
+  kind: 'github';
+  type: 'github';
+  repo: string;
+  branch: string;
+  mode: DbGitRemoteMode;
+  baseUrl?: string;
+  token?: string;
+  tokenEnv?: string;
+  client?: {
+    getTreeSnapshot?: (context: DbGitSnapshotContext) => readonly DbGitSnapshotFile[] | Promise<readonly DbGitSnapshotFile[]>;
+    [key: string]: unknown;
+  };
+  snapshot?: DbGitSnapshotProvider;
+  [key: string]: unknown;
+};
+
+export type DbGitMirrorWrites = 'receipt' | 'through';
+
+export type DbGitMirrorOptions =
+  | {
+      store?: DbStoreName;
+      writes?: DbGitMirrorWrites;
+      [key: string]: unknown;
+    }
+  | DbCustomStore
+  | DbCustomStoreFactory;
+
+export type DbGitOptions = {
+  /** Named Git remotes referenced by gitFiles(), gitFile(), and gitCollectionFile(). */
+  remotes?: Record<string, DbGitHubRemoteDefinition | Record<string, unknown>>;
+  /**
+   * Runtime mirror for Git-backed resources. Defaults to the JSON mirror with
+   * receipt-mode writes. Use sqliteMirror({ writes: "through" }) for durable
+   * write-through outbox behavior.
+   */
+  mirror?: DbGitMirrorOptions;
+};
+
 export type DbRestResourceFormatContext = {
   db: unknown;
   target?: 'resource';
@@ -1261,6 +1333,8 @@ export type DbOptions = {
   schemaManifest?: DbSchemaManifestOptions;
   /** Optional source readers for custom schema or data file formats. */
   sources?: DbSourcesOptions;
+  /** Git-backed content remotes and optional runtime mirror for Git resources. */
+  git?: DbGitOptions;
   /** Values made available to computed field resolvers through this.services and this.get(name). */
   services?: Record<string, unknown>;
   /** Run sync automatically when opening the package API. */

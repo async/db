@@ -26,6 +26,7 @@ type SchemaResource = {
   fields?: Record<string, SchemaField>;
   schemaPath?: string | null;
   dataPath?: string | null;
+  source?: unknown;
 };
 
 type SchemaProject = {
@@ -215,6 +216,11 @@ function resourceManifest(
     defaultManifest.description = resource.description;
   }
 
+  const source = safeResourceSource(resource.source);
+  if (source) {
+    defaultManifest.source = source;
+  }
+
   if (resource.kind === 'collection') {
     defaultManifest.idField = resource.idField;
     defaultManifest.identity = resource.identity;
@@ -224,6 +230,38 @@ function resourceManifest(
   }
 
   return customizeResourceManifest(resource, config, diagnostics, defaultManifest);
+}
+
+function safeResourceSource(source: unknown): Record<string, unknown> | null {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    return null;
+  }
+  const record = source as Record<string, unknown>;
+  if (record.kind === 'git-files') {
+    return removeUndefined({
+      kind: 'git-files',
+      shape: record.shape,
+      remote: record.remote,
+      patterns: Array.isArray(record.patterns) ? [...record.patterns] : undefined,
+      read: record.read,
+      bodyField: record.bodyField,
+      idField: record.idField,
+      allowJsoncWrites: record.allowJsoncWrites === true ? true : undefined,
+    });
+  }
+  if (record.kind === 'files') {
+    return removeUndefined({
+      kind: 'files',
+      patterns: Array.isArray(record.patterns) ? [...record.patterns] : undefined,
+      read: record.read,
+      components: Array.isArray(record.components) ? [...record.components] : undefined,
+    });
+  }
+  return null;
+}
+
+function removeUndefined(value: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 }
 
 function customizeResourceManifest(

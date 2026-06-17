@@ -1,6 +1,7 @@
 export {
   migrateSqliteDb,
   openSqliteDb,
+  sqliteMirror,
   sqliteStore,
   sqliteStoreCapabilities,
   SqliteDb,

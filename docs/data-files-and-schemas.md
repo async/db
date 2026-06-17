@@ -318,6 +318,123 @@ export default collection({
 
 The [content collections example](../examples/content-collections) shows docs and blog folders, static stores, relations, computed fields, and an example-owned preview renderer.
 
+### Git-Backed Content Collections
+
+Use `@async/db/git` when the content source of truth is a Git repository. Config owns the remote alias, and schema files own the content mapping.
+
+```js
+// db.config.js
+import { defineConfig } from '@async/db/config';
+import { githubRemote } from '@async/db/git';
+
+export default defineConfig({
+  git: {
+    remotes: {
+      content: githubRemote({
+        repo: 'acme/site-content',
+        branch: 'main',
+        mode: 'app',
+      }),
+    },
+  },
+  graphql: { enabled: true },
+});
+```
+
+One-record-per-file collections use `gitFiles(pattern, options)`. Path placeholders derive record identity for reads; declare `idField` when the schema key is not `id`.
+
+```js
+// db/posts/index.schema.js
+import { collection, field } from '@async/db/schema';
+import { gitFiles } from '@async/db/git';
+
+export default collection({
+  source: gitFiles('content/posts/{id}.mdx', {
+    remote: 'content',
+    read: 'frontmatter',
+    bodyField: 'body',
+  }),
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    title: field.string({ required: true }),
+    status: field.enum(['draft', 'published'], { default: 'draft' }),
+    body: field.string({ required: true }),
+  },
+});
+```
+
+Singleton JSON documents use `gitFile(...)`:
+
+```js
+import { document, field } from '@async/db/schema';
+import { gitFile } from '@async/db/git';
+
+export default document({
+  source: gitFile('content/site.json', {
+    remote: 'content',
+    read: 'json',
+  }),
+  fields: {
+    title: field.string({ required: true }),
+    theme: field.string(),
+  },
+});
+```
+
+One collection file containing a JSON array uses `gitCollectionFile(...)`:
+
+```js
+import { collection, field } from '@async/db/schema';
+import { gitCollectionFile } from '@async/db/git';
+
+export default collection({
+  source: gitCollectionFile('content/authors.json', {
+    remote: 'content',
+    read: 'json',
+  }),
+  idField: 'id',
+  fields: {
+    id: field.string({ required: true }),
+    name: field.string({ required: true }),
+  },
+});
+```
+
+Supported read modes are `json`, `jsonc`, `frontmatter`, `md`, `mdx`, and `text`. JSONC reads are allowed, but JSONC writes are rejected by default because preserving comments and formatting is not automatic. MDX compilation remains app-owned; Async DB stores frontmatter fields plus the raw body field.
+
+For a Tina-style CMS shape, use a SQLite Git mirror in config and keep resource mappings in schema files:
+
+```js
+// db.config.js
+import { defineConfig } from '@async/db/config';
+import { githubRemote } from '@async/db/git';
+import { sqliteMirror } from '@async/db/sqlite';
+
+export default defineConfig({
+  git: {
+    remotes: {
+      content: githubRemote({
+        repo: 'acme/marketing-content',
+        branch: 'main',
+        mode: 'app',
+      }),
+    },
+    mirror: sqliteMirror({
+      file: './.db/git-mirror.sqlite',
+      writes: 'through',
+    }),
+  },
+  outputs: {
+    schemaManifest: './src/generated/db.schema.json',
+    committedTypes: './src/generated/db.types.d.ts',
+  },
+  graphql: { enabled: true },
+});
+```
+
+In that setup, `pages` can map to `content/pages/{slug}.mdx`, `authors` to `content/authors/{id}.json`, and `site` to `content/site.json`. Reads go through the local mirror after sync rather than making live GitHub calls per request.
+
 ### Bundle And Unbundle
 
 Single-resource bundle and unbundle commands keep their existing behavior:

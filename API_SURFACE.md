@@ -11,6 +11,7 @@ Contract: `@async/db.package`
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
 | `config.env` | env.var and env.secret config references for runtime values and redacted secrets | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md#profiles-vs-modes-vs-env-values) |
+| `config.git` | git.remotes and git.mirror config for Git-backed content resources | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md#git-remotes-and-mirrors) |
 | `config.profiles` | profile/profiles named config policy bundles for reviewable startup profiles | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md#profiles-vs-modes-vs-env-values) |
 
 ### Exports
@@ -19,6 +20,7 @@ Contract: `@async/db.package`
 | --- | --- | --- | --- | --- | --- | --- |
 | `export.client` | @async/db/client tiny HTTP client, REST and GraphQL calls, batching, and cache helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.config` | @async/db/config defineConfig, env helpers, and profile config authoring | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/configuration.md) |
+| `export.git` | @async/db/git GitHub remote and Git file source helpers for Git-backed resources | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md#git-backed-content-collections) |
 | `export.hono` | @async/db/hono optional Hono integration without required Hono dependency | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.json` | @async/db/json compatibility exports for @async/json store helpers, state utilities, versioning, recovery, and encryption | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.kv` | @async/db/kv optional generic KV store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
@@ -27,7 +29,7 @@ Contract: `@async/db.package`
 | `export.redis` | @async/db/redis optional Redis-like KV adapter and RedisJSON store adapter boundary | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.root` | @async/db root runtime, schema, server, sync, operations, eventResource, and helpers | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `export.schema` | @async/db/schema authoring helpers: collection, document, field, derived fields, and files | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/data-files-and-schemas.md) |
-| `export.sqlite` | @async/db/sqlite optional SQLite store and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
+| `export.sqlite` | @async/db/sqlite optional SQLite store, Git mirror, and existing table mapping | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.sqlite.compat` | @async/db/sqlite/compat low-level SQLite driver adapters and legacy bridges | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 | `export.vite` | @async/db/vite optional Vite integration and browser cache options | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/integrations.md) |
 
@@ -113,6 +115,7 @@ Contract: `@async/db.runtime`
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
 | `runtime.content-mdx` | files() content resources with MDX component inventory and allow-list diagnostics | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
+| `runtime.git-sources` | Git-backed JSON, JSONC, Markdown, and MDX resources sync through mirrors with Git control APIs | beta | preview | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md#git-source-api) |
 
 ### Integrations
 
@@ -323,5 +326,5 @@ Contract: `@async/db.boundary`
 | `@async/db.config` | `sha256:b5d6553f8fbe3409bfcb2e52f44c6fccdc7e7aa2e0fb3da8bebe56a1860fe440` | `config.lifecycle`, `config.mock`, `config.operations`, `config.outputs`, `config.protocols`, `config.schema`, `config.server`, `config.stores`, `config.types` |
 | `@async/db.generated` | `sha256:015f1b90667f6527b41870a7f9487af6a10f074ce990ede07cd7acde2a289f9a` | `generated.integration-report`, `generated.operations`, `generated.schema`, `generated.schema-migration-report`, `generated.state-internal`, `generated.types`, `generated.usage`, `generated.viewer-manifest` |
 | `@async/db.http` | `sha256:192b1b35fdaa7ff929fcf299721310166c5b90d7922abb19141fa936cf60fc01` | `http.authorization`, `http.falcor`, `http.graphql`, `http.health`, `http.operations`, `http.rest-batching`, `http.rest-resources`, `http.root-discovery`, `http.viewer` |
-| `@async/db.package` | `sha256:54cd8150fa7b177adca39c5b68daf03e2faed64058f962297996c6531ef04938` | `export.client`, `export.config`, `export.hono`, `export.json`, `export.kv`, `export.postgres`, `export.postgres.compat`, `export.redis`, `export.root`, `export.schema`, `export.sqlite`, `export.sqlite.compat`, `export.vite` |
-| `@async/db.runtime` | `sha256:66a3bd5dfc31b35530e4849a931744107e60e38865fc829311385df8ec15b3d9` | `runtime.audit-trail`, `runtime.content-mdx`, `runtime.database`, `runtime.http-client`, `runtime.json-store`, `runtime.lifecycle`, `runtime.lifecycle-file`, `runtime.memory-fs`, `runtime.operations`, `runtime.optional-stores`, `runtime.postgres-integration`, `runtime.schema-authoring`, `runtime.schema-loading`, `runtime.schema-migration`, `runtime.sqlite-integration` |
+| `@async/db.package` | `sha256:c55338a292cd136e1c1516d5e42711372e4ac61bab4f8622dca16ca66b5e671d` | `config.git`, `export.client`, `export.config`, `export.git`, `export.hono`, `export.json`, `export.kv`, `export.postgres`, `export.postgres.compat`, `export.redis`, `export.root`, `export.schema`, `export.sqlite`, `export.sqlite.compat`, `export.vite` |
+| `@async/db.runtime` | `sha256:408c1e1e67d77b5adde387dd5b699ff87765e5ceac80f342d68aa16a47323467` | `runtime.audit-trail`, `runtime.content-mdx`, `runtime.database`, `runtime.git-sources`, `runtime.http-client`, `runtime.json-store`, `runtime.lifecycle`, `runtime.lifecycle-file`, `runtime.memory-fs`, `runtime.operations`, `runtime.optional-stores`, `runtime.postgres-integration`, `runtime.schema-authoring`, `runtime.schema-loading`, `runtime.schema-migration`, `runtime.sqlite-integration` |

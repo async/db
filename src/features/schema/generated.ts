@@ -24,6 +24,7 @@ type GeneratedSchemaResource = {
     dataHash?: unknown;
     schemaPath?: unknown;
     generatedIds?: unknown;
+    definition?: unknown;
   };
 };
 
@@ -60,6 +61,35 @@ function serializeResource(resource: SchemaResource): GeneratedSchemaResource {
       dataHash: resource.dataHash,
       schemaPath: resource.schemaPath,
       generatedIds: resource.generatedIds,
+      definition: safeResourceSource(resource.source),
     },
   };
+}
+
+function safeResourceSource(source: unknown): unknown {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    return undefined;
+  }
+  const record = source as Record<string, unknown>;
+  if (record.kind === 'git-files') {
+    return {
+      kind: 'git-files',
+      shape: record.shape,
+      remote: record.remote,
+      patterns: Array.isArray(record.patterns) ? [...record.patterns] : undefined,
+      read: record.read,
+      bodyField: record.bodyField,
+      idField: record.idField,
+      allowJsoncWrites: record.allowJsoncWrites === true ? true : undefined,
+    };
+  }
+  if (record.kind === 'files') {
+    return {
+      kind: 'files',
+      patterns: Array.isArray(record.patterns) ? [...record.patterns] : undefined,
+      read: record.read,
+      components: Array.isArray(record.components) ? [...record.components] : undefined,
+    };
+  }
+  return undefined;
 }

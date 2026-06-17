@@ -1,0 +1,7 @@
+{
+  "title": "Tina-Style Git CMS",
+  "description": "GitHub-backed pages, authors, and site settings with a SQLite write-through mirror.",
+  "level": "core",
+  "order": 8.5,
+  "tags": ["git", "cms", "sqlite"]
+}

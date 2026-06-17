@@ -49,8 +49,9 @@ test('consumer projects can import package APIs through the @async/db package', 
   await writeFile(path.join(cwd, 'check-package.mjs'), `import { createDbOperationHandler, createDbRequestHandler, createDbRuntime, createIndexedDbCacheStorage, createMemoryFs, eventResource, inspectSchemaMigration, loadDbSchema, openDb, reloadDb, watchDbSources } from '@async/db';
 import { createDbClient, createIndexedDbCacheStorage as createClientIndexedDbCacheStorage } from '@async/db/client';
 import { defineConfig, env } from '@async/db/config';
+import { gitCollectionFile, gitFile, gitFiles, githubRemote } from '@async/db/git';
 import { fileStorage, json, jsonStore, jsonStoreCapabilities, readJsonState, s3Storage, writeJsonState } from '@async/db/json';
-import { sqliteStore } from '@async/db/sqlite';
+import { sqliteMirror, sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, openLegacySqlite } from '@async/db/sqlite/compat';
 import { openPostgresDb, postgresStore } from '@async/db/postgres';
 import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePostgresImportPlan, openLegacyPostgres } from '@async/db/postgres/compat';
@@ -75,6 +76,10 @@ if (typeof createClientIndexedDbCacheStorage !== 'function') throw new Error('mi
 if (typeof defineConfig !== 'function') throw new Error('missing config API');
 if (typeof env.var !== 'function') throw new Error('missing config env var API');
 if (typeof env.secret !== 'function') throw new Error('missing config env secret API');
+if (typeof githubRemote !== 'function') throw new Error('missing github remote helper');
+if (typeof gitFiles !== 'function') throw new Error('missing git files helper');
+if (typeof gitFile !== 'function') throw new Error('missing git file helper');
+if (typeof gitCollectionFile !== 'function') throw new Error('missing git collection file helper');
 if (jsonStoreCapabilities.persistence !== 'local-file') throw new Error('missing json store capabilities');
 if (typeof json !== 'function') throw new Error('missing json standalone API');
 if (typeof jsonStore !== 'function') throw new Error('missing json store helper');
@@ -84,6 +89,7 @@ if ('recordFiles' in jsonModule) throw new Error('json record files helper shoul
 if (typeof readJsonState !== 'function') throw new Error('missing json read helper');
 if (typeof writeJsonState !== 'function') throw new Error('missing json write helper');
 if (typeof sqliteStore !== 'function') throw new Error('missing sqlite store API');
+if (typeof sqliteMirror !== 'function') throw new Error('missing sqlite mirror API');
 if (typeof compoundKeyId !== 'function') throw new Error('missing sqlite compat compound key helper');
 if (typeof defineSqliteImportPlan !== 'function') throw new Error('missing sqlite compat import plan helper');
 if (typeof openLegacySqlite !== 'function') throw new Error('missing sqlite compat legacy opener');
@@ -177,6 +183,7 @@ export type DbTypes = {
 } from '@async/db';
 import { createDbClient, type DbClient } from '@async/db/client';
 import { defineConfig, env, type DbConfig, type DbConfigProfilePatch } from '@async/db/config';
+import { gitCollectionFile, gitFile, gitFiles, githubRemote, type GitHubRemoteDefinition } from '@async/db/git';
 import {
   atomicWriteJson,
   atomicWriteJsonVersioned,
@@ -202,7 +209,7 @@ import { adaptPostgresClient, compoundKeyId as postgresCompoundKeyId, definePost
 import { redisStore } from '@async/db/redis';
 import { redisJson } from '@async/db/redis';
 import { collection, field, files, type DerivedFieldDefinition, type ResourceDefinition } from '@async/db/schema';
-import { sqliteStore } from '@async/db/sqlite';
+import { sqliteMirror, sqliteStore } from '@async/db/sqlite';
 import { compoundKeyId, defineSqliteImportPlan, type SqliteCompatDriver, type SqliteImportPlan } from '@async/db/sqlite/compat';
 import type { DbTypes, User } from './generated/db.types.d.ts';
 
@@ -259,6 +266,27 @@ const profiledConfig = defineConfig({
   },
 }) satisfies DbConfig;
 
+const gitRemote: GitHubRemoteDefinition = githubRemote({
+  repo: 'acme/site-content',
+  branch: 'main',
+  mode: 'token',
+  snapshot: [
+    { path: 'content/posts/hello.mdx', content: '---\\ntitle: Hello\\n---\\nBody' },
+  ],
+});
+
+const gitConfig = defineConfig({
+  git: {
+    remotes: {
+      content: gitRemote,
+    },
+    mirror: sqliteMirror({
+      file: '.db/git-mirror.sqlite',
+      writes: 'through',
+    }),
+  },
+});
+
 const options: DbOptions = config;
 const profiledOptions: DbOptions = profiledConfig;
 const memoryFs: DbFileSystem = createMemoryFs({
@@ -286,6 +314,35 @@ const contentSchema = collection({
   fields: {
     id: field.string({ required: true }),
     body: field.string(),
+  },
+});
+const gitContentSchema = collection({
+  source: gitFiles('content/posts/{id}.mdx', {
+    remote: 'content',
+    read: 'frontmatter',
+    bodyField: 'body',
+  }),
+  fields: {
+    id: field.string({ required: true }),
+    body: field.string(),
+  },
+});
+const gitSettingsSchema = collection({
+  source: gitFile('content/settings.json', {
+    remote: 'content',
+    read: 'json',
+  }),
+  fields: {
+    id: field.string(),
+  },
+});
+const gitAuthorsSchema = collection({
+  source: gitCollectionFile('content/authors.json', {
+    remote: 'content',
+    read: 'json',
+  }),
+  fields: {
+    id: field.string({ required: true }),
   },
 });
 const derivedOptions: DerivedFieldDefinition = { source: 'database', kind: 'trigger' };
@@ -398,6 +455,7 @@ void s3Storage({
 void jsonCapabilities;
 void redisJson({ client: { json: { get: async () => null, set: async () => undefined } } });
 void sqliteStore({ file: ':memory:' });
+void sqliteMirror({ file: ':memory:', writes: 'receipt' });
 const sqliteCompatDriver: SqliteCompatDriver = 'node:sqlite';
 const sqliteImportPlan: SqliteImportPlan = defineSqliteImportPlan({
   version: 1,
@@ -438,6 +496,10 @@ void kvStore({ client: { get: async () => null, set: async () => undefined } });
 void redisStore({ client: { get: async () => null, set: async () => undefined } });
 void usersSchema;
 void contentSchema;
+void gitConfig;
+void gitContentSchema;
+void gitSettingsSchema;
+void gitAuthorsSchema;
 void memoryFs.readFile('db/users.json', 'utf8');
 void memoryOptions;
 void documentPath;
@@ -462,6 +524,8 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.equal(packageJson.exports['.'].types, './dist/index.d.ts');
   assert.equal(packageJson.exports['./schema'].default, './dist/schema-builders.js');
   assert.equal(packageJson.exports['./schema'].types, './dist/schema.d.ts');
+  assert.equal(packageJson.exports['./git'].default, './dist/git.js');
+  assert.equal(packageJson.exports['./git'].types, './dist/git.d.ts');
   assert.equal(packageJson.exports['./json'].default, './dist/json.js');
   assert.equal(packageJson.exports['./json'].types, './dist/json.d.ts');
   assert.equal(packageJson.exports['./sqlite/compat'].default, './dist/sqlite-compat.js');

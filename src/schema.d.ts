@@ -89,7 +89,7 @@ export type ResourceDefinition = {
   identity?: ResourceIdentityDefinition;
   writePolicy?: 'append-only';
   log?: ResourceLogDefinition;
-  source?: FilesSourceDefinition | string | readonly string[];
+  source?: FilesSourceDefinition | GitFilesSourceDefinition | string | readonly string[];
   fields: Record<string, FieldDefinition>;
   seed?: unknown;
 };
@@ -139,6 +139,23 @@ export type FilesSourceDefinition = {
   kind: 'files';
   patterns: readonly string[];
   read?: 'frontmatter' | 'mdx' | 'json' | 'jsonc' | 'text' | string;
+  /**
+   * Component allow-list for read: 'mdx'. Docs may only use these capitalized
+   * JSX tags (plus components they import or export themselves); anything else
+   * fails sync with CONTENT_COMPONENT_NOT_ALLOWED.
+   */
+  components?: readonly string[];
+};
+
+export type GitFilesSourceDefinition = {
+  kind: 'git-files';
+  shape: 'files' | 'file' | 'collection-file';
+  remote: string;
+  patterns: readonly string[];
+  read?: 'frontmatter' | 'md' | 'mdx' | 'json' | 'jsonc' | 'text' | string;
+  idField?: string;
+  bodyField?: string;
+  allowJsoncWrites?: boolean;
   /**
    * Component allow-list for read: 'mdx'. Docs may only use these capitalized
    * JSX tags (plus components they import or export themselves); anything else

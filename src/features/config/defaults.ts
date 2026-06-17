@@ -22,6 +22,13 @@ type DefaultConfig = {
     readers: unknown[];
     writePolicy: 'preserve' | string;
   };
+  git: {
+    remotes: Record<string, unknown>;
+    mirror: {
+      store: string;
+      writes: 'receipt' | string;
+    };
+  };
   stores: {
     default: string;
     json: {
@@ -124,6 +131,13 @@ export const DEFAULT_CONFIG: DefaultConfig = {
   sources: {
     readers: [],
     writePolicy: 'preserve',
+  },
+  git: {
+    remotes: {},
+    mirror: {
+      store: 'json',
+      writes: 'receipt',
+    },
   },
   stores: {
     default: 'json',

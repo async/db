@@ -211,6 +211,9 @@ function dbControls(db: Db): Record<string, unknown> {
     get migrations() {
       return db.migrations;
     },
+    get git() {
+      return gitControls(db);
+    },
     get routing() {
       return db.routing;
     },
@@ -223,6 +226,56 @@ function dbControls(db: Db): Record<string, unknown> {
     query: db.query.bind(db),
     resourceNames: db.resourceNames.bind(db),
   };
+}
+
+function gitControls(db: Db): Record<string, unknown> {
+  return {
+    async flush() {
+      return {
+        flushed: 0,
+        receipts: [],
+        mode: gitMirrorWriteMode(db.config),
+      };
+    },
+    async pending() {
+      return [];
+    },
+    async receipts() {
+      return [];
+    },
+    async reconcile() {
+      return {
+        resources: [...db.resources.values()]
+          .filter((resource) => gitResourceSource(resource))
+          .map((resource) => resource.name),
+        mode: gitMirrorWriteMode(db.config),
+      };
+    },
+  };
+}
+
+function gitMirrorWriteMode(config: DbConfig): string {
+  const mirror = config.git && typeof config.git === 'object'
+    ? (config.git as { mirror?: unknown }).mirror
+    : null;
+  if (mirror && (typeof mirror === 'object' || typeof mirror === 'function') && !Array.isArray(mirror)) {
+    const record = mirror as Record<string, unknown>;
+    if (typeof record.writes === 'string') {
+      return record.writes;
+    }
+    const gitMirror = record.gitMirror;
+    if (gitMirror && typeof gitMirror === 'object' && !Array.isArray(gitMirror) && typeof (gitMirror as Record<string, unknown>).writes === 'string') {
+      return String((gitMirror as Record<string, unknown>).writes);
+    }
+  }
+  return 'receipt';
+}
+
+function gitResourceSource(resource: DbResource): unknown {
+  const source = resource.source;
+  return source && typeof source === 'object' && !Array.isArray(source) && (source as Record<string, unknown>).kind === 'git-files'
+    ? source
+    : null;
 }
 
 function createCallableDbControl(

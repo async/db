@@ -1,0 +1,7 @@
+{
+  "title": "GitHub Content",
+  "description": "GitHub-backed MDX posts using @async/db/git with the default JSON mirror.",
+  "level": "core",
+  "order": 5.5,
+  "tags": ["git", "github", "mdx"]
+}

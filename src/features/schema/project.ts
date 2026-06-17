@@ -9,7 +9,11 @@ import { resourceAliasCollisionGroups } from '../../names.js';
 import { validateProjectRelations } from './relations.js';
 import { validateResourceSeed } from './validation.js';
 import { normalizeSchemaLoadMode } from './locator.js';
-import { normalizeFilesSource } from './source-definitions.js';
+import {
+  isGitSource,
+  normalizeResourceSource,
+  type GitFilesSourceDefinition,
+} from './source-definitions.js';
 import { disallowedComponents, scanMdxBody, type MdxScan } from './mdx-scan.js';
 
 type SchemaDiagnostic = {
@@ -43,11 +47,15 @@ type ProjectConfig = {
     [key: string]: unknown;
   };
   fs?: DbFileSystem;
+  git?: {
+    remotes?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 };
 
 type RawSchema = {
-  source?: Parameters<typeof normalizeFilesSource>[0];
+  source?: Parameters<typeof normalizeResourceSource>[0];
   parser?: string;
   seed?: unknown;
   store?: unknown;
@@ -95,8 +103,46 @@ type ProjectResult = {
 };
 
 type ContentDataSourceResult = {
-  source: SourceRecord;
+  source: SourceRecord | null;
   diagnostics: SchemaDiagnostic[];
+};
+
+type GitRemoteDefinition = {
+  kind?: string;
+  type?: string;
+  repo?: string;
+  branch?: string;
+  mode?: string;
+  baseUrl?: string;
+  token?: string;
+  tokenEnv?: string;
+  client?: {
+    getTreeSnapshot?: (context: GitSnapshotContext) => unknown | Promise<unknown>;
+    [key: string]: unknown;
+  };
+  snapshot?: unknown;
+  [key: string]: unknown;
+};
+
+type GitSnapshotContext = {
+  remote: GitRemoteDefinition;
+  source: GitFilesSourceDefinition;
+  resourceName: string;
+  paths: string[];
+};
+
+type GitSnapshotFile = {
+  path: string;
+  content?: string;
+  text?: string;
+  sha?: string;
+  encoding?: string;
+};
+
+type ParseContentOptions = {
+  id?: string;
+  idField?: string;
+  bodyField?: string;
 };
 
 export async function loadProjectSchema(config: ProjectConfig, options: { load?: SchemaLoadMode } = {}): Promise<ProjectResult> {
@@ -262,7 +308,17 @@ function isFolderSchemaMarker(schemaSource: SourceRecord): boolean {
 }
 
 async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: SourceRecord): Promise<ContentDataSourceResult> {
-  const source = normalizeFilesSource(schemaSource.schema?.source, { read: schemaSource.schema?.parser });
+  const source = normalizeResourceSource(schemaSource.schema?.source, { read: schemaSource.schema?.parser });
+  if (isGitSource(source)) {
+    return gitContentDataSourceForSchema(config, schemaSource, source);
+  }
+  if (!source) {
+    return {
+      source: null,
+      diagnostics: [],
+    };
+  }
+
   const baseDir = schemaSource.baseDir ?? path.dirname(schemaSource.sourceFile);
   const files: string[] = [];
   const diagnostics: SchemaDiagnostic[] = [];
@@ -332,6 +388,433 @@ async function contentDataSourceForSchema(config: ProjectConfig, schemaSource: S
       watchRoots: [...watchRoots],
     },
     diagnostics,
+  };
+}
+
+async function gitContentDataSourceForSchema(
+  config: ProjectConfig,
+  schemaSource: SourceRecord,
+  source: GitFilesSourceDefinition,
+): Promise<ContentDataSourceResult> {
+  const diagnostics: SchemaDiagnostic[] = [];
+  if (!source.remote) {
+    return {
+      source: null,
+      diagnostics: [gitSourceDiagnostic(
+        'GIT_SOURCE_REMOTE_REQUIRED',
+        schemaSource,
+        'Git-backed sources must reference a remote alias.',
+        'Pass remote: "name" to gitFiles(), gitFile(), or gitCollectionFile(), and configure git.remotes.name in db.config.js.',
+        { source: safeGitSourceMetadata(source) },
+      )],
+    };
+  }
+
+  const remote = remoteForGitSource(config, schemaSource, source);
+  if (!remote.remote) {
+    return {
+      source: null,
+      diagnostics: [remote.diagnostic],
+    };
+  }
+
+  if (source.components && source.read !== 'mdx') {
+    diagnostics.push(componentsIgnoredDiagnostic(schemaSource, source.read));
+  }
+
+  let snapshot;
+  try {
+    snapshot = await gitSnapshot(config, schemaSource, source, remote.remote);
+  } catch (error) {
+    return {
+      source: null,
+      diagnostics: [gitSourceDiagnostic(
+        'GIT_SOURCE_SNAPSHOT_FAILED',
+        schemaSource,
+        `Could not read Git source "${source.remote}" for "${schemaSource.name}": ${error instanceof Error ? error.message : String(error)}`,
+        'Check the configured GitHub remote, token mode, injected client, or @async/github-app bridge.',
+        {
+          resource: schemaSource.name,
+          remote: source.remote,
+          source: safeGitSourceMetadata(source),
+        },
+      )],
+    };
+  }
+
+  const matched = snapshot
+    .map((file) => normalizeGitSnapshotFile(file))
+    .filter((file): file is GitSnapshotFile & { path: string; text: string } => Boolean(file))
+    .map((file) => ({ file, match: matchGitSourcePath(file.path, source) }))
+    .filter((entry) => entry.match.matched)
+    .sort((left, right) => left.file.path.localeCompare(right.file.path));
+
+  const hash = createHash('sha256');
+  const records: unknown[] = [];
+  const idField = String(schemaSource.schema?.idField ?? source.idField ?? 'id');
+  const bodyField = source.bodyField ?? 'body';
+
+  for (const { file, match } of matched) {
+    const unsafe = unsafeGitPathReason(file.path);
+    if (unsafe) {
+      diagnostics.push(gitSourceDiagnostic(
+        'GIT_SOURCE_UNSAFE_PATH',
+        schemaSource,
+        `Git source "${source.remote}" returned unsafe path "${file.path}".`,
+        unsafe,
+        { resource: schemaSource.name, remote: source.remote, path: file.path },
+      ));
+      continue;
+    }
+
+    hash.update(file.path);
+    hash.update('\0');
+    hash.update(file.sha ?? file.text);
+    try {
+      const recordId = String(match.params[idField] ?? match.params.id ?? match.params.slug ?? basenameId(file.path));
+      const parseOptions = source.shape === 'files'
+        ? { id: recordId, idField, bodyField }
+        : { bodyField };
+      if (source.read === 'mdx') {
+        const { record, scan } = mdxContentRecord(file.path, file.text, parseOptions);
+        records.push(record);
+        diagnostics.push(...mdxComponentDiagnostics(config, schemaSource, file.path, scan, source.components));
+      } else {
+        records.push(parseContentRecord(schemaSource, file.path, file.text, source.read, parseOptions));
+      }
+    } catch (error) {
+      diagnostics.push(contentLoadDiagnostic(config, schemaSource, file.path, error));
+    }
+  }
+
+  const data = source.shape === 'collection-file'
+    ? collectionDataFromGitFile(records, schemaSource, source, diagnostics)
+    : source.shape === 'file'
+      ? documentDataFromGitFile(records)
+      : records;
+
+  return {
+    source: {
+      kind: 'data',
+      name: schemaSource.name,
+      file: schemaSource.file,
+      sourceFile: gitSourceFileLabel(source),
+      format: source.read,
+      hash: hash.digest('hex'),
+      data,
+      baseDir: schemaSource.baseDir ?? path.dirname(schemaSource.sourceFile),
+      watchRoots: [],
+    },
+    diagnostics,
+  };
+}
+
+function remoteForGitSource(
+  config: ProjectConfig,
+  schemaSource: SourceRecord,
+  source: GitFilesSourceDefinition,
+): { remote: GitRemoteDefinition | null; diagnostic: SchemaDiagnostic } {
+  const remotes = config.git?.remotes;
+  const remote = remotes?.[source.remote] as GitRemoteDefinition | undefined;
+  if (!remote) {
+    return {
+      remote: null,
+      diagnostic: gitSourceDiagnostic(
+        'GIT_REMOTE_NOT_FOUND',
+        schemaSource,
+        `Git source "${schemaSource.name}" references missing remote "${source.remote}".`,
+        `Configure git.remotes.${source.remote} in db.config.js, or change the source remote alias.`,
+        {
+          resource: schemaSource.name,
+          remote: source.remote,
+          availableRemotes: Object.keys(remotes ?? {}),
+          source: safeGitSourceMetadata(source),
+        },
+      ),
+    };
+  }
+
+  return {
+    remote,
+    diagnostic: gitSourceDiagnostic('GIT_REMOTE_NOT_FOUND', schemaSource, '', ''),
+  };
+}
+
+async function gitSnapshot(
+  config: ProjectConfig,
+  schemaSource: SourceRecord,
+  source: GitFilesSourceDefinition,
+  remote: GitRemoteDefinition,
+): Promise<GitSnapshotFile[]> {
+  const context: GitSnapshotContext = {
+    remote,
+    source,
+    resourceName: schemaSource.name,
+    paths: source.patterns,
+  };
+
+  if (Array.isArray(remote.snapshot)) {
+    return remote.snapshot as GitSnapshotFile[];
+  }
+  if (typeof remote.snapshot === 'function') {
+    return await remote.snapshot(context) as GitSnapshotFile[];
+  }
+  if (typeof remote.client?.getTreeSnapshot === 'function') {
+    return await remote.client.getTreeSnapshot(context) as GitSnapshotFile[];
+  }
+
+  if ((remote.kind ?? remote.type) === 'github') {
+    return githubRestTreeSnapshot(config, source, remote);
+  }
+
+  throw new Error(`Unsupported git remote type "${String(remote.kind ?? remote.type ?? 'unknown')}". GitHub is the only built-in remote type in this slice.`);
+}
+
+async function githubRestTreeSnapshot(
+  config: ProjectConfig,
+  source: GitFilesSourceDefinition,
+  remote: GitRemoteDefinition,
+): Promise<GitSnapshotFile[]> {
+  const mode = remote.mode ?? 'app';
+  if (mode !== 'token') {
+    throw new Error(`GitHub remote mode "${mode}" needs an @async/github-app client, Actions bridge snapshot, or token mode reader.`);
+  }
+  if (!remote.repo || typeof remote.repo !== 'string') {
+    throw new Error('githubRemote() requires repo: "owner/name".');
+  }
+
+  const repo = parseGithubRepo(remote.repo);
+  const headers = githubHeaders(remote);
+  const baseUrl = githubApiBaseUrl(remote.baseUrl);
+  const branch = encodeURIComponent(remote.branch ?? 'main');
+  const treeUrl = `${baseUrl}/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/git/trees/${branch}?recursive=1`;
+  const tree = await githubFetchJson(treeUrl, headers) as { tree?: Array<{ path?: string; type?: string; sha?: string }> };
+  const entries = Array.isArray(tree.tree) ? tree.tree : [];
+  const blobs = entries
+    .filter((entry) => entry.type === 'blob' && typeof entry.path === 'string' && typeof entry.sha === 'string')
+    .filter((entry) => matchGitSourcePath(entry.path as string, source).matched)
+    .sort((left, right) => String(left.path).localeCompare(String(right.path)));
+
+  const files: GitSnapshotFile[] = [];
+  for (const blob of blobs) {
+    const blobUrl = `${baseUrl}/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/git/blobs/${encodeURIComponent(String(blob.sha))}`;
+    const data = await githubFetchJson(blobUrl, headers) as { content?: string; encoding?: string; sha?: string };
+    files.push({
+      path: String(blob.path),
+      content: data.content,
+      encoding: data.encoding,
+      sha: data.sha ?? blob.sha,
+    });
+  }
+  return files;
+}
+
+function parseGithubRepo(repo: string): { owner: string; name: string } {
+  const [owner, name, extra] = repo.split('/');
+  if (!owner || !name || extra) {
+    throw new Error('GitHub repo must use "owner/name" format.');
+  }
+  return { owner, name };
+}
+
+function githubApiBaseUrl(baseUrl: string | undefined): string {
+  return (baseUrl ?? 'https://api.github.com').replace(/\/+$/, '');
+}
+
+function githubHeaders(remote: GitRemoteDefinition): Record<string, string> {
+  const headers: Record<string, string> = {
+    accept: 'application/vnd.github+json',
+    'user-agent': '@async/db git source',
+    'x-github-api-version': '2022-11-28',
+  };
+  const token = githubToken(remote);
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function githubToken(remote: GitRemoteDefinition): string | undefined {
+  if (typeof remote.token === 'string' && remote.token.length > 0) {
+    return remote.token;
+  }
+  if (typeof remote.tokenEnv === 'string' && remote.tokenEnv.length > 0) {
+    return process.env[remote.tokenEnv];
+  }
+  return undefined;
+}
+
+async function githubFetchJson(url: string, headers: Record<string, string>): Promise<unknown> {
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const body = await response.text();
+    const message = body ? `: ${body.slice(0, 300)}` : '';
+    throw new Error(`GitHub API request failed with ${response.status} ${response.statusText}${message}`);
+  }
+  return response.json();
+}
+
+function normalizeGitSnapshotFile(value: unknown): GitSnapshotFile | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  const file = value as GitSnapshotFile;
+  if (typeof file.path !== 'string') {
+    return null;
+  }
+  const text = typeof file.text === 'string'
+    ? file.text
+    : typeof file.content === 'string'
+      ? decodeGitSnapshotContent(file.content, file.encoding)
+      : undefined;
+  if (typeof text !== 'string') {
+    return null;
+  }
+  return {
+    path: normalizeSlash(file.path).replace(/^\.\//, ''),
+    text,
+    sha: typeof file.sha === 'string' ? file.sha : undefined,
+  };
+}
+
+function decodeGitSnapshotContent(content: string, encoding: string | undefined): string {
+  if (encoding === 'base64') {
+    return Buffer.from(content.replace(/\s/g, ''), 'base64').toString('utf8');
+  }
+  return content;
+}
+
+function matchGitSourcePath(filePath: string, source: GitFilesSourceDefinition): { matched: boolean; params: Record<string, string> } {
+  const normalizedPath = normalizeSlash(filePath).replace(/^\.\//, '');
+  for (const pattern of source.patterns) {
+    const match = gitPatternRegExp(pattern).exec(normalizedPath);
+    if (match) {
+      return {
+        matched: true,
+        params: match.groups ?? {},
+      };
+    }
+  }
+  return { matched: false, params: {} };
+}
+
+function gitPatternRegExp(pattern: string): RegExp {
+  let source = '^';
+  const normalized = normalizeSlash(pattern).replace(/^\.\//, '');
+  for (let index = 0; index < normalized.length; index += 1) {
+    const char = normalized[index];
+    const next = normalized[index + 1];
+    if (char === '{') {
+      const close = normalized.indexOf('}', index + 1);
+      if (close > index + 1) {
+        const name = normalized.slice(index + 1, close);
+        if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)) {
+          source += `(?<${name}>[^/]+)`;
+          index = close;
+          continue;
+        }
+      }
+    }
+    if (char === '*' && next === '*') {
+      if (normalized[index + 2] === '/') {
+        source += '(?:.*\\/)?';
+        index += 2;
+      } else {
+        source += '.*';
+        index += 1;
+      }
+      continue;
+    }
+    if (char === '*') {
+      source += '[^/]*';
+      continue;
+    }
+    if (char === '?') {
+      source += '[^/]';
+      continue;
+    }
+    source += escapeRegExp(char);
+  }
+  source += '$';
+  return new RegExp(source);
+}
+
+function unsafeGitPathReason(filePath: string): string | null {
+  const normalized = normalizeSlash(filePath);
+  if (path.isAbsolute(filePath) || normalized.startsWith('/')) {
+    return 'Git source paths must be repository-relative, not absolute.';
+  }
+  if (normalized === '..' || normalized.startsWith('../') || normalized.includes('/../')) {
+    return 'Git source paths must not contain ".." path traversal segments.';
+  }
+  if (normalized === '.github/workflows' || normalized.startsWith('.github/workflows/')) {
+    return 'Git source paths under .github/workflows are reserved for repository automation and are not content sources.';
+  }
+  return null;
+}
+
+function collectionDataFromGitFile(
+  records: unknown[],
+  schemaSource: SourceRecord,
+  source: GitFilesSourceDefinition,
+  diagnostics: SchemaDiagnostic[],
+): unknown[] {
+  if (records.length === 0) {
+    return [];
+  }
+  const value = records[0];
+  if (Array.isArray(value)) {
+    return value;
+  }
+  diagnostics.push(gitSourceDiagnostic(
+    'GIT_COLLECTION_FILE_INVALID',
+    schemaSource,
+    `Git collection file for "${schemaSource.name}" must parse to a JSON array.`,
+    'Use gitFiles() for one-record-per-file collections, or make the collection file contain an array.',
+    { resource: schemaSource.name, remote: source.remote, source: safeGitSourceMetadata(source) },
+  ));
+  return [];
+}
+
+function documentDataFromGitFile(records: unknown[]): unknown {
+  return records[0] ?? {};
+}
+
+function gitSourceFileLabel(source: GitFilesSourceDefinition): string {
+  return `git://${source.remote}/${source.patterns.join(',')}`;
+}
+
+function safeGitSourceMetadata(source: GitFilesSourceDefinition): Record<string, unknown> {
+  return {
+    kind: source.kind,
+    shape: source.shape,
+    remote: source.remote,
+    patterns: [...source.patterns],
+    read: source.read,
+    bodyField: source.bodyField,
+    idField: source.idField,
+    allowJsoncWrites: source.allowJsoncWrites === true ? true : undefined,
+  };
+}
+
+function gitSourceDiagnostic(
+  code: string,
+  schemaSource: SourceRecord,
+  message: string,
+  hint: string,
+  details: Record<string, unknown> = {},
+): SchemaDiagnostic {
+  return {
+    code,
+    severity: 'error',
+    resource: schemaSource.name,
+    file: schemaSource.file,
+    message,
+    hint,
+    details: {
+      resource: schemaSource.name,
+      ...details,
+    },
   };
 }
 
@@ -414,39 +897,71 @@ function globRegExp(pattern: string): RegExp {
   return new RegExp(source);
 }
 
-function parseContentRecord(schemaSource: SourceRecord, filePath: string, text: string, read = 'frontmatter'): unknown {
+function parseContentRecord(
+  schemaSource: SourceRecord,
+  filePath: string,
+  text: string,
+  read = 'frontmatter',
+  options: ParseContentOptions = {},
+): unknown {
   if (read === 'json') {
-    return JSON.parse(text);
+    return withRecordIdentity(JSON.parse(text), filePath, options);
   }
   if (read === 'jsonc') {
-    return parseJsonc(text, filePath);
+    return withRecordIdentity(parseJsonc(text, filePath), filePath, options);
   }
   if (read === 'text') {
     return {
-      id: basenameId(filePath),
-      body: text,
+      [options.idField ?? 'id']: options.id ?? basenameId(filePath),
+      [options.bodyField ?? 'body']: text,
     };
   }
-  return frontmatterRecord(filePath, text);
+  return frontmatterRecord(filePath, text, options);
 }
 
-function frontmatterRecord(filePath: string, text: string): Record<string, unknown> {
-  const { data, body } = parseFrontmatter(text);
+function withRecordIdentity(value: unknown, filePath: string, options: ParseContentOptions): unknown {
+  if (!options.id && !options.idField) {
+    return value;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+  const idField = options.idField ?? 'id';
+  const record = value as Record<string, unknown>;
+  if (record[idField] !== undefined) {
+    return record;
+  }
   return {
-    id: data.id ?? basenameId(filePath),
-    ...data,
-    body: body.trim(),
+    [idField]: options.id ?? basenameId(filePath),
+    ...record,
   };
 }
 
-function mdxContentRecord(filePath: string, text: string): { record: Record<string, unknown>; scan: MdxScan } {
+function frontmatterRecord(filePath: string, text: string, options: ParseContentOptions = {}): Record<string, unknown> {
+  const { data, body } = parseFrontmatter(text);
+  const idField = options.idField ?? 'id';
+  const bodyField = options.bodyField ?? 'body';
+  return {
+    [idField]: data[idField] ?? options.id ?? data.id ?? basenameId(filePath),
+    ...data,
+    [bodyField]: body.trim(),
+  };
+}
+
+function mdxContentRecord(
+  filePath: string,
+  text: string,
+  options: ParseContentOptions = {},
+): { record: Record<string, unknown>; scan: MdxScan } {
   const { data, body } = parseFrontmatter(text);
   const scan = scanMdxBody(body);
+  const idField = options.idField ?? 'id';
+  const bodyField = options.bodyField ?? 'body';
   return {
     record: {
-      id: data.id ?? basenameId(filePath),
+      [idField]: data[idField] ?? options.id ?? data.id ?? basenameId(filePath),
       ...data,
-      body: body.trim(),
+      [bodyField]: body.trim(),
       components: scan.components,
       imports: scan.imports,
       exports: scan.exports,
@@ -471,7 +986,7 @@ function mdxComponentDiagnostics(
     return [];
   }
 
-  const relative = path.relative(config.cwd ?? '.', filePath);
+  const relative = displayContentPath(config, filePath);
   const used = disallowed.map((name) => `<${name}>`).join(', ');
   const registered = allowed.length > 0 ? allowed.join(', ') : '(none)';
   return [{
@@ -606,8 +1121,14 @@ function basenameId(filePath: string): string {
   return path.basename(filePath).replace(/\.[^.]+$/, '');
 }
 
+function displayContentPath(config: ProjectConfig, filePath: string): string {
+  return path.isAbsolute(filePath)
+    ? path.relative(config.cwd ?? '.', filePath)
+    : normalizeSlash(filePath);
+}
+
 function contentLoadDiagnostic(config: ProjectConfig, schemaSource: SourceRecord, filePath: string, error: unknown): SchemaDiagnostic {
-  const relative = path.relative(config.cwd ?? '.', filePath);
+  const relative = displayContentPath(config, filePath);
   const parserMessage = error instanceof Error ? error.message : String(error);
   const errorCode = (error as NodeJS.ErrnoException | null | undefined)?.code;
   return {

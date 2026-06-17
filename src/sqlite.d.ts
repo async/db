@@ -1,4 +1,4 @@
-import type { DbOptions } from './index.d.ts';
+import type { DbCustomStoreFactory, DbOptions } from './index.d.ts';
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -42,6 +42,13 @@ export type SqliteDbOptions = DbOptions & {
 
 export function openSqliteDb(options?: SqliteDbOptions): Promise<SqliteDb>;
 export function sqliteStore(options?: { file?: string }): unknown;
+export function sqliteMirror(options?: { file?: string; writes?: 'receipt' | 'through' }): DbCustomStoreFactory & {
+  gitMirror: {
+    kind: 'async-db.git.mirror';
+    store: 'sqlite';
+    writes: 'receipt' | 'through';
+  };
+};
 export const sqliteStoreCapabilities: {
   writable: true;
   persistence: 'local-sqlite';
