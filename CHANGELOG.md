@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.13.0 - 2026-06-17
+
+### Added
+
+- Added Git-backed resource sources with reusable Git remotes, `gitFiles`,
+  `gitFile`, and `gitCollectionFile` schema helpers, safe source metadata in
+  generated manifests, and Git snapshot sync for JSON, JSONC, frontmatter, MD,
+  MDX, and text files.
+- Added `sqliteMirror()` for Git-backed resources with receipt-mode defaults,
+  write-through outbox support, and `db._.git` control hooks for pending work,
+  flushing, receipts, and reconciliation.
+- Added GitHub content and Tina-style CMS examples covering default JSON
+  mirrors and SQLite-backed read-heavy mirrors.
+
 ## 0.12.0 - 2026-06-16
 
 ### Added
