@@ -102,13 +102,14 @@ export default definePipeline({
     }),
     test: task({
       description: "Build and run the test suite.",
+      dependsOn: ["check"],
       inputs: ["default"],
       cache: true,
       run: sh`pnpm run test`
     }),
     "deno-smoke": task({
       description: "Pack @async/db and smoke-test root, client, schema, git, sync, validate, and serve through Deno npm support.",
-      dependsOn: ["check"],
+      dependsOn: ["test"],
       inputs: ["default"],
       cache: false,
       run: sh`node scripts/tasks/deno-smoke.js`
