@@ -6,6 +6,7 @@ import { defaultHttpFeatureRegistry } from './features/http/registry.js';
 import { runMockBehavior } from './mock.js';
 import { createDbOperationHandler } from './operations.js';
 import { handleRestRequest, readJsonBody, sendJson, sendText } from './rest/handler.js';
+import { isProductionEnv } from './shared/env.js';
 import { createRequestTrace, type RequestTrace, tracePhase, tracePhaseSync } from './tracing.js';
 
 export type ServerTraceConfig = boolean | {
@@ -723,7 +724,7 @@ function routeExposureAllows(exposure: unknown): boolean {
   }
 
   if (exposure === 'dev') {
-    return process.env.NODE_ENV !== 'production';
+    return !isProductionEnv();
   }
 
   return false;

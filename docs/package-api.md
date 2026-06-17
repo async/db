@@ -92,6 +92,25 @@ pnpm run db -- schema validate
 pnpm run db -- serve
 ```
 
+With Deno, run @async/db through Deno's npm package support. From a Deno-only project, the first init can create `deno.json` tasks without creating a root `package.json`:
+
+```bash
+deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db init --workflow deno --template data-first
+```
+
+After a `db` task exists in `deno.json`, pass arguments directly; Deno tasks do not use npm or pnpm `--` forwarding:
+
+```bash
+deno task db init --workflow deno --template data-first
+deno task db sync
+deno task db schema validate
+deno task db:serve
+```
+
+Minimum Deno permissions are `--allow-read=. --allow-write=. --allow-sys=hostname` for sync, validation, and type generation, plus `--allow-net=127.0.0.1` for local `serve`. If Deno resolves npm packages through a private or local registry, set `NPM_CONFIG_REGISTRY=https://registry.npmjs.org` for the command.
+
+Supported Deno scope is local CLI development through the npm package: root, `/client`, `/schema`, and `/git` imports; sync; schema validate; generated types; local serve; JSON mirror state; schema helpers; client helpers; and Git source helpers. JSR dual-publish, Deno Deploy, and a Node-free edge runtime are not part of this release.
+
 ### `async-db init`
 
 Scaffold the smallest valid local project shape:
@@ -100,6 +119,8 @@ Scaffold the smallest valid local project shape:
 async-db init
 async-db init --template schema-first
 async-db init --template source-file
+async-db init --workflow node
+async-db init --workflow deno --template data-first
 async-db init --dry-run --json
 ```
 
@@ -107,11 +128,11 @@ Templates:
 
 | Template | Writes |
 | --- | --- |
-| `data-first` | `db/users.json`, `.gitignore`, package scripts |
+| `data-first` | `db/users.json`, `.gitignore`, workflow scripts or tasks |
 | `schema-first` | `db/users.schema.jsonc` with empty seed |
 | `source-file` | `db.config.js` with `stores.default: 'sourceFile'` and `db/appState.json` |
 
-`init` refuses to overwrite existing files, runs `sync` after writing files, and prints follow-up commands. When no `package.json` exists, init creates a minimal private ESM one with the `db` scripts. When an existing package is not `"type": "module"`, the `source-file` template writes the config with Node's explicit ESM module extension instead of `.js`, so init never changes a project's module type.
+`init` refuses to overwrite existing files, runs `sync` after writing files, and prints follow-up commands. `--workflow auto` uses the Deno workflow only when `deno.json` exists and no `package.json` exists; otherwise it preserves the Node/package workflow. `--workflow node` creates or patches `package.json` scripts. `--workflow deno` creates or patches `deno.json` tasks and does not create a root `package.json`. When an existing package is not `"type": "module"`, or when the Deno workflow has no package boundary, the `source-file` template writes the config with Node's explicit ESM module extension instead of `.js`, so init never changes a project's module type.
 
 ## Runtime API
 

@@ -75,6 +75,7 @@ dist/**/*.d.ts
 !dist/**/*.test.js
 examples/*/README.md
 examples/*/example.json
+examples/*/deno.json
 examples/*/package.json
 examples/*/serve-example.js
 examples/*/framework/**

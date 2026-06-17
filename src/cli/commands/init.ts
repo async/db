@@ -4,10 +4,13 @@ import { loadConfig } from '../../config.js';
 import { syncDb } from '../../sync.js';
 import { isHelpRequested, valueAfter } from '../args.js';
 import { printDiagnostic } from '../output.js';
+import { readPackageVersion } from '../version.js';
 
 type CliConfig = Record<string, unknown>;
 
 type InitTemplate = 'data-first' | 'schema-first' | 'source-file' | 'content';
+type InitWorkflow = 'node' | 'deno';
+type RequestedInitWorkflow = InitWorkflow | 'auto';
 
 type PlannedFile = {
   relativePath: string;
@@ -20,6 +23,7 @@ type InitReceipt = {
   kind: 'db.initReceipt';
   version: 1;
   template: InitTemplate;
+  workflow: InitWorkflow;
   cwd: string;
   dryRun: boolean;
   files: PlannedFile[];
@@ -32,6 +36,18 @@ const SCRIPT_ENTRIES: Record<string, string> = {
   'db:serve': 'async-db serve',
   'db:types': 'async-db types',
 };
+
+function denoTaskEntries(packageVersion: string): Record<string, string> {
+  const packageSpecifier = `npm:@async/db@${packageVersion}`;
+
+  return {
+    db: `deno run --allow-read=. --allow-write=. --allow-sys=hostname ${packageSpecifier}`,
+    'db:sync': 'deno task db sync',
+    'db:types': 'deno task db types',
+    'db:validate': 'deno task db schema validate',
+    'db:serve': `deno run --allow-read=. --allow-write=. --allow-sys=hostname --allow-net=127.0.0.1 ${packageSpecifier} serve`,
+  };
+}
 
 const GITIGNORE_ENTRY = '.db/';
 
@@ -82,9 +98,10 @@ export async function runInit(config: CliConfig, args: string[]): Promise<void> 
 
   const cwd = String(config.cwd ?? process.cwd());
   const template = parseTemplate(args);
+  const workflow = await resolveWorkflow(cwd, parseWorkflow(args));
   const dryRun = args.includes('--dry-run');
   const json = args.includes('--json');
-  const receipt = await planInit({ cwd, template, dryRun });
+  const receipt = await planInit({ cwd, template, workflow, dryRun });
 
   if (json) {
     console.log(JSON.stringify(receipt, replaceContent, 2));
@@ -92,7 +109,7 @@ export async function runInit(config: CliConfig, args: string[]): Promise<void> 
       return;
     }
   } else if (dryRun) {
-    console.log(`async-db init --template ${template} (dry run)`);
+    console.log(`async-db init --template ${template} --workflow ${workflow} (dry run)`);
     for (const file of receipt.files) {
       console.log(`  ${file.action} ${file.relativePath} — ${file.description}`);
     }
@@ -119,7 +136,7 @@ export async function runInit(config: CliConfig, args: string[]): Promise<void> 
     return;
   }
 
-  console.log(`Initialized ${template} project in ${cwd}`);
+  console.log(`Initialized ${template} project (${workflow} workflow) in ${cwd}`);
   console.log('');
   console.log('Next:');
   for (const line of receipt.followUp) {
@@ -136,12 +153,41 @@ function parseTemplate(args: string[]): InitTemplate {
   throw new Error(`Unknown init template "${value}". Use data-first, schema-first, source-file, or content.`);
 }
 
-async function planInit(options: { cwd: string; template: InitTemplate; dryRun: boolean }): Promise<InitReceipt> {
+function parseWorkflow(args: string[]): RequestedInitWorkflow {
+  const value = valueAfter(args, '--workflow') ?? 'auto';
+  if (value === 'auto' || value === 'node' || value === 'deno') {
+    return value;
+  }
+
+  throw new Error(`Unknown init workflow "${value}". Use auto, node, or deno.`);
+}
+
+async function resolveWorkflow(cwd: string, requested: RequestedInitWorkflow): Promise<InitWorkflow> {
+  if (requested === 'node' || requested === 'deno') {
+    return requested;
+  }
+
+  const [hasDenoJson, hasPackageJson] = await Promise.all([
+    fileExists(path.join(cwd, 'deno.json')),
+    fileExists(path.join(cwd, 'package.json')),
+  ]);
+
+  return hasDenoJson && !hasPackageJson ? 'deno' : 'node';
+}
+
+async function planInit(options: {
+  cwd: string;
+  template: InitTemplate;
+  workflow: InitWorkflow;
+  dryRun: boolean;
+}): Promise<InitReceipt> {
   const files: PlannedFile[] = [];
   const packageJsonPath = path.join(options.cwd, 'package.json');
+  const denoJsonPath = path.join(options.cwd, 'deno.json');
   const existingPackage = await readPackageJson(packageJsonPath);
+  const existingDenoConfig = await readDenoConfig(denoJsonPath);
 
-  for (const file of templateFiles(options.template, existingPackage)) {
+  for (const file of templateFiles(options.template, existingPackage, options.workflow)) {
     await assertCanWrite(path.join(options.cwd, file.relativePath));
     files.push(file);
   }
@@ -165,7 +211,7 @@ async function planInit(options: { cwd: string; template: InitTemplate; dryRun: 
     });
   }
 
-  if (existingPackage === null) {
+  if (options.workflow === 'node' && existingPackage === null) {
     files.push({
       relativePath: 'package.json',
       action: 'create',
@@ -176,7 +222,7 @@ async function planInit(options: { cwd: string; template: InitTemplate; dryRun: 
         scripts: SCRIPT_ENTRIES,
       }, null, 2)}\n`,
     });
-  } else {
+  } else if (options.workflow === 'node') {
     const missingScripts = Object.keys(SCRIPT_ENTRIES).filter((key) => !existingPackage.scripts?.[key]);
     if (missingScripts.length > 0) {
       files.push({
@@ -187,20 +233,46 @@ async function planInit(options: { cwd: string; template: InitTemplate; dryRun: 
     }
   }
 
+  if (options.workflow === 'deno') {
+    const denoTasks = denoTaskEntries(await readPackageVersion());
+    if (existingDenoConfig === null) {
+      files.push({
+        relativePath: 'deno.json',
+        action: 'create',
+        description: 'Deno tasks for async-db',
+        content: `${JSON.stringify({
+          nodeModulesDir: 'auto',
+          tasks: denoTasks,
+        }, null, 2)}\n`,
+      });
+    } else {
+      const missingTasks = Object.keys(denoTasks).filter((key) => !existingDenoConfig.tasks?.[key]);
+      if (missingTasks.length > 0 || existingDenoConfig.nodeModulesDir === undefined) {
+        files.push({
+          relativePath: 'deno.json',
+          action: 'patch',
+          description: 'add async-db Deno tasks',
+        });
+      }
+    }
+  }
+
   return {
     kind: 'db.initReceipt',
     version: 1,
     template: options.template,
+    workflow: options.workflow,
     cwd: options.cwd,
     dryRun: options.dryRun,
     files,
-    followUp: buildFollowUp(options.template),
+    followUp: buildFollowUp(options.template, options.workflow),
   };
 }
 
 function templateFiles(
   template: InitTemplate,
   existingPackage: { type?: string; scripts?: Record<string, string> } | null,
+  workflow: InitWorkflow,
 ): PlannedFile[] {
   if (template === 'data-first') {
     return [{
@@ -243,6 +315,8 @@ function templateFiles(
   // packages get db.config.mjs so init never flips a project's module type.
   const configFileName = existingPackage !== null && existingPackage.type !== 'module'
     ? 'db.config.mjs'
+    : existingPackage === null && workflow === 'deno'
+      ? 'db.config.mjs'
     : 'db.config.js';
 
   return [
@@ -261,7 +335,25 @@ function templateFiles(
   ];
 }
 
-function buildFollowUp(template: InitTemplate): string[] {
+function buildFollowUp(template: InitTemplate, workflow: InitWorkflow): string[] {
+  if (workflow === 'deno') {
+    const lines = [
+      'deno task db:serve',
+      'open http://127.0.0.1:7331/__db',
+      'curl http://127.0.0.1:7331/db/users.json',
+    ];
+
+    if (template === 'source-file') {
+      lines[2] = 'curl http://127.0.0.1:7331/db/appState.json';
+    }
+
+    if (template === 'schema-first') {
+      lines.splice(2, 0, 'deno task db create users \'{"id":"u_1","name":"Ada Lovelace","email":"ada@example.com"}\'');
+    }
+
+    return lines;
+  }
+
   const lines = [
     'pnpm run db:serve',
     'open http://127.0.0.1:7331/__db',
@@ -307,6 +399,20 @@ async function applyInitPlan(cwd: string, files: PlannedFile[]): Promise<void> {
         pkg.scripts[key] = pkg.scripts[key] ?? command;
       }
       await writeFile(target, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
+      continue;
+    }
+
+    if (file.relativePath === 'deno.json') {
+      const denoConfig = JSON.parse(await readFile(target, 'utf8')) as {
+        nodeModulesDir?: unknown;
+        tasks?: Record<string, string>;
+      };
+      denoConfig.nodeModulesDir = denoConfig.nodeModulesDir ?? 'auto';
+      denoConfig.tasks = { ...(denoConfig.tasks ?? {}) };
+      for (const [key, command] of Object.entries(denoTaskEntries(await readPackageVersion()))) {
+        denoConfig.tasks[key] = denoConfig.tasks[key] ?? command;
+      }
+      await writeFile(target, `${JSON.stringify(denoConfig, null, 2)}\n`, 'utf8');
     }
   }
 }
@@ -318,6 +424,23 @@ function hasGitignoreEntry(content: string): boolean {
 async function readPackageJson(packageJsonPath: string): Promise<{ type?: string; scripts?: Record<string, string> } | null> {
   try {
     return JSON.parse(await readFile(packageJsonPath, 'utf8')) as { type?: string; scripts?: Record<string, string> };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function readDenoConfig(denoJsonPath: string): Promise<{
+  nodeModulesDir?: unknown;
+  tasks?: Record<string, string>;
+} | null> {
+  try {
+    return JSON.parse(await readFile(denoJsonPath, 'utf8')) as {
+      nodeModulesDir?: unknown;
+      tasks?: Record<string, string>;
+    };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return null;

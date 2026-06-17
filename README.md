@@ -33,6 +33,25 @@ pnpm exec async-db serve
 
 `serve` syncs on startup and watches `db/` for changes.
 
+### Deno Quick Start
+
+For a Deno-only local project, use Deno's npm package support and let `init` write `deno.json` tasks instead of package scripts:
+
+```bash
+deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db init --workflow deno --template data-first
+deno task db:serve
+```
+
+After `deno.json` exists, pass CLI arguments directly through the task, without npm or pnpm `--` forwarding:
+
+```bash
+deno task db init --workflow deno --template data-first
+deno task db:sync
+deno task db:validate
+```
+
+Minimum Deno permissions are `--allow-read=. --allow-write=. --allow-sys=hostname` for sync and validation, plus `--allow-net=127.0.0.1` for local `serve`.
+
 ## File Map
 
 | Files | Purpose |
@@ -58,6 +77,21 @@ Add package scripts for the CLI commands you run often:
     "db:sync": "async-db sync",
     "db:serve": "async-db serve",
     "db:types": "async-db types"
+  }
+}
+```
+
+Deno projects can skip `package.json` and use a generated `deno.json` instead:
+
+```json
+{
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "db": "deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db@0.14.0",
+    "db:sync": "deno task db sync",
+    "db:types": "deno task db types",
+    "db:validate": "deno task db schema validate",
+    "db:serve": "deno run --allow-read=. --allow-write=. --allow-sys=hostname --allow-net=127.0.0.1 npm:@async/db@0.14.0 serve"
   }
 }
 ```
@@ -206,6 +240,7 @@ pnpm run db -- serve --cwd ./examples/basic
 | Example | What it shows |
 | --- | --- |
 | [`examples/data-first`](./examples/data-first) | Plain JSON files before schemas exist |
+| [`examples/deno-basic`](./examples/deno-basic) | Deno-only tasks through `npm:@async/db` |
 | [`examples/basic`](./examples/basic) | Shortest schema-backed workflow |
 | [`examples/schema-first`](./examples/schema-first) | Schema-only resources and empty seed records |
 | [`examples/csv`](./examples/csv) | CSV inference and mirror refreshes |

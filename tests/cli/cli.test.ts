@@ -73,6 +73,33 @@ test('CLI init scaffolds a data-first project and syncs', async () => {
   await access(path.join(cwd, '.db/types/index.d.ts'));
 });
 
+test('CLI init --workflow deno creates deno tasks without a package.json', async () => {
+  const cwd = await makeProject();
+  const pkg = JSON.parse(await readFile(path.resolve('package.json'), 'utf8')) as { version: string };
+
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'init',
+    '--cwd',
+    cwd,
+    '--workflow',
+    'deno',
+  ]);
+
+  const denoConfig = JSON.parse(await readFile(path.join(cwd, 'deno.json'), 'utf8'));
+
+  assert.match(stdout, /Initialized data-first project \(deno workflow\)/);
+  assert.match(stdout, /deno task db:serve/);
+  assert.equal(stderr, '');
+  assert.equal(denoConfig.nodeModulesDir, 'auto');
+  assert.equal(denoConfig.tasks.db, `deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db@${pkg.version}`);
+  assert.equal(denoConfig.tasks['db:sync'], 'deno task db sync');
+  assert.equal(denoConfig.tasks['db:validate'], 'deno task db schema validate');
+  assert.equal(denoConfig.tasks['db:serve'], `deno run --allow-read=. --allow-write=. --allow-sys=hostname --allow-net=127.0.0.1 npm:@async/db@${pkg.version} serve`);
+  await assert.rejects(() => access(path.join(cwd, 'package.json')), /ENOENT/);
+  await access(path.join(cwd, '.db/types/index.d.ts'));
+});
+
 test('CLI init refuses to overwrite existing db files', async () => {
   const cwd = await makeProject();
   await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
@@ -106,7 +133,32 @@ test('CLI init dry-run emits a json receipt', async () => {
   assert.equal(receipt.kind, 'db.initReceipt');
   assert.equal(receipt.dryRun, true);
   assert.equal(receipt.template, 'data-first');
+  assert.equal(receipt.workflow, 'node');
   assert.equal(receipt.files.some((file) => file.relativePath === 'db/users.json'), true);
+});
+
+test('CLI init auto workflow chooses Deno for Deno-only projects', async () => {
+  const cwd = await makeProject();
+  await writeFile(path.join(cwd, 'deno.json'), `${JSON.stringify({
+    tasks: {
+      fmt: 'deno fmt',
+    },
+  }, null, 2)}\n`, 'utf8');
+
+  const { stdout } = await execFileAsync(process.execPath, [
+    path.resolve('dist/cli.js'),
+    'init',
+    '--dry-run',
+    '--cwd',
+    cwd,
+    '--json',
+  ]);
+  const receipt = JSON.parse(stdout);
+
+  assert.equal(receipt.workflow, 'deno');
+  assert.equal(receipt.files.some((file) => file.relativePath === 'deno.json' && file.action === 'patch'), true);
+  assert.equal(receipt.files.some((file) => file.relativePath === 'package.json'), false);
+  assert.deepEqual(JSON.parse(await readFile(path.join(cwd, 'deno.json'), 'utf8')).tasks, { fmt: 'deno fmt' });
 });
 
 test('CLI schema validate smoke reports valid fixtures', async () => {

@@ -1,6 +1,6 @@
 {
   "name": "@async/db",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "The Async data workflow package for fixtures, generated types, local APIs, runtime stores, and database-backed graduation.",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
@@ -36,9 +36,11 @@
     "pipeline:sync:generate": "async-pipeline sync generate",
     "pipeline:task:api-surface": "async-pipeline run-task api-surface",
     "pipeline:task:api-surface-generate": "async-pipeline run-task api-surface-generate",
+    "pipeline:task:deno-smoke": "async-pipeline run-task deno-smoke",
     "pipeline:task:docs": "async-pipeline run-task docs",
     "pipeline:task:docs.site": "async-pipeline run-task docs.site",
     "pipeline:task:sync-check": "async-pipeline run-task sync-check",
+    "pipeline:test:deno": "async-pipeline run-task deno-smoke",
     "pipeline:verify": "async-pipeline run verify",
     "pipeline:verify:force": "async-pipeline run verify --force",
     "prepack": "pnpm run build",
@@ -47,6 +49,7 @@
     "release:pack": "npm pack",
     "release:publish": "pnpm run pipeline:publish",
     "test": "pnpm run build && pnpm run build:test && node ./.tmp/test-build/scripts/run-tests.js",
+    "test:deno": "pnpm run pipeline:test:deno",
     "verify": "pnpm run pipeline:verify",
     "view:examples": "pnpm run examples",
     "watch": "node ./scripts/tasks/watch.js"
@@ -128,6 +131,7 @@
     "!dist/**/*.test.js",
     "examples/*/README.md",
     "examples/*/example.json",
+    "examples/*/deno.json",
     "examples/*/package.json",
     "examples/*/serve-example.js",
     "examples/*/framework/**",

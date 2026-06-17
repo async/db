@@ -152,7 +152,7 @@
       "features": [
         {
           "id": "cli.init",
-          "title": "async-db init scaffolds data-first, schema-first, source-file, and content templates",
+          "title": "async-db init scaffolds data-first, schema-first, source-file, and content templates with Node or Deno workflows",
           "releaseTag": "public",
           "stability": "stable",
           "group": "project",

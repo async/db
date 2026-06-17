@@ -72,7 +72,7 @@ Contract: `@async/db.cli`
 
 | Feature | Title | Release | Stability | Lifecycle | Replacement | Docs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `cli.init` | async-db init scaffolds data-first, schema-first, source-file, and content templates | public | stable | active |  | [docs](https://github.com/async/db/blob/main/README.md) |
+| `cli.init` | async-db init scaffolds data-first, schema-first, source-file, and content templates with Node or Deno workflows | public | stable | active |  | [docs](https://github.com/async/db/blob/main/README.md) |
 | `cli.sync` | async-db sync loads sources, validates schema, writes generated metadata/types, and refreshes runtime state | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/package-api.md) |
 | `cli.types` | async-db types generates TypeScript declarations with watch and explicit output support | public | stable | active |  | [docs](https://github.com/async/db/blob/main/docs/generated-files.md) |
 

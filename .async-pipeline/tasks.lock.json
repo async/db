@@ -54,6 +54,10 @@
           "value": "async-pipeline run-task api-surface-generate"
         },
         {
+          "name": "pipeline:task:deno-smoke",
+          "value": "async-pipeline run-task deno-smoke"
+        },
+        {
           "name": "pipeline:task:docs.site",
           "value": "async-pipeline run-task docs.site"
         },
@@ -114,6 +118,10 @@
           "value": "async-pipeline sync generate"
         },
         {
+          "name": "pipeline:test:deno",
+          "value": "async-pipeline run-task deno-smoke"
+        },
+        {
           "name": "pipeline:verify:force",
           "value": "async-pipeline run verify --force"
         }
@@ -156,6 +164,10 @@
     {
       "name": "pipeline:task:api-surface-generate",
       "value": "async-pipeline run-task api-surface-generate"
+    },
+    {
+      "name": "pipeline:task:deno-smoke",
+      "value": "async-pipeline run-task deno-smoke"
     },
     {
       "name": "pipeline:task:docs.site",
@@ -218,10 +230,14 @@
       "value": "async-pipeline sync generate"
     },
     {
+      "name": "pipeline:test:deno",
+      "value": "async-pipeline run-task deno-smoke"
+    },
+    {
       "name": "pipeline:verify:force",
       "value": "async-pipeline run verify --force"
     }
   ],
-  "hash": "sha256:5f179042f0de7a5e090c0f234980b53f348f793f702a72c0b7f9fe287f87236e",
-  "generatedAt": "2026-06-17T00:07:21.469Z"
+  "hash": "sha256:b7b1289f7ac7bf46cdbed301d6a7aeff63dfa361e086d2259f6a308b056fc53e",
+  "generatedAt": "2026-06-17T09:08:11.346Z"
 }

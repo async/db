@@ -212,7 +212,7 @@ export function printHelp(): void {
   console.log(`async-db
 
 Usage:
-  async-db init [--template data-first|schema-first|source-file|content] [--dry-run] [--json]
+  async-db init [--template data-first|schema-first|source-file|content] [--workflow auto|node|deno] [--dry-run] [--json]
   async-db sync
   async-db types [--watch] [--out <file>]
   async-db schema [resource]
@@ -258,7 +258,7 @@ export function printInitHelp(): void {
   console.log(`async-db init
 
 Usage:
-  async-db init [--template data-first|schema-first|source-file|content] [--dry-run] [--json]
+  async-db init [--template data-first|schema-first|source-file|content] [--workflow auto|node|deno] [--dry-run] [--json]
 
 Templates:
   data-first     One JSON file in db/ with no config file (default)
@@ -269,6 +269,7 @@ Templates:
 Options:
   --cwd <dir>       Project directory
   --template <name> Starter template
+  --workflow <name> auto, node, or deno task setup (default: auto)
   --dry-run         Print the scaffold plan without writing files
   --json            Emit a machine-readable init receipt
 `);

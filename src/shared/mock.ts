@@ -1,3 +1,5 @@
+import { isProductionEnv } from './env.js';
+
 type MockDelay = {
   minMs?: number;
   min?: number;
@@ -142,7 +144,7 @@ function shouldSkipMock(config: RuntimeConfigWithMock, url: URL | null): boolean
  * mock behavior is skipped under NODE_ENV=production unless mock.production opts in.
  */
 export function mockDisabledInProduction(mock: MockConfig): boolean {
-  return process.env.NODE_ENV === 'production' && mock.production !== true;
+  return isProductionEnv() && mock.production !== true;
 }
 
 function normalizeBasePath(value: unknown): string {

@@ -1,0 +1,7 @@
+{
+  "title": "Deno Basic",
+  "description": "A Deno-only local workflow that consumes @async/db through Deno npm support with scoped permissions.",
+  "level": "starter",
+  "order": 1.5,
+  "tags": ["quick-start", "deno", "data-first", "rest"]
+}

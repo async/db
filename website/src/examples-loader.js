@@ -130,7 +130,7 @@ function fileGroup(relativePath) {
   if (relativePath === 'README.md') {
     return 0;
   }
-  if (relativePath === 'db.config.js' || relativePath === 'db.config.mjs') {
+  if (relativePath === 'db.config.js' || relativePath === 'db.config.mjs' || relativePath === 'deno.json') {
     return 1;
   }
   if (relativePath.startsWith('db/')) {

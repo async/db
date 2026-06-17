@@ -42,6 +42,7 @@ test('examples launcher can discover repo examples and render an index page', as
 
   assert.deepEqual(names, [
     'data-first',
+    'deno-basic',
     'basic',
     'schema-first',
     'csv',
@@ -80,6 +81,7 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /Open viewer/);
   assert.match(html, /Start here/);
   assert.match(html, /data-first/);
+  assert.match(html, /Deno Basic/);
   assert.match(html, /Content Collections/);
   assert.match(html, /GitHub Content/);
   assert.match(html, /Tina-Style Git CMS/);
@@ -541,6 +543,7 @@ test('new onboarding examples sync expected resources', async () => {
     'content-collections': ['authors', 'blog', 'docs', 'site'],
     'computed-fields': ['orders', 'posts', 'products', 'users'],
     'cms-json-publish': ['navigation', 'pages'],
+    'deno-basic': ['users'],
     'free-plan-upgrade': ['appSettings', 'projects'],
     'github-content': ['posts'],
     'local-web-app': ['appState'],

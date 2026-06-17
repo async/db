@@ -22,6 +22,47 @@ pnpm exec async-db init --template source-file
 
 Use `--dry-run --json` to inspect the scaffold plan without writing files.
 
+## Deno Quick Start
+
+Local Deno projects consume the same npm package through Deno's `npm:` support. To start without creating a `package.json`, run init with the Deno workflow:
+
+```bash
+deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db init --workflow deno --template data-first
+deno task db:serve
+```
+
+`--workflow deno` creates or patches `deno.json` tasks, does not create a root `package.json`, and runs the first sync. The generated tasks use scoped permissions:
+
+```json
+{
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "db": "deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db@0.14.0",
+    "db:sync": "deno task db sync",
+    "db:types": "deno task db types",
+    "db:validate": "deno task db schema validate",
+    "db:serve": "deno run --allow-read=. --allow-write=. --allow-sys=hostname --allow-net=127.0.0.1 npm:@async/db@0.14.0 serve"
+  }
+}
+```
+
+After that, pass CLI arguments directly through the Deno task:
+
+```bash
+deno task db init --workflow deno --template data-first
+deno task db:sync
+deno task db:validate
+deno task db:serve
+```
+
+Minimum permissions are `--allow-read=. --allow-write=. --allow-sys=hostname` for sync, type generation, and schema validation. Local `serve` also needs `--allow-net=127.0.0.1`. If Deno resolves npm packages through a private or local registry by default, use the public registry for this package:
+
+```bash
+NPM_CONFIG_REGISTRY=https://registry.npmjs.org deno task db:sync
+```
+
+Supported Deno scope in this release is local Deno CLI usage: sync, schema validation, generated types, local serve, JSON mirrors, schema helpers, client helpers, and Git source helpers. JSR publishing, Deno Deploy, and Node-free edge runtime support are intentionally out of scope for this pass.
+
 ## Install
 
 Install @async/db from npm:

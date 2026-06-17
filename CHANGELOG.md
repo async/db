@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.14.0 - 2026-06-17
+
+### Added
+
+- Added Deno workflow support for `async-db init`, including generated
+  `deno.json` tasks, Deno-only project detection, Deno quick-start docs, a
+  Deno basic example, and a release-gated Deno smoke test for npm package
+  compatibility.
+
 ## 0.13.0 - 2026-06-17
 
 ### Added

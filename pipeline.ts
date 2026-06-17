@@ -20,7 +20,7 @@ export default definePipeline({
       runners: ["package"],
       targets: [{ package: "@async/db" }],
       jobs: ["pages", "preview", "publish", "publish-github", "release-doctor", "snapshot", "verify"],
-      tasks: ["api-surface", "api-surface-generate", "docs.site", "sync-check"],
+      tasks: ["api-surface", "api-surface-generate", "deno-smoke", "docs.site", "sync-check"],
       scripts: {
         "api-surface": "run-task api-surface",
         "api-surface:generate": "run-task api-surface-generate",
@@ -35,7 +35,8 @@ export default definePipeline({
         "publish:npm": "publish npm --package .",
         "release:doctor": "release doctor --package .",
         "release:ensure": "release ensure --package .",
-        "sync:generate": "sync generate"
+        "sync:generate": "sync generate",
+        "test:deno": "run-task deno-smoke"
       }
     }
   },
@@ -44,6 +45,7 @@ export default definePipeline({
       "src/**/*",
       "tests/**/*",
       "scripts/**/*",
+      "examples/**/*",
       "docs/**/*.md",
       "website/**/*",
       "API_SURFACE.md",
@@ -57,6 +59,7 @@ export default definePipeline({
       "src/**/*",
       "!src/**/*.test.*",
       "dist/**/*",
+      "examples/**/*",
       "package.json",
       "README.md",
       "docs/**/*.md",
@@ -103,6 +106,13 @@ export default definePipeline({
       cache: true,
       run: sh`pnpm run test`
     }),
+    "deno-smoke": task({
+      description: "Pack @async/db and smoke-test root, client, schema, git, sync, validate, and serve through Deno npm support.",
+      dependsOn: ["check"],
+      inputs: ["default"],
+      cache: false,
+      run: sh`node scripts/tasks/deno-smoke.js`
+    }),
     "docs.site": task({
       description: "Build the standardized GitHub Pages documentation site.",
       inputs: ["README.md", "docs/**/*.md", "scripts/build-pages.js"],
@@ -118,7 +128,7 @@ export default definePipeline({
     }),
     pack: task({
       description: "Verify the publishable package contents.",
-      dependsOn: ["check", "test", "docs.site", "api-surface", "sync-check"],
+      dependsOn: ["check", "test", "deno-smoke", "docs.site", "api-surface", "sync-check"],
       inputs: ["production"],
       cache: false,
       run: sh`npm pack --dry-run`
