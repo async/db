@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.12.0 - 2026-06-16
+
+### Added
+
+- Added `eventResource()` as a small helper for append-only event resources that
+  fills conventional event fields while delegating writes to
+  `collection.append(record)`.
+
 ## 0.11.0 - 2026-06-15
 
 ### Added
