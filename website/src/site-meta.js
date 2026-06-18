@@ -23,6 +23,7 @@ export const EXAMPLE_CHIPS = {
   'standard-schema': { tier: 'pattern', level: 'pattern', order: 2 },
   'content-collections': { tier: 'pattern', level: 'pattern', order: 3 },
   'hono-auth': { tier: 'pattern', level: 'pattern', order: 4 },
+  'database-dashboard': { tier: 'pattern', level: 'pattern', order: 5 },
 };
 
 export const EXAMPLE_LEVEL_LABELS = {

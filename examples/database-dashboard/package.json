@@ -1,0 +1,11 @@
+{
+  "name": "@async/db-example-database-dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "async-db serve"
+  },
+  "dependencies": {
+    "@async/db": "workspace:*"
+  }
+}

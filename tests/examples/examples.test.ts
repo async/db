@@ -62,6 +62,7 @@ test('examples launcher can discover repo examples and render an index page', as
     'cms-json-publish',
     'free-plan-upgrade',
     'local-web-app',
+    'database-dashboard',
   ]);
   assert.equal(examples.find((example) => example.name === 'relations').title, 'Relations');
   assert.deepEqual(examples.find((example) => example.name === 'rest-client').tags, ['client', 'rest', 'batching']);
@@ -92,6 +93,7 @@ test('examples launcher can discover repo examples and render an index page', as
   assert.match(html, /Free Plan Upgrade/);
   assert.match(html, /Hono Auth/);
   assert.match(html, /Local Web App/);
+  assert.match(html, /Database Dashboard/);
   assert.match(html, /Production JSON/);
   assert.match(html, /REST Client/);
   assert.match(html, /client/);
@@ -542,6 +544,7 @@ test('new onboarding examples sync expected resources', async () => {
     'hono-auth': ['pages', 'users'],
     'content-collections': ['authors', 'blog', 'docs', 'site'],
     'computed-fields': ['orders', 'posts', 'products', 'users'],
+    'database-dashboard': ['orders', 'products', 'users'],
     'cms-json-publish': ['navigation', 'pages'],
     'deno-basic': ['users'],
     'free-plan-upgrade': ['appSettings', 'projects'],

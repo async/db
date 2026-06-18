@@ -1,0 +1,121 @@
+{
+  "kind": "collection",
+  "idField": "id",
+  "description": "Orders displayed in the main dashboard data grid.",
+  "fields": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "description": "Stable order id."
+    },
+    "customerId": {
+      "type": "string",
+      "required": true,
+      "description": "Customer id for the buyer.",
+      "relation": {
+        "name": "customer",
+        "to": "users",
+        "toField": "id",
+        "cardinality": "one"
+      }
+    },
+    "productId": {
+      "type": "string",
+      "required": true,
+      "description": "Product id for the purchased item.",
+      "relation": {
+        "name": "product",
+        "to": "products",
+        "toField": "id",
+        "cardinality": "one"
+      }
+    },
+    "total": {
+      "type": "number",
+      "description": "Order total in the selected currency."
+    },
+    "currency": {
+      "type": "enum",
+      "values": ["USD", "EUR"],
+      "default": "USD",
+      "description": "Order currency."
+    },
+    "status": {
+      "type": "enum",
+      "values": ["paid", "pending", "refunded"],
+      "default": "pending",
+      "description": "Payment state."
+    },
+    "channel": {
+      "type": "enum",
+      "values": ["web", "sales", "partner"],
+      "description": "Acquisition channel."
+    },
+    "createdAt": {
+      "type": "string",
+      "description": "ISO timestamp for the order."
+    }
+  },
+  "seed": [
+    {
+      "id": "ord_1001",
+      "customerId": "cus_001",
+      "productId": "prd_onboarding",
+      "total": 2400,
+      "currency": "USD",
+      "status": "paid",
+      "channel": "sales",
+      "createdAt": "2026-06-14T14:16:00Z"
+    },
+    {
+      "id": "ord_1002",
+      "customerId": "cus_002",
+      "productId": "prd_analytics",
+      "total": 149,
+      "currency": "EUR",
+      "status": "paid",
+      "channel": "web",
+      "createdAt": "2026-06-15T10:24:00Z"
+    },
+    {
+      "id": "ord_1003",
+      "customerId": "cus_003",
+      "productId": "prd_sensor",
+      "total": 1440,
+      "currency": "USD",
+      "status": "pending",
+      "channel": "partner",
+      "createdAt": "2026-06-16T19:08:00Z"
+    },
+    {
+      "id": "ord_1004",
+      "customerId": "cus_001",
+      "productId": "prd_analytics",
+      "total": 447,
+      "currency": "USD",
+      "status": "paid",
+      "channel": "web",
+      "createdAt": "2026-06-17T08:31:00Z"
+    },
+    {
+      "id": "ord_1005",
+      "customerId": "cus_004",
+      "productId": "prd_legacy",
+      "total": 950,
+      "currency": "USD",
+      "status": "refunded",
+      "channel": "sales",
+      "createdAt": "2026-06-17T21:42:00Z"
+    },
+    {
+      "id": "ord_1006",
+      "customerId": "cus_002",
+      "productId": "prd_onboarding",
+      "total": 2400,
+      "currency": "EUR",
+      "status": "pending",
+      "channel": "sales",
+      "createdAt": "2026-06-18T11:09:00Z"
+    }
+  ]
+}

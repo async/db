@@ -24,7 +24,7 @@ test('docs build includes data-files page id and examples explorer page', async 
 
 test('examples loader discovers every example ordered by complexity', async () => {
   const examples = await loadAllExamples(repoRoot);
-  assert.equal(examples.length, 21);
+  assert.equal(examples.length, 22);
 
   const levelIndexes = examples.map((example) => LEVEL_ORDER.indexOf(example.level));
   assert.deepEqual(levelIndexes, [...levelIndexes].sort((a, b) => a - b));

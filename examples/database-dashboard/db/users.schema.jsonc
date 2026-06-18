@@ -1,0 +1,81 @@
+{
+  "kind": "collection",
+  "idField": "id",
+  "description": "Customers visible in the database dashboard example.",
+  "fields": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "description": "Stable customer id."
+    },
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Customer display name."
+    },
+    "email": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "description": "Customer email address."
+    },
+    "plan": {
+      "type": "enum",
+      "values": ["starter", "growth", "enterprise"],
+      "default": "starter",
+      "description": "Current account plan."
+    },
+    "status": {
+      "type": "enum",
+      "values": ["active", "trial", "paused"],
+      "default": "trial",
+      "description": "Lifecycle state shown in status chips."
+    },
+    "region": {
+      "type": "string",
+      "description": "Primary operating region."
+    },
+    "lastSeenAt": {
+      "type": "string",
+      "description": "ISO timestamp of the latest app activity."
+    }
+  },
+  "seed": [
+    {
+      "id": "cus_001",
+      "name": "Northstar Studio",
+      "email": "ops@northstar.example",
+      "plan": "enterprise",
+      "status": "active",
+      "region": "NA",
+      "lastSeenAt": "2026-06-18T12:14:00Z"
+    },
+    {
+      "id": "cus_002",
+      "name": "Bluebird Labs",
+      "email": "team@bluebird.example",
+      "plan": "growth",
+      "status": "active",
+      "region": "EU",
+      "lastSeenAt": "2026-06-17T18:22:00Z"
+    },
+    {
+      "id": "cus_003",
+      "name": "Oakline Retail",
+      "email": "admin@oakline.example",
+      "plan": "starter",
+      "status": "trial",
+      "region": "NA",
+      "lastSeenAt": "2026-06-16T09:05:00Z"
+    },
+    {
+      "id": "cus_004",
+      "name": "Kestrel Foods",
+      "email": "data@kestrel.example",
+      "plan": "growth",
+      "status": "paused",
+      "region": "APAC",
+      "lastSeenAt": "2026-06-11T23:40:00Z"
+    }
+  ]
+}

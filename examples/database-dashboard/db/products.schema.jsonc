@@ -1,0 +1,80 @@
+{
+  "kind": "collection",
+  "idField": "id",
+  "description": "Products used by the orders table.",
+  "fields": {
+    "id": {
+      "type": "string",
+      "required": true,
+      "description": "Stable product id."
+    },
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Product name shown in dashboards."
+    },
+    "sku": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "description": "Inventory SKU."
+    },
+    "category": {
+      "type": "enum",
+      "values": ["software", "service", "hardware"],
+      "description": "Product family."
+    },
+    "price": {
+      "type": "number",
+      "description": "Unit price in USD."
+    },
+    "inventory": {
+      "type": "number",
+      "description": "Available units for physical products."
+    },
+    "status": {
+      "type": "enum",
+      "values": ["active", "draft", "retired"],
+      "default": "active",
+      "description": "Catalog state."
+    }
+  },
+  "seed": [
+    {
+      "id": "prd_analytics",
+      "name": "Analytics Workspace",
+      "sku": "ANL-001",
+      "category": "software",
+      "price": 149,
+      "inventory": 999,
+      "status": "active"
+    },
+    {
+      "id": "prd_onboarding",
+      "name": "Implementation Sprint",
+      "sku": "SVC-044",
+      "category": "service",
+      "price": 2400,
+      "inventory": 12,
+      "status": "active"
+    },
+    {
+      "id": "prd_sensor",
+      "name": "Edge Sensor Kit",
+      "sku": "HW-210",
+      "category": "hardware",
+      "price": 720,
+      "inventory": 38,
+      "status": "active"
+    },
+    {
+      "id": "prd_legacy",
+      "name": "Legacy Import Pack",
+      "sku": "SVC-018",
+      "category": "service",
+      "price": 950,
+      "inventory": 0,
+      "status": "retired"
+    }
+  ]
+}

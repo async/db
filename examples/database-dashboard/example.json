@@ -1,0 +1,7 @@
+{
+  "title": "Database Dashboard",
+  "description": "A simplified database client dashboard with an explorer sidebar, SQL-style presets, data grid, schema view, and record inspector backed by local @async/db resources.",
+  "level": "pattern",
+  "order": 4,
+  "tags": ["dashboard", "database-client", "schema", "rest"]
+}
