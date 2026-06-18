@@ -13,19 +13,22 @@ export default definePipeline({
     github: {
       nodeVersion: 24,
       cache: true,
-      dependencyCache: false
+      dependencyCache: false,
+      packagePreviews: true,
+      pages: { target: "docs.site" }
     },
     tasks: {
       prefix: "pipeline",
       runners: ["package"],
       targets: [{ package: "@async/db" }],
-      jobs: ["pages", "preview", "publish", "publish-github", "release-doctor", "snapshot", "verify"],
+      jobs: ["publish", "publish-github", "release-doctor", "snapshot", "verify"],
       tasks: ["api-surface", "api-surface-generate", "deno-smoke", "docs.site", "sync-check"],
       scripts: {
         "api-surface": "run-task api-surface",
         "api-surface:generate": "run-task api-surface-generate",
         "docs": "run-task docs.site",
         "github:check": "github check",
+        "pages": "run-task docs.site",
         "sync:check": "sync check",
         "verify:force": "run verify --force",
         "github:generate": "github generate",
@@ -134,13 +137,6 @@ export default definePipeline({
       cache: false,
       run: sh`npm pack --dry-run`
     }),
-    preview: task({
-      description: "Same-repo PRs publish an immutable GitHub Packages preview and update one install-instructions comment; fork PRs skip.",
-      dependsOn: ["pack"],
-      inputs: ["production"],
-      cache: false,
-      run: sh`pnpm async-pipeline publish github pr --package .`
-    }),
     snapshot: task({
       description: "Pushes to main publish an immutable GitHub Packages snapshot and move the main dist-tag while the commit is still branch head.",
       dependsOn: ["pack"],
@@ -177,29 +173,6 @@ export default definePipeline({
     verify: job({
       target: "pack",
       trigger: ["pr", "main", "release"]
-    }),
-    pages: job({
-      target: "docs.site",
-      trigger: ["pr", "main", "manual"],
-      github: {
-        pages: {
-          build: { kind: "static", path: ".async/pages" }
-        }
-      }
-    }),
-    preview: job({
-      target: "preview",
-      trigger: ["pr"],
-      env: {
-        GITHUB_TOKEN: env.secret("GITHUB_TOKEN")
-      },
-      github: {
-        permissions: {
-          issues: "write",
-          packages: "write",
-          pullRequests: "write"
-        }
-      }
     }),
     snapshot: job({
       target: "snapshot",

@@ -18,14 +18,6 @@
       "field": "scripts",
       "commands": [
         {
-          "name": "pipeline:pages",
-          "value": "async-pipeline run pages"
-        },
-        {
-          "name": "pipeline:preview",
-          "value": "async-pipeline run preview"
-        },
-        {
           "name": "pipeline:publish",
           "value": "async-pipeline run publish"
         },
@@ -86,6 +78,10 @@
           "value": "async-pipeline github generate"
         },
         {
+          "name": "pipeline:pages",
+          "value": "async-pipeline run-task docs.site"
+        },
+        {
           "name": "pipeline:publish:github:main",
           "value": "async-pipeline publish github main --package ."
         },
@@ -129,14 +125,6 @@
     }
   ],
   "commands": [
-    {
-      "name": "pipeline:pages",
-      "value": "async-pipeline run pages"
-    },
-    {
-      "name": "pipeline:preview",
-      "value": "async-pipeline run preview"
-    },
     {
       "name": "pipeline:publish",
       "value": "async-pipeline run publish"
@@ -198,6 +186,10 @@
       "value": "async-pipeline github generate"
     },
     {
+      "name": "pipeline:pages",
+      "value": "async-pipeline run-task docs.site"
+    },
+    {
       "name": "pipeline:publish:github:main",
       "value": "async-pipeline publish github main --package ."
     },
@@ -238,6 +230,6 @@
       "value": "async-pipeline run verify --force"
     }
   ],
-  "hash": "sha256:b7b1289f7ac7bf46cdbed301d6a7aeff63dfa361e086d2259f6a308b056fc53e",
-  "generatedAt": "2026-06-17T09:38:35.575Z"
+  "hash": "sha256:32813aa29220564dd9be3ea500e3853e44bae6d1f8634c12cb21ab56f0016ca3",
+  "generatedAt": "2026-06-18T04:13:44.414Z"
 }
