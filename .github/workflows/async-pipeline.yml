@@ -71,12 +71,61 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run pipeline job
+      - name: Run pipeline task pack
         uses: async/actions/run@v0
         with:
-          command: "pnpm async-pipeline github check && pnpm async-pipeline run publish"
+          command: "pnpm async-pipeline github check && pnpm async-pipeline run-task pack"
           check-generated: false
-          artifact-name: async-pipeline-${{ github.job }}-runs
+          artifact-name: async-pipeline-${{ github.job }}-pack-runs
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+
+      - name: Create or update GitHub Release
+        uses: async/actions/publish@v0
+        with:
+          package-path: "."
+          mode: github-release
+          registry: "https://registry.npmjs.org"
+          dist-tag: "latest"
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+
+      - name: Publish GitHub Packages mirror
+        uses: async/actions/publish@v0
+        with:
+          package-path: "."
+          mode: github-packages
+          registry: "https://npm.pkg.github.com"
+          dist-tag: "latest"
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+
+      - name: Publish npm package
+        uses: async/actions/publish@v0
+        with:
+          package-path: "."
+          mode: npm
+          registry: "https://registry.npmjs.org"
+          dist-tag: "latest"
+          provenance: true
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+
+      - name: Run release doctor
+        uses: async/actions/publish@v0
+        with:
+          package-path: "."
+          mode: doctor
+          registry: "https://registry.npmjs.org"
+          dist-tag: "latest"
         env:
           CI: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -116,12 +165,34 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run pipeline job
+      - name: Run pipeline task pack
         uses: async/actions/run@v0
         with:
-          command: "pnpm async-pipeline github check && pnpm async-pipeline run publish-github"
+          command: "pnpm async-pipeline github check && pnpm async-pipeline run-task pack"
           check-generated: false
-          artifact-name: async-pipeline-${{ github.job }}-runs
+          artifact-name: async-pipeline-${{ github.job }}-pack-runs
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or update GitHub Release
+        uses: async/actions/publish@v0
+        with:
+          package-path: "."
+          mode: github-release
+          registry: "https://registry.npmjs.org"
+          dist-tag: "latest"
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Packages mirror
+        uses: async/actions/publish@v0
+        with:
+          package-path: "."
+          mode: github-packages
+          registry: "https://npm.pkg.github.com"
+          dist-tag: "latest"
         env:
           CI: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -160,12 +231,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run pipeline job
+      - name: Run pipeline task pack
         uses: async/actions/run@v0
         with:
-          command: "pnpm async-pipeline github check && pnpm async-pipeline run release-doctor"
+          command: "pnpm async-pipeline github check && pnpm async-pipeline run-task pack"
           check-generated: false
-          artifact-name: async-pipeline-${{ github.job }}-runs
+          artifact-name: async-pipeline-${{ github.job }}-pack-runs
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run release doctor
+        uses: async/actions/publish@v0
+        with:
+          package-path: "."
+          mode: doctor
+          registry: "https://registry.npmjs.org"
+          dist-tag: "latest"
         env:
           CI: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -204,12 +286,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run pipeline job
+      - name: Run pipeline task pack
         uses: async/actions/run@v0
         with:
-          command: "pnpm async-pipeline github check && pnpm async-pipeline run snapshot"
+          command: "pnpm async-pipeline github check && pnpm async-pipeline run-task pack"
           check-generated: false
-          artifact-name: async-pipeline-${{ github.job }}-runs
+          artifact-name: async-pipeline-${{ github.job }}-pack-runs
+        env:
+          CI: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish main package preview
+        uses: async/actions/preview@v0
+        with:
+          package-path: "."
+          target-registry: "https://npm.pkg.github.com"
+          mode: main
+          comment: false
+          token-env-name: "GITHUB_TOKEN"
         env:
           CI: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
