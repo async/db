@@ -549,7 +549,7 @@ test('package metadata exposes @async/db with the async-db CLI', async () => {
   assert.equal(packageJson.scripts['release:publish'], 'pnpm run pipeline:publish');
   assert.equal(packageJson.scripts.verify, 'pnpm run pipeline:verify');
   assert.equal(packageJson.scripts.prepack, 'pnpm run build');
-  assert.equal(packageJson.devDependencies['@async/pipeline'], '0.8.8');
+  assert.equal(packageJson.devDependencies['@async/pipeline'], '0.8.9');
   assert.equal(packageJson.devDependencies['@async/api-contract'], '0.1.0');
   assert.equal(packageJson.engines.node, '>=24');
 });
@@ -624,10 +624,13 @@ test('generated async-pipeline workflow owns release, package preview, snapshot,
   assert.match(workflow, /pnpm async-pipeline run release-doctor/);
   assert.match(workflow, /contents: write/);
   assert.match(workflow, /actions\/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6\.0\.2/);
-  assert.match(workflow, /pnpm\/setup@cf03a9b516e09bc5a90f041fc26fc930c9dc631b # v1\.0\.0/);
-  assert.match(workflow, /runtime: node@24/);
-  assert.doesNotMatch(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6/);
-  assert.doesNotMatch(workflow, /corepack prepare pnpm@10\.20\.0 --activate/);
+  assert.match(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6/);
+  assert.match(workflow, /node-version: 24/);
+  assert.match(workflow, /package-manager-cache: false/);
+  assert.match(workflow, /corepack prepare pnpm@10\.20\.0 --activate/);
+  assert.doesNotMatch(workflow, /pnpm\/setup@cf03a9b516e09bc5a90f041fc26fc930c9dc631b # v1\.0\.0/);
+  assert.doesNotMatch(workflow, /runtime: node@24/);
+  assert.equal(lock.setup, 'node');
   assert.match(workflow, /actions\/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5/);
   assert.match(workflow, /actions\/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4/);
   assert.match(workflow, /actions\/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4/);
