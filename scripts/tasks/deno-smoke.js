@@ -11,10 +11,7 @@ const commandTimeoutMs = 120_000;
 const localCliPath = './node_modules/@async/db/dist/cli.js';
 const sysPermission = '--allow-sys=hostname,uid';
 
-const registryEnv = {
-  ...process.env,
-  NPM_CONFIG_REGISTRY: process.env.NPM_CONFIG_REGISTRY ?? 'https://registry.npmjs.org',
-};
+const registryEnv = smokeRegistryEnv();
 
 const denoCommand = resolveDenoCommand();
 let tempRoot;
@@ -135,6 +132,28 @@ function resolveDenoCommand() {
   }
 
   return { command: 'pnpm', prefix: ['dlx', `deno@${denoVersion}`] };
+}
+
+function smokeRegistryEnv() {
+  const env = { ...process.env };
+  for (const key of [
+    'NPM_CONFIG_BEFORE',
+    'npm_config_before',
+    'NPM_CONFIG_MIN_RELEASE_AGE',
+    'npm_config_min_release_age',
+    'NPM_CONFIG_MINIMUM_RELEASE_AGE',
+    'npm_config_minimum_release_age',
+    'NPM_CONFIG_MINIMUM_RELEASE_AGE_EXCLUDE',
+    'npm_config_minimum_release_age_exclude',
+  ]) {
+    delete env[key];
+  }
+
+  env.NPM_CONFIG_REGISTRY = 'https://registry.npmjs.org';
+  env.npm_config_registry = 'https://registry.npmjs.org';
+  env.NPM_CONFIG_METRICS_REGISTRY = 'https://registry.npmjs.org';
+  env.npm_config_metrics_registry = 'https://registry.npmjs.org';
+  return env;
 }
 
 async function findTarball(packageDir) {
