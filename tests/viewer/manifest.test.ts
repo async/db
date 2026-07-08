@@ -167,10 +167,42 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
   assert.equal(manifest.capabilities.falcor, true);
   assert.equal(manifest.capabilities.csvImport, true);
   assert.equal(manifest.capabilities.liveEvents, true);
+  assert.equal(manifest.stores.json.driver, 'json');
+  assert.equal(manifest.stores.json.persistence, 'runtime-state');
+  assert.equal(manifest.stores.json.visibility, 'safe-summary');
+  assert.equal(manifest.stores.json.capabilities.read, true);
+  assert.equal(manifest.stores.json.capabilities.write, true);
+  assert.equal(manifest.routeExposure.rest, 'open');
+  assert.equal(manifest.routeExposure.viewer, 'open');
+  assert.equal(manifest.routeExposure.schema, 'open');
+  assert.equal(manifest.routeExposure.manifest, 'open');
+  assert.equal(manifest.routeExposure.graphql, 'open');
+  assert.equal(manifest.routeExposure.falcor, 'open');
+  assert.equal(manifest.routeExposure.operations, 'disabled');
+  assert.deepEqual(manifest.operations, {
+    enabled: false,
+    endpoint: '/_db/operations/{ref}',
+    acceptRefs: 'both',
+    refsAvailable: false,
+  });
   assert.equal(manifest.collections.projects.kind, 'collection');
   assert.equal(manifest.collections.projects.typeName, 'Project');
   assert.equal(manifest.collections.projects.routePath, '/projects');
   assert.equal(manifest.collections.projects.editor.title, 'Projects');
+  assert.deepEqual(manifest.collections.projects.store, {
+    name: 'json',
+    driver: 'json',
+    effective: true,
+    writeMode: 'runtime',
+    capabilities: manifest.stores.json.capabilities,
+  });
+  assert.deepEqual(manifest.collections.projects.actions.read, { available: true });
+  assert.deepEqual(manifest.collections.projects.actions.create, { available: true });
+  assert.deepEqual(manifest.collections.projects.actions.operation, {
+    available: false,
+    reason: 'operations-disabled',
+  });
+  assert.deepEqual(manifest.collections.projects.queryModes, ['resource', 'graphql']);
   assert.equal(manifest.collections.projects.fields.status.default, 'planned');
   assert.equal(manifest.collections.projects.fields.status.ui.component, 'segmented-control');
   assert.equal(manifest.collections.projects.fields.ownerId.ui.optionsFrom, 'users');
@@ -193,6 +225,181 @@ test('viewer manifest exposes custom-viewer metadata without runtime internals',
   assert.equal('rest' in manifest, false);
 });
 
+test('viewer manifest redacts project-local paths and hashes from diagnostics', async () => {
+  const cwd = await makeProject();
+  const sourcePath = path.join(cwd, 'db/broken.schema.jsonc');
+  const statePath = path.join(cwd, '.async-db/state.json');
+  const manifest = renderViewerManifest([], { cwd }, {
+    diagnostics: [{
+      code: 'SOURCE_LOAD_FAILED',
+      severity: 'error',
+      message: `Could not load db/broken.schema.jsonc: ${sourcePath}: invalid JSON`,
+      path: sourcePath,
+      details: {
+        statePath,
+        sourceHash: 'abc123',
+      },
+    }],
+    generatedAt: '2026-05-20T00:00:00.000Z',
+  });
+
+  assert.deepEqual(manifest.diagnostics, [{
+    code: 'SOURCE_LOAD_FAILED',
+    severity: 'error',
+    message: 'Could not load db/broken.schema.jsonc: db/broken.schema.jsonc: invalid JSON',
+    path: 'db/broken.schema.jsonc',
+    details: {
+      statePath: '.async-db/state.json',
+      sourceHash: '[redacted]',
+    },
+  }]);
+  assert.equal(JSON.stringify(manifest.diagnostics).includes(cwd), false);
+});
+
+test('viewer manifest exposes mixed store mappings without private store details', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    stores: {
+      default: 'json',
+      sourceFile: { driver: 'sourceFile' },
+      sqlite: { driver: 'sqlite' },
+      postgres: { driver: 'postgres' },
+      static: { driver: 'static' },
+      privateStore: {
+        driver: 'custom',
+        client: { label: 'internal-client-object' },
+        capabilities: {
+          read: true,
+          write: false
+        },
+        statePath() {
+          return './.db/private-runtime-state';
+        }
+      }
+    },
+    resources: {
+      users: { store: 'sourceFile' },
+      projects: { store: 'postgres' },
+      snapshots: { store: 'static' },
+      privateRecords: { store: 'privateStore' }
+    }
+  };`);
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+  await writeFixture(cwd, 'projects.json', JSON.stringify([{ id: 'p_1', name: 'Launch' }]));
+  await writeFixture(cwd, 'snapshots.json', JSON.stringify([{ id: 's_1', label: 'Snapshot' }]));
+  await writeFixture(cwd, 'private-records.json', JSON.stringify([{ id: 'r_1', label: 'Record' }]));
+
+  const config = await loadConfig({ cwd });
+  const project = await loadProjectSchema(config);
+  const manifest = renderViewerManifest(project.resources, config, {
+    generatedAt: '2026-05-20T00:00:00.000Z',
+  });
+
+  assert.equal(manifest.stores.sourceFile.driver, 'sourceFile');
+  assert.equal(manifest.stores.sourceFile.persistence, 'source-file');
+  assert.equal(manifest.stores.sqlite.driver, 'sqlite');
+  assert.equal(manifest.stores.sqlite.persistence, 'external-store');
+  assert.equal(manifest.stores.postgres.driver, 'postgres');
+  assert.equal(manifest.stores.static.capabilities.write, false);
+  assert.equal(manifest.stores.privateStore.driver, 'custom');
+  assert.equal(manifest.stores.privateStore.capabilities.read, true);
+  assert.equal(manifest.stores.privateStore.capabilities.write, false);
+  assert.equal(manifest.collections.users.store.name, 'sourceFile');
+  assert.equal(manifest.collections.users.store.writeMode, 'source-file');
+  assert.equal(manifest.collections.projects.store.name, 'postgres');
+  assert.equal(manifest.collections.projects.store.writeMode, 'external');
+  assert.equal(manifest.collections.snapshots.store.writeMode, 'readonly');
+  assert.deepEqual(manifest.collections.snapshots.actions.create, {
+    available: false,
+    reason: 'readonly-store',
+  });
+  assert.equal(manifest.collections.privateRecords.store.name, 'privateStore');
+  assert.deepEqual(manifest.collections.privateRecords.actions.patch, {
+    available: false,
+    reason: 'readonly-store',
+  });
+
+  const serialized = JSON.stringify(manifest);
+  assert.equal(serialized.includes('internal-client-object'), false);
+  assert.equal(serialized.includes('private-runtime-state'), false);
+  assert.equal(serialized.includes(cwd), false);
+});
+
+test('viewer manifest summarizes route exposure and operations without server templates', async () => {
+  const cwd = await makeProject();
+  await writeConfig(cwd, `export default {
+    outputs: {
+      operationRefs: './src/generated/db.operation-refs.json'
+    },
+    server: {
+      apiBase: '/api/db',
+      expose: {
+        rest: 'registered-only',
+        viewer: 'dev',
+        schema: false,
+        manifest: 'open'
+      }
+    },
+    graphql: {
+      enabled: false,
+      path: '/api/graphql'
+    },
+    falcor: {
+      enabled: false
+    },
+    operations: {
+      enabled: true,
+      acceptRefs: 'ref',
+      registry: {
+        GetUser: '/users/{id}.json'
+      }
+    },
+    contracts: {
+      public: {
+        operations: ['GetUser']
+      }
+    }
+  };`);
+  await writeFixture(cwd, 'users.json', JSON.stringify([{ id: 'u_1', name: 'Ada' }]));
+
+  const config = await loadConfig({ cwd });
+  const project = await loadProjectSchema(config);
+  const manifest = renderViewerManifest(project.resources, config, {
+    generatedAt: '2026-05-20T00:00:00.000Z',
+  });
+
+  assert.deepEqual(manifest.routeExposure, {
+    rest: 'registered-only',
+    viewer: 'dev',
+    schema: false,
+    manifest: 'open',
+    graphql: 'disabled',
+    falcor: 'disabled',
+    operations: 'open',
+  });
+  assert.deepEqual(manifest.operations, {
+    enabled: true,
+    endpoint: '/api/db/operations/{ref}',
+    acceptRefs: 'ref',
+    contracts: ['public'],
+    refsAvailable: true,
+  });
+  assert.deepEqual(manifest.collections.users.actions.read, {
+    available: false,
+    reason: 'registered-only',
+  });
+  assert.deepEqual(manifest.collections.users.actions.operation, { available: true });
+  assert.deepEqual(manifest.collections.users.actions.graphql, {
+    available: false,
+    reason: 'graphql-disabled',
+  });
+  assert.deepEqual(manifest.collections.users.queryModes, ['operation']);
+
+  const serialized = JSON.stringify(manifest);
+  assert.equal(serialized.includes('/users/{id}.json'), false);
+  assert.equal(serialized.includes('GetUser'), false);
+});
+
 test('viewer manifest marks REST resources and batching unavailable when REST is disabled', async () => {
   const cwd = await makeProject();
   await writeConfig(cwd, `export default {
@@ -212,6 +419,16 @@ test('viewer manifest marks REST resources and batching unavailable when REST is
   assert.equal(manifest.capabilities.writes, false);
   assert.equal(manifest.capabilities.restBatch, false);
   assert.equal(manifest.capabilities.graphql, false);
+  assert.equal(manifest.routeExposure.rest, 'disabled');
+  assert.deepEqual(manifest.collections.users.actions.read, {
+    available: false,
+    reason: 'rest-disabled',
+  });
+  assert.deepEqual(manifest.collections.users.actions.batch, {
+    available: false,
+    reason: 'rest-disabled',
+  });
+  assert.deepEqual(manifest.collections.users.queryModes, []);
   assert.equal(manifest.capabilities.csvImport, true);
   assert.equal(manifest.api.batch, '/__db/batch');
   assert.equal(manifest.api.resources.users.list, '/users');
@@ -234,6 +451,11 @@ test('viewer manifest marks GraphQL unavailable when GraphQL is disabled', async
   });
 
   assert.equal(manifest.capabilities.graphql, false);
+  assert.equal(manifest.routeExposure.graphql, 'disabled');
+  assert.deepEqual(manifest.collections.users.actions.graphql, {
+    available: false,
+    reason: 'graphql-disabled',
+  });
   assert.equal(manifest.api.graphql, '/_db/graphql');
   assert.equal(manifest.capabilities.rest, true);
   assert.equal(manifest.capabilities.writes, true);

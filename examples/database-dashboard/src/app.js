@@ -26,13 +26,13 @@ const els = {
 const queryPresets = [
   {
     id: 'recent',
-    label: 'Recent orders',
+    label: 'Example recent orders',
     resource: 'orders',
     sql: 'select id, customerId, productId, total, status\nfrom orders\norder by createdAt desc;',
   },
   {
     id: 'paid',
-    label: 'Paid revenue',
+    label: 'Example paid total',
     resource: 'orders',
     filter(record) {
       return record.status === 'paid';
@@ -41,7 +41,7 @@ const queryPresets = [
   },
   {
     id: 'customers',
-    label: 'Active customers',
+    label: 'Example active customers',
     resource: 'users',
     filter(record) {
       return record.status === 'active';
@@ -50,7 +50,7 @@ const queryPresets = [
   },
   {
     id: 'inventory',
-    label: 'Inventory',
+    label: 'Example inventory',
     resource: 'products',
     sql: 'select id, name, sku, inventory, status\nfrom products\norder by inventory asc;',
   },
@@ -188,8 +188,8 @@ function renderQuery() {
 function renderMain() {
   const resource = activeResource();
   const records = filteredRecords(resource);
-  els.title.textContent = `${titleCase(resource.name)} dashboard`;
-  els.breadcrumb.textContent = `Commerce Demo / ${resource.name} / ${records.length} visible rows`;
+  els.title.textContent = `${titleCase(resource.name)} example data`;
+  els.breadcrumb.textContent = `Database Dashboard Example / ${resource.name} / ${records.length} visible rows`;
 
   if (state.activeTab === 'schema') {
     renderSchema(resource);
@@ -201,8 +201,8 @@ function renderMain() {
     return;
   }
 
-  if (state.activeTab === 'activity') {
-    renderActivity(resource);
+  if (state.activeTab === 'notes') {
+    renderNotes(resource);
     return;
   }
 
@@ -212,7 +212,7 @@ function renderMain() {
 function renderData(resource, records) {
   els.content.innerHTML = `
     <div class="panel-pad">
-      ${renderMetrics()}
+      ${renderExampleSummary()}
       ${renderTable(resource, records)}
     </div>
   `;
@@ -261,36 +261,36 @@ function renderSchema(resource) {
   state.selectedRecordId = firstRecordId(resource);
 }
 
-function renderActivity(resource) {
+function renderNotes(resource) {
   const diagnostics = state.payload.diagnostics ?? [];
-  const activities = [
+  const notes = [
     {
-      title: 'Runtime mirror hydrated',
+      title: 'Example runtime mirror',
       detail: `${collectionResources().length} collections synced from db/*.schema.jsonc into .db/state.`,
     },
     {
-      title: 'REST routes available',
+      title: 'Same runtime as built-in viewer',
       detail: `Open ${resource.routePath}.json or the built-in viewer to inspect the same records.`,
     },
     {
-      title: diagnostics.length ? 'Diagnostics reported' : 'Schema clean',
+      title: diagnostics.length ? 'Example diagnostics reported' : 'Example schema clean',
       detail: diagnostics.length ? `${diagnostics.length} diagnostics available from schema load.` : 'No schema diagnostics were returned for this example.',
     },
   ];
 
   els.content.innerHTML = `
     <div class="panel-pad">
-      <div class="activity-list">
-        ${activities.map((activity) => `<article class="activity-card">
-          <h3>${escapeHtml(activity.title)}</h3>
-          <p class="muted-line">${escapeHtml(activity.detail)}</p>
+      <div class="note-list">
+        ${notes.map((note) => `<article class="note-card">
+          <h3>${escapeHtml(note.title)}</h3>
+          <p class="muted-line">${escapeHtml(note.detail)}</p>
         </article>`).join('')}
       </div>
     </div>
   `;
 }
 
-function renderMetrics() {
+function renderExampleSummary() {
   const orders = recordsByName('orders');
   const users = recordsByName('users');
   const products = recordsByName('products');
@@ -299,10 +299,10 @@ function renderMetrics() {
     .reduce((sum, order) => sum + Number(order.total ?? 0), 0);
 
   return `<div class="metric-row">
-    <div class="metric"><span>Resources</span><strong>${collectionResources().length}</strong></div>
-    <div class="metric"><span>Orders</span><strong>${orders.length}</strong></div>
-    <div class="metric"><span>Customers</span><strong>${users.length}</strong></div>
-    <div class="metric"><span>Paid revenue</span><strong>${formatCurrency(paidRevenue)}</strong></div>
+    <div class="metric"><span>Example resources</span><strong>${collectionResources().length}</strong></div>
+    <div class="metric"><span>Example orders</span><strong>${orders.length}</strong></div>
+    <div class="metric"><span>Example customers</span><strong>${users.length}</strong></div>
+    <div class="metric"><span>Example paid total</span><strong>${formatCurrency(paidRevenue)}</strong></div>
   </div>`;
 }
 

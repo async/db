@@ -178,6 +178,12 @@ SQLite keeps the deployment simple, but it still changes the operational boundar
 
 The built-in SQLite store requires a runtime that exposes `node:sqlite` (it fails with `SQLITE_RUNTIME_UNAVAILABLE` otherwise; the package itself supports Node 24 or newer for every JSON-backed path). SQLite under local Deno is preview-only and depends on Deno's current `node:sqlite` compatibility. Like the JSON store, query helpers such as `find`, `count`, and `aggregate` load the collection into memory first, and generated ids scan existing ids per create, so keep collections in the small-thousands range or move query-heavy resources behind app-owned SQL or registered operations.
 
+The built-in viewer and viewer manifest show this as a safe store summary:
+resource rows include the effective store and read/write state, Settings shows
+driver capability cards, and SQL/Explain remain disabled unless a future safe
+query capability explicitly opts in. A SQLite or Postgres driver name alone
+does not enable arbitrary SQL from the viewer.
+
 ## Inspecting Existing SQLite Apps
 
 When an app already has SQLite tables, inspect before migrating. The default

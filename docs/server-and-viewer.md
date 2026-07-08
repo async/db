@@ -57,15 +57,86 @@ import, events, log, and fork routes move with that base.
 
 Opening `http://127.0.0.1:7331/` in a browser shows a small index with links to the local data explorer, schema, GraphQL endpoint, and resource routes. API-style requests to `/` keep returning JSON discovery data by default.
 
-The explorer includes:
+The explorer is a dark, dense local database-console shell. It keeps a narrow
+app rail for major areas, a contextual resource explorer, and a main workspace
+that switches panels without writing project files.
 
-- resource and data browsing
-- drag-and-drop CSV import into the configured data folder (`db/`)
-- REST specs with copyable examples
-- a REST request runner
-- GraphQL SDL and operation references
-- schema and field inspection
-- source diagnostics when one data file is broken
+The app rail includes:
+
+- Connections for the local `@async/db` runtime and safe route summaries
+- Data for resource grids, JSON detail, API, relations, and diagnostics
+- Query for REST and GraphQL examples/runners, with SQL and Explain disabled
+  unless a future safe capability explicitly enables them
+- Schema for generated schema and field inspection
+- Operations for registered operation availability summaries
+- Logs for local event/log endpoints and source diagnostics
+- Settings for browser-local viewer state and safe store summaries
+
+The contextual explorer groups real manifest objects, including collections,
+documents, stores, recent browser-local resources, and diagnostics. Resource
+rows use manifest-provided store mappings and action availability to show
+read/write state; they do not include seed records or fake activity.
+
+The Data area fetches records through the manifest resource routes. Collections
+load a bounded page with `offset` and `limit` query parameters, show schema
+fields before drift keys found on the loaded page, mark identity fields, render
+nested arrays/objects through detail actions, and use relation hints for related
+record links. Documents render as a document workspace instead of a collection
+grid.
+
+Write controls are driven by the manifest action summaries. Read-only, static,
+registered-only, or disabled resources show disabled write state instead of
+active create/patch/delete controls. When a resource is writable, edits are
+staged in browser state from the selected JSON panel and Apply/Discard controls
+appear only while the staged value differs from the loaded record. Applying an
+edit calls the existing REST route for that resource so normal validation,
+route exposure, policy, and store behavior still own the result.
+
+The Query area has five modes:
+
+- Resource builds REST-shaped read URLs from the selected resource route,
+  `select`, `expand`, `offset`, and `limit`. It disables execution when direct
+  REST is disabled or configured as registered-only.
+- Operation posts variables to the public registered-operation endpoint/ref
+  shape when operations are enabled and client-safe refs or summaries exist.
+  The viewer does not receive or render server operation templates.
+- GraphQL uses the configured GraphQL endpoint only when GraphQL is enabled and
+  exposed. It supports a query editor, variables editor, optional operation
+  name, SDL loading, and examples derived from resource metadata.
+- SQL and Explain are visible product slots but disabled by default. A driver
+  name such as SQLite or Postgres is not enough to enable arbitrary SQL or plan
+  inspection; a future safe capability contract must opt in explicitly.
+
+The Schema area inspects only the manifest and generated schema payloads. It
+shows resource kind, identity, store mapping, validation/unknown-field summary,
+field types, required/nullable/default/enum metadata, read-only or
+derived/computed flags, relation hints, and UI hints when those are already in
+the manifest/schema output.
+
+The Logs area combines safe local diagnostics and session activity:
+
+- manifest diagnostics;
+- live resource events from the configured events route when live events are
+  available;
+- request trace rows from the runtime log stream when the user connects it;
+- import status summaries;
+- batch request status summaries.
+
+Log rows are classified as error, warning, info, live event, or request trace
+and are rendered as summaries. They do not include request bodies, response
+bodies, auth headers, cookies, source paths, runtime state paths, connection
+strings, raw client objects, or source hashes.
+
+The Settings area is read-only. It shows viewer routes, response formats,
+custom viewer links, route exposure, store registry summaries, resource store
+mappings, import/GraphQL/Falcor/operation availability, and browser-local keys.
+Driver cards are capability summaries only; they do not install plugins or
+mutate project config.
+
+The explorer still includes drag-and-drop CSV import into the configured data
+folder (`db/`), REST specs with copyable examples, a REST request runner,
+GraphQL SDL and operation references, schema and field inspection, and source
+diagnostics when one data file is broken.
 
 ## Custom Viewer Manifest
 
@@ -85,10 +156,22 @@ The manifest includes:
 - API links for the local data explorer, manifest, manifest JSON/HTML/Markdown routes, schema, events, batch, import, GraphQL, and each REST resource
 - built-in and configured custom viewer links
 - resource and field metadata, including generated UI hints and relation hints
+- safe store summaries, effective resource store mappings, write modes, and capability booleans
+- route exposure summaries for REST, viewer, schema, manifest, GraphQL, Falcor, and registered operations
+- registered operation availability, accepted ref mode, contract names, and whether client-safe refs are configured
+- resource action availability for read, create, patch, delete, replace, batch, CSV import, operations, and GraphQL
+- active query modes a viewer can safely enable for each resource
 - UI capabilities such as writes, batching, CSV import, GraphQL, and live events
 - diagnostics suitable for display in a custom UI
 
-The manifest does not include seed records, source paths, source hashes, runtime state paths, or GraphQL SDL. Custom viewers should fetch `manifest.json` for UI metadata and route links, then fetch actual records from REST or GraphQL. `api.formats` lists the registered response formats, media types, and manifest paths for custom viewers and tools.
+The manifest does not include seed records, source paths, source hashes, runtime
+state paths, raw client objects, connection details, server operation
+templates, request bodies, response bodies, auth headers, cookie headers, or
+GraphQL SDL. Custom viewers should fetch `manifest.json` for UI metadata and
+route links, then fetch actual records from REST, GraphQL, or registered
+operations only when the manifest says those modes are available. `api.formats`
+lists the registered response formats, media types, and manifest paths for
+custom viewers and tools.
 
 Add custom viewer links when a project ships its own data UI:
 
@@ -504,6 +587,12 @@ operation execution still uses normal REST shaping, including `select`,
 formats, schema validation, and computed resolver projection. Registered
 GraphQL operations execute through the same GraphQL executor as direct GraphQL
 requests, and still require `graphql.enabled !== false`.
+
+The viewer manifest mirrors these exposure choices under `routeExposure` and
+per-resource `actions`. For example, `server.expose.rest: 'registered-only'`
+keeps registered operations available but marks direct resource reads and batch
+requests unavailable with the `registered-only` reason. A custom viewer should
+disable controls from those summaries before issuing a request.
 
 ## GraphQL Boundary
 

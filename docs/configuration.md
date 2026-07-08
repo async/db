@@ -597,6 +597,14 @@ invalid, or empty operation sources fail early with
 prefer `operations.acceptRefs: 'ref'`; doctor reports this as non-blocking
 guidance only when operation strict mode is enabled.
 
+`outputs.viewerManifest` and `async-db viewer manifest` include safe summaries
+for the same route exposure policy. The manifest reports store families,
+resource store mappings, route exposure values, registered operation
+availability, and resource action availability. It intentionally reports only
+safe booleans and labels: no connection strings, raw clients, state paths,
+source hashes, request bodies, response bodies, auth headers, cookie headers, or
+server operation templates are included.
+
 ## Registered Queries
 
 Registered queries are optional allowlisted REST or GraphQL request templates.

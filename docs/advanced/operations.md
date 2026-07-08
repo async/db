@@ -42,4 +42,9 @@ await db.query(
 > [!WARNING]
 > Operation refs are allowlist identifiers, not secrets. They keep route shape reviewable while normal app policy still owns authentication, authorization, limits, and monitoring.
 
+The built-in local viewer uses the same client-safe contract. Operation mode is
+available only when operations are enabled and the manifest reports client-safe
+refs or summaries. It shows the public endpoint/ref shape and a variables
+editor, but it does not render server operation templates or registry output.
+
 See [Prototype To Production](../prototype-to-production.md) for the full graduation path.

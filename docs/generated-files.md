@@ -157,7 +157,17 @@ export default defineConfig({
 pnpm run db -- viewer manifest --out ./src/generated/db.viewer.json
 ```
 
-The viewer manifest includes field metadata, UI hints, relation hints, diagnostics, capabilities, configured viewer links, and API links such as `/__db/manifest`, `/__db/manifest.json`, `/__db/manifest.html`, `/__db/manifest.md`, `/__db/batch`, `/graphql`, and scoped REST resource routes under `/__db/rest`. It does not include seed records, source paths, source hashes, runtime state paths, or GraphQL SDL. Fetch actual records from REST or GraphQL.
+The viewer manifest includes field metadata, UI hints, relation hints,
+diagnostics, capabilities, configured viewer links, safe store summaries, route
+exposure, registered operation availability, per-resource action availability,
+query modes, and API links such as `/__db/manifest`, `/__db/manifest.json`,
+`/__db/manifest.html`, `/__db/manifest.md`, `/__db/batch`, `/graphql`, and
+scoped REST resource routes under `/__db/rest`. It does not include seed
+records, source paths, source hashes, runtime state paths, raw client objects,
+connection details, server operation templates, request bodies, response
+bodies, auth headers, cookie headers, or GraphQL SDL. Fetch actual records from
+REST, GraphQL, or registered operations only when the manifest exposes that mode
+as available.
 
 ## Operation Registry And Client Contract
 

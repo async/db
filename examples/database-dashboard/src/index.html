@@ -613,13 +613,13 @@
       }
 
       .schema-list,
-      .activity-list {
+      .note-list {
         display: grid;
         gap: 10px;
       }
 
       .schema-card,
-      .activity-card {
+      .note-card {
         border: 1px solid var(--line-soft);
         border-radius: var(--radius);
         background: #0d1626;
@@ -627,7 +627,7 @@
       }
 
       .schema-card h3,
-      .activity-card h3 {
+      .note-card h3 {
         margin: 0;
         color: #eef4ff;
         font-size: 0.84rem;
@@ -863,7 +863,7 @@
           <button class="icon-button" aria-label="Saved queries">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16l-7-3-7 3z"></path></svg>
           </button>
-          <button class="icon-button" aria-label="Activity">
+          <button class="icon-button" aria-label="Example notes">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h4l2-7 4 14 2-7h4"></path></svg>
           </button>
         </div>
@@ -889,10 +889,10 @@
           </div>
           <div class="connection-card">
             <div class="connection-title">
-              Commerce Demo
+              Dashboard Example
               <span class="status-chip">Open</span>
             </div>
-            <p class="muted-line">Local file-backed @async/db resources with schema, REST, and viewer routes.</p>
+            <p class="muted-line">Example file-backed @async/db resources with schema, REST, and viewer routes.</p>
           </div>
           <label class="search">
             <span class="sr-only">Filter rows</span>
@@ -910,7 +910,7 @@
           <div class="title-block">
             <div class="title-row">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18"></path><path d="M3 12h18"></path><path d="M3 19h18"></path><path d="M8 5v14"></path></svg>
-              <h1 data-title>Commerce Demo</h1>
+              <h1 data-title>Database Dashboard Example</h1>
             </div>
             <p class="breadcrumb" data-breadcrumb>Loading local resources...</p>
           </div>
@@ -921,7 +921,7 @@
             </button>
             <a class="button" href="__BASE_PATH__/__db">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M4 10h16"></path><path d="M9 10v9"></path></svg>
-              Built-in viewer
+              Built-in viewer for same runtime
             </a>
           </div>
         </header>
@@ -930,7 +930,7 @@
           <button class="tab-button" data-tab="data" aria-selected="true">Data</button>
           <button class="tab-button" data-tab="schema" aria-selected="false">Schema</button>
           <button class="tab-button" data-tab="query" aria-selected="false">Query</button>
-          <button class="tab-button" data-tab="activity" aria-selected="false">Activity</button>
+          <button class="tab-button" data-tab="notes" aria-selected="false">Notes</button>
         </nav>
 
         <section class="workspace">

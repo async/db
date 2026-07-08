@@ -340,6 +340,11 @@ POST /api/db/operations/GetUserProfile
 POST /api/db/operations/users.profile.get
 ```
 
+The built-in local viewer mirrors that policy. Resource query and direct REST
+controls are disabled for raw resource routes, while Operation mode can call a
+registered ref when operations are enabled and client-safe refs are available.
+The viewer still does not receive server operation templates.
+
 `registered-only` does not make @async/db define production policy for your
 app. The built-in server still starts if registered operations are disabled;
 raw REST stays blocked and operation requests fail at request time. If you want

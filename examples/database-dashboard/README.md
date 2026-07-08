@@ -4,8 +4,12 @@
 
 This example shows the dashboard shape people expect from a local database tool:
 an explorer sidebar, connection status, schema-backed table list, SQL-style
-presets, a data grid, and a selected-record inspector. It uses the local
-`@async/db` runtime as the source of truth and skips AI features entirely.
+presets, a data grid, example dataset summaries, notes, and a selected-record
+inspector. It uses the local `@async/db` runtime as the source of truth and
+keeps optional extension surfaces out of the example.
+
+The seeded records are example data for this project only. They are not copied
+into the built-in viewer rendered by `renderDbViewer()`.
 
 ## Files To Inspect
 
@@ -14,8 +18,8 @@ presets, a data grid, and a selected-record inspector. It uses the local
 - [db/users.schema.jsonc](./db/users.schema.jsonc): customer collection.
 - [db/products.schema.jsonc](./db/products.schema.jsonc): product collection.
 - [src/index.html](./src/index.html): dark database-client app shell.
-- [src/app.js](./src/app.js): table switching, filters, query presets, and
-  inspector state.
+- [src/app.js](./src/app.js): table switching, filters, query presets, example
+  notes, and inspector state.
 - [server/runtime.js](./server/runtime.js): custom example runtime mounted ahead
   of the built-in `@async/db` REST and viewer routes.
 
@@ -33,9 +37,10 @@ viewer for the same resources.
 
 ## Expected Result
 
-The dashboard opens on the `orders` collection with seeded rows, metrics, SQL
-presets, and a right-side inspector. Switching tables reads from the same synced
-runtime mirror used by the REST routes and built-in viewer.
+The dashboard opens on the `orders` collection with seeded example rows,
+example dataset summaries, SQL presets, and a right-side inspector. Switching
+tables reads from the same synced runtime mirror used by the REST routes and
+built-in viewer.
 
 ## Try It
 
