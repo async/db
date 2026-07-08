@@ -87,11 +87,11 @@ Deno projects can skip `package.json` and use a generated `deno.json` instead:
 {
   "nodeModulesDir": "auto",
   "tasks": {
-    "db": "deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db@0.14.0",
+    "db": "deno run --allow-read=. --allow-write=. --allow-sys=hostname npm:@async/db@0.15.0",
     "db:sync": "deno task db sync",
     "db:types": "deno task db types",
     "db:validate": "deno task db schema validate",
-    "db:serve": "deno run --allow-read=. --allow-write=. --allow-sys=hostname --allow-net=127.0.0.1 npm:@async/db@0.14.0 serve"
+    "db:serve": "deno run --allow-read=. --allow-write=. --allow-sys=hostname --allow-net=127.0.0.1 npm:@async/db@0.15.0 serve"
   }
 }
 ```

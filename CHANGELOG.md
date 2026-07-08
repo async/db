@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.15.0 - 2026-07-08
+
+### Added
+
+- Added client-safe viewer manifest summaries for store families, resource
+  action availability, route exposure, registered operation availability, and
+  query modes without exposing source paths, state paths, request bodies,
+  response bodies, auth headers, cookies, connection details, or server
+  operation templates.
+- Reworked the built-in local viewer into a database-console shell with
+  connection, data, query, schema, operations, logs, and settings workspaces
+  driven by the manifest's safe capability summaries.
+- Updated the database dashboard example copy and UI labels so example records
+  are clearly separated from the built-in viewer contract.
 
 ## 0.14.0 - 2026-06-17
 
