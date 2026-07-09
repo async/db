@@ -57,11 +57,11 @@
     "async-db": "./dist/cli.js"
   },
   "dependencies": {
-    "@async/json": "^0.4.0"
+    "@async/json": "0.4.0"
   },
   "devDependencies": {
     "@async/api-contract": "0.1.0",
-    "@async/pipeline": "0.9.1",
+    "@async/pipeline": "0.9.35",
     "@types/node": "24.12.4",
     "typescript": "6.0.3"
   },
